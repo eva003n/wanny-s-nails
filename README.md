@@ -2,7 +2,7 @@
 
 ## Product Vision
 
-Wanny's Nails  is a booking management platform purpose-built for Kenyan nail salon. Customers book, pay, and receive reminders entirely through WhatsApp. Salon owners and staff manage the business through a native iOS application. Payments run on M-Pesa Daraja API v3.
+Wanny's Nails  is a booking management platform purpose-built for Kenyan nail salon. Customers book, pay, and receive reminders entirely through WhatsApp. Salon owners and staff manage the business through a native PWA application. Payments run on M-Pesa Daraja API v3.
 
 The system is designed to eliminate missed appointments, reduce manual scheduling effort, improve clients payment experience and give the salon owner full visibility into revenue and capacity — all without requiring customers to download an app or learn a new interface.
 
@@ -29,7 +29,7 @@ The system is designed to eliminate missed appointments, reduce manual schedulin
 - Rescheduling and cancellation through WhatsApp
 - Appointment lookup ("What's my next booking?")
 
-### Salon Owner / Staff (iOS App)
+### Salon Owner / Staff (PWA App)
 - Dashboard: today's appointments, revenue, pending approvals
 - Approve, reschedule, or cancel bookings
 - Manage services and pricing
@@ -65,7 +65,7 @@ PostgreSQL  Redis (sessions + cache)
 M-Pesa Daraja API    Notification Services
                      (WhatsApp / SMS / Email)
 
-iOS Admin App ──────► Backend API
+PWA Admin App ──────► Backend API
 ```
 
 Full diagrams in [ARCHITECTURE.md](./ARCHITECTURE.md).
@@ -87,20 +87,19 @@ Full diagrams in [ARCHITECTURE.md](./ARCHITECTURE.md).
 | Auth | JWT + refresh tokens | Stateless, mobile-friendly |
 |Logging | Pino + Pino-http|
 
-### Mobile
+### Mobile(PWA)
 | Layer | Technology |
 |---|---|
-| Platform | iOS (Swift / SwiftUI) |
-| Min iOS | 16.0 |
-| Networking | URLSession + async/await |
-| Storage | Keychain (tokens), CoreData (cache) |
+| Platform |	Web (PWA) — React Js |
+| Browser Support |	Modern browsers (iPhone Safari, Chrome, Edge, Firefox) |
+| Networking |	Axios + React Query |
+| Storage |	HTTP-only cookies (auth), IndexedDB (offline cache), Cache Storage (PWA assets) |
 
 ### External Services
 | Service | Provider |
 |---|---|
 | WhatsApp | Meta WhatsApp Cloud API |
 | Payments | Safaricom M-Pesa Daraja API v3 |
-<!-- | SMS | Africa's Talking | -->
 | Email | Resend |
 
 ### Infrastructure
@@ -144,18 +143,18 @@ Wanny's Nails/
 
 | File | Description |
 |---|---|
-| [PRODUCT_REQUIREMENTS.md](./PRODUCT_REQUIREMENTS.md) | Full PRD — personas, user stories, functional and non-functional requirements |
-| [TECHNICAL_SPECIFICATION.md](./TECHNICAL_SPECIFICATION.md) | Architecture, component design, integration patterns |
-| [UI_UX_SPECIFICATION.md](./UI_UX_SPECIFICATION.md) | iOS app design system, screen specs, user flows |
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | C4 diagrams and sequence diagrams (Mermaid) |
-| [DATABASE_DESIGN.md](./DATABASE_DESIGN.md) | ERD, table definitions, Prisma schema |
-| [API_SPECIFICATION.md](./API_SPECIFICATION.md) | OpenAPI-style endpoint documentation |
-| [BOOKING_WORKFLOW.md](./BOOKING_WORKFLOW.md) | Booking lifecycle, availability engine |
-| [PAYMENT_WORKFLOW.md](./PAYMENT_WORKFLOW.md) | M-Pesa STK Push flow, callbacks, reconciliation |
-| [WHATSAPP_AUTOMATION.md](./WHATSAPP_AUTOMATION.md) | Conversational state machine, workflow engine |
-| [SECURITY.md](./SECURITY.md) | Auth, authorization, encryption, KDPA compliance |
-| [DEPLOYMENT.md](./DEPLOYMENT.md) | Docker, CI/CD, environments, monitoring |
-| [DECISIONS.md](./DECISIONS.md) | Architecture Decision Records (ADRs) |
+| [PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md) | Full PRD — personas, user stories, functional and non-functional requirements |
+| [TECHNICAL_SPECIFICATION.md](docs/TECHNICAL_SPECIFICATION.md) | Architecture, component design, integration patterns |
+| [UI_UX_SPECIFICATION.md](docs/UI_UX_SPECIFICATION.md) | iOS app design system, screen specs, user flows |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | C4 diagrams and sequence diagrams (Mermaid) |
+| [DATABASE_DESIGN.md](docs/DATABASE_DESIGN.md) | ERD, table definitions, Prisma schema |
+| [API_SPECIFICATION.md](docs/API_SPECIFICATION.md) | OpenAPI-style endpoint documentation |
+| [BOOKING_WORKFLOW.md](docs/BOOKING_WORKFLOW.md) | Booking lifecycle, availability engine |
+| [PAYMENT_WORKFLOW.md](docs/PAYMENT_WORKFLOW.md) | M-Pesa STK Push flow, callbacks, reconciliation |
+| [WHATSAPP_AUTOMATION.md](docs/WHATSAPP_AUTOMATION.md) | Conversational state machine, workflow engine |
+| [SECURITY.md](docs/SECURITY.md) | Auth, authorization, encryption, KDPA compliance |
+| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Docker, CI/CD, environments, monitoring |
+| [DECISIONS.md](docs/DECISIONS.md) | Architecture Decision Records (ADRs) |
 
 ---
 
@@ -190,3 +189,4 @@ pnpm dev                    # API on http://localhost:8000
 ```
 
 For WhatsApp and Mpesa local testing, use ngrok to expose the webhook endpoint.
+
