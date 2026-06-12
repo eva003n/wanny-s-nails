@@ -68,7 +68,7 @@ M-Pesa Daraja API    Notification Services
 PWA Admin App ──────► Backend API
 ```
 
-Full diagrams in [ARCHITECTURE.md](./ARCHITECTURE.md).
+Full diagrams in [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ---
 
