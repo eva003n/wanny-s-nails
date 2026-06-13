@@ -101,7 +101,7 @@ On success — store the parsed, coerced data in validated[source]
     }
 
     if (errors.length > 0) {
-      return next(new ValidationError("", errors));
+      return next(new ValidationError("Request validation failed", errors));
     }
 
     request.validated = validated;
