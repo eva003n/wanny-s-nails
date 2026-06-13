@@ -32,7 +32,7 @@ The system is event-driven at its edges: WhatsApp sends webhooks, Daraja sends p
 
 ## System Context Diagram
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for Mermaid diagrams.
+See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for Mermaid diagrams.
 
 ```
 ┌─────────────┐     WhatsApp messages      ┌─────────────────────┐

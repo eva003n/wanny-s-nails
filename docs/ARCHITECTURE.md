@@ -223,9 +223,10 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
+    autonumber
     participant API as Wanny's Nails API
-    participant DB as PostgreSQL
-    participant Queue as BullMQ
+    participant DB@{"type": "database"} as PostgreSQL
+    participant Queue@{"type": "queue" } as BullMQ
     participant Daraja as Daraja M-Pesa
 
     Queue->>API: Dequeue STK Push job
@@ -260,6 +261,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
+    autonumber
     participant WA as WhatsApp Cloud API
     participant API as Wanny's Nails API
     participant FSM as FSM Engine
