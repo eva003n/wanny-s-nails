@@ -42,6 +42,7 @@ docs/         # All spec files
 | Testing and git workflow | [workflow.md](./agents/workflow.md) |
 
 ## Spec docs (read before acting)
+**Ignore** the `RESEARCH.md` file
 
 | File | Read when |
 |---|---|
@@ -54,3 +55,4 @@ docs/         # All spec files
 | `SECURITY.md` | Auth, KDPA compliance |
 | `UI_UX_SPECIFICATION.md` | PWA screens, design tokens |
 | `DEPLOYMENT.md` | Env vars, Docker, CI/CD |
+
