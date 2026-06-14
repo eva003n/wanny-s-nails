@@ -30,8 +30,8 @@ type RequestWithValidation<TSchema extends RequestSchema> = Request & {
 
 const formatError = (source: keyof RequestSchema, errors: ZodIssue[]) => {
   return errors.map((error: ZodIssue) => ({
-    detail: error.message,
-    field: [source, ...error.path],
+    message: error.message,
+    field: [source, ...error.path.join(".")],
   }));
 };
 
