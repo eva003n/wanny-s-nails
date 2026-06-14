@@ -35,7 +35,7 @@
 
 | Principle | Implementation |
 |---|---|
-| **Resource-oriented** | URLs name resources, not actions (`/bookings/:id/approve` not `/approveBooking`) |
+| **Resource-oriented/modeling** | URLs name resources, not actions (`/bookings/:id/approve` not `/approveBooking`) |
 | **Consistent shape** | Every response — success or error — follows the same envelope |
 | **Predictable status codes** | HTTP verbs and status codes are used according to their semantics |
 | **Fail fast** | Validation errors returned before any business logic executes |
@@ -47,8 +47,8 @@
 ---
 
 ## Versioning
-
-URL path versioning:
+**Versioning strategy**: URL path versioning:
+**Versioning format**: Semantic versioning
 
 ```
 /api/v1/bookings    ← current
