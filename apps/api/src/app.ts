@@ -5,8 +5,8 @@ import helmet from "helmet";
 
 // Middlewares
 import { errorMiddleware } from "./shared/middleware/error.middleware.js";
-import { requestIdMiddleware } from "./shared/middleware/requestId.js";
-import { globalRateLimit } from "./shared/middleware/rateLimit.js";
+import { requestIdMiddleware } from "./shared/middleware/requestId.middleware.js";
+import { globalRateLimit } from "./shared/middleware/rateLimit.middleware.js";
 
 // Routes
 import { authRoutes } from "./modules/auth/auth.routes.js";
