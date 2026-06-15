@@ -1,0 +1,261 @@
+// Wanny's Nails - Prisma Schema
+// Based on DATABASE_DESIGN.md
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// Enums
+// ============================================
+
+enum UserRole {
+  OWNER
+  STAFF
+}
+
+enum BookingStatus {
+  PENDING
+  APPROVED
+  RESCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAYMENT_PENDING
+  PAID
+  PAYMENT_FAILED
+  REFUNDED
+}
+
+enum ReminderType {
+  REMINDER_24H
+  REMINDER_1H
+}
+
+enum ReminderChannel {
+  WHATSAPP
+  EMAIL
+}
+
+enum ReminderStatus {
+  SCHEDULED
+  SENT
+  FAILED
+  CANCELLED
+}
+
+// ============================================
+// Models
+// ============================================
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  name         String
+  role         UserRole  @default(STAFF)
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  approvedBookings Booking[]  @relation("ApprovedBy")
+  auditLogs        AuditLog[] @relation("Actor")
+
+  @@map("users")
+}
+
+model Customer {
+  id           String    @id @default(uuid())
+  phone        String    @unique
+  name         String
+  email        String?
+  consentGiven Boolean   @default(false) @map("consent_given")
+  consentAt    DateTime? @map("consent_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  bookings            Booking[]
+  conversationSession ConversationSession?
+
+  @@map("customers")
+}
+
+model SalonService {
+  id              String    @id @default(uuid())
+  name            String
+  description     String?
+  durationMinutes Int       @map("duration_minutes")
+  priceKes        Int       @map("price_kes")
+  isActive        Boolean   @default(true) @map("is_active")
+  sortOrder       Int       @default(0) @map("sort_order")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  bookings Booking[]
+
+  @@map("salon_services")
+}
+
+model Booking {
+  id              String        @id @default(uuid())
+  reference       String        @unique
+  customerId      String        @map("customer_id")
+  serviceId       String        @map("service_id")
+  approvedById    String?       @map("approved_by_id")
+  appointmentAt   DateTime      @map("appointment_at")
+  durationMinutes Int           @map("duration_minutes")
+  priceKes        Int           @map("price_kes")
+  status          BookingStatus @default(PENDING)
+  paymentStatus   PaymentStatus @default(UNPAID) @map("payment_status")
+  notes           String?
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  deletedAt       DateTime?     @map("deleted_at")
+
+  customer      Customer              @relation(fields: [customerId], references: [id])
+  service       SalonService          @relation(fields: [serviceId], references: [id])
+  approvedBy    User?                 @relation("ApprovedBy", fields: [approvedById], references: [id])
+  statusHistory BookingStatusHistory[]
+  payment       Payment?
+  reminders     Reminder[]
+
+  @@index([customerId])
+  @@index([serviceId])
+  @@index([appointmentAt])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([deletedAt])
+  @@map("bookings")
+}
+
+model BookingStatusHistory {
+  id         String         @id @default(uuid())
+  bookingId  String         @map("booking_id")
+  fromStatus BookingStatus? @map("from_status")
+  toStatus   BookingStatus  @map("to_status")
+  actorType  String         @map("actor_type")
+  actorId    String?        @map("actor_id")
+  reason     String?
+  createdAt  DateTime       @default(now()) @map("created_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId])
+  @@map("booking_status_history")
+}
+
+model Payment {
+  id                 String        @id @default(uuid())
+  bookingId          String        @unique @map("booking_id")
+  checkoutRequestId  String?       @unique @map("checkout_request_id")
+  amountKes          Int           @map("amount_kes")
+  status             PaymentStatus @default(UNPAID)
+  mpesaReceiptNumber String?       @unique @map("mpesa_receipt_number")
+  phoneNumber        String?       @map("phone_number")
+  completedAt        DateTime?     @map("completed_at")
+  failureReason      String?       @map("failure_reason")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+
+  booking      Booking              @relation(fields: [bookingId], references: [id])
+  transactions PaymentTransaction[]
+
+  @@index([status])
+  @@map("payments")
+}
+
+model PaymentTransaction {
+  id                 String   @id @default(uuid())
+  paymentId          String   @map("payment_id")
+  attemptNumber      Int      @map("attempt_number")
+  checkoutRequestId  String?  @map("checkout_request_id")
+  resultCode         Int?     @map("result_code")
+  resultDesc         String?  @map("result_desc")
+  mpesaReceiptNumber String?  @map("mpesa_receipt_number")
+  rawRequest         Json?    @map("raw_request")
+  rawCallback        Json?    @map("raw_callback")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+
+  @@index([paymentId])
+  @@index([mpesaReceiptNumber])
+  @@map("payment_transactions")
+}
+
+model Reminder {
+  id          String         @id @default(uuid())
+  bookingId   String         @map("booking_id")
+  type        ReminderType
+  channel     ReminderChannel
+  status      ReminderStatus @default(SCHEDULED)
+  scheduledAt DateTime       @map("scheduled_at")
+  sentAt      DateTime?      @map("sent_at")
+  jobId       String?        @map("job_id")
+  createdAt   DateTime       @default(now()) @map("created_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId])
+  @@index([scheduledAt, status])
+  @@map("reminders")
+}
+
+model ConversationSession {
+  id         String   @id @default(uuid())
+  customerId String   @unique @map("customer_id")
+  state      String
+  context    Json     @default("{}")
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@map("conversation_sessions")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  action     String
+  actorType  String   @map("actor_type")
+  actorId    String?  @map("actor_id")
+  before     Json?
+  after      Json?
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  actor User? @relation("Actor", fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model BusinessHours {
+  id         String   @id @default(uuid())
+  dayOfWeek  Int      @map("day_of_week") // 0=Sunday, 6=Saturday
+  openTime   String   @map("open_time") // "09:00"
+  closeTime  String   @map("close_time") // "18:00"
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([dayOfWeek])
+  @@map("business_hours")
+}
