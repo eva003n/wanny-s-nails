@@ -35,7 +35,7 @@ export const logMiddleware: RequestHandler = pinoHttp({
       return {
         method: req.method,
         url: req.url,
-        ip: req.socket.remoteAddress,
+        ip: req.socket?.remoteAddress || req.headers?.["x-forwarded-for"],//(behind proxies)
         userAgent: req.headers["user-agent"],
         requestId: req.requestId,
       };
@@ -43,7 +43,7 @@ export const logMiddleware: RequestHandler = pinoHttp({
     res(res: Response) {
       return {
         status: res.statusCode,
-        contentLength: res.getHeader("content-length"),
+        // contentLength: res.getHeader("content-length"),
       };
     },
   },

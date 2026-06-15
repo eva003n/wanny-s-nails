@@ -8,16 +8,18 @@ export const errorMiddleware = (
   res: Response,
   _next: NextFunction
 ): void => {
+  const log = (req as any).log || logger;
+  const requestId = (req as any).requestId || (req.headers["x-request-id"] as string) || "unknown";
+
   if (err instanceof AppError) {
-    logger.warn({ code: err.code, path: req.path, details: err.details }, err.message);
+    log.warn({ event: "app.error.handled", code: err.code, path: req.path, details: err.details, requestId }, err.message);
     res.status(err.httpStatus);
-    res.setHeader("X-Request-ID", err.requestId);
+    res.setHeader("X-Request-ID", requestId);
     res.json(err.toResponse());
     return;
   }
 
-  logger.error({ err, path: req.path }, "Unhandled error");
-  const requestId = (req.headers["x-request-id"] as string) || "unknown";
+  log.error({ err, event: "app.error.unhandled", path: req.path, requestId }, "Unhandled error");
   res.status(500).json({
     error: {
       code: "INTERNAL_ERROR",

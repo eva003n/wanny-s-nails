@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { config } from "../lib/config.js";
-import { UnauthorizedError } from "../types/errors.js";
+import { UnauthorizedError, ForbiddenError } from "../types/errors.js";
 
 export interface JwtPayload {
   userId: string;
@@ -9,12 +9,29 @@ export interface JwtPayload {
   role: string;
 }
 
-declare global {
-  namespace Express {
-    interface Request {
-      user?: JwtPayload;
-    }
+/**
+ * Extract a JWT from the request.
+ *
+ * The token is resolved from, in order of priority:
+ * 1. A signed HTTP-only cookie (`accessToken`) — preferred for browser clients.
+ * 2. The `Authorization: Bearer <token>` header — used by APIs, mobile apps, and
+ *    external clients (e.g. EventSource which cannot set custom headers).
+ *
+ * Controllers and services must never parse cookies or headers directly — this
+ * centralised helper is the single source of truth for auth extraction.
+ */
+function extractToken(req: Request): string | undefined {
+  // 1. Signed httpOnly cookie (set by `res.cookie()` with a signing secret)
+  const cookieToken = req.signedCookies?.accessToken as string | undefined;
+  if (cookieToken) return cookieToken;
+
+  // 2. Authorization header (Bearer token)
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith("Bearer ")) {
+    return authHeader.split(" ")[1];
   }
+
+  return undefined;
 }
 
 export const authenticate = (
@@ -23,15 +40,12 @@ export const authenticate = (
   next: NextFunction
 ): void => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith("Bearer ")) {
+    const token = extractToken(req);
+
+    if (!token) {
       throw new UnauthorizedError("Missing or invalid authorization header");
     }
 
-    const token = authHeader.split(" ")[1];
-    if (!token) {
-      throw new UnauthorizedError("Missing token");
-    }
     const decoded = jwt.verify(token, config.JWT_SECRET) as unknown as JwtPayload;
     req.user = decoded;
     next();
@@ -47,7 +61,7 @@ export const authenticate = (
 export const requireRole = (...roles: string[]) => {
   return (req: Request, _res: Response, next: NextFunction): void => {
     if (!req.user || !roles.includes(req.user.role)) {
-      next(new UnauthorizedError("Insufficient permissions"));
+      next(new ForbiddenError("Insufficient permissions"));
       return;
     }
     next();
