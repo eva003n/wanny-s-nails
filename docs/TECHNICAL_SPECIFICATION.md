@@ -26,7 +26,7 @@ The system is event-driven at its edges: WhatsApp sends webhooks, Daraja sends p
 5. **Fail loudly in development, fail gracefully in production** — Errors are logged with full context; users receive friendly messages; the system does not crash.
 6. **Soft delete everything** — No booking, customer, or payment record is ever hard-deleted.
 
-7. **AI as fallback** - use AI as a fallback for sistuations that the finite machine cannot handle
+7. **AI as fallback** - use AI as a fallback for situations that the finite state machine cannot handle
 
 ---
 
@@ -41,7 +41,7 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for Mermaid diagrams.
 └─────────────┘                                       │ webhook POST
                                                       ▼
 ┌─────────────┐     HTTPS REST API         ┌─────────────────────┐
-│  iOS App    │◄──────────────────────────►│   WAnny's Nail Backend   │
+│  PWA App    │◄──────────────────────────►│   WAnny's Nail Backend   │
 │(owner/staff)│                            │   (Express + TS)     │
 └─────────────┘                            └──┬───────┬───────┬──┘
                                               │       │       │
@@ -147,6 +147,15 @@ Errors at any stage are caught by a global error handler that maps domain errors
   }
 }
 ```
+```json
+{
+  "error": {
+    "code": "BOOKING_SLOT_UNAVAILABLE",
+    "message": "The selected time slot is no longer available.",
+    "details": [{}]
+  }
+}
+```
 
 ### Environment Configuration
 
@@ -179,6 +188,7 @@ const ConfigSchema = z.object({
 
 The PWA app use:
 
+
 ```
 UI (React Components / Pages)
             │
@@ -203,7 +213,7 @@ API Client (Fetch / Axios)
 - **Secure Authentication** — Access tokens stored in HTTP-only cookies. No JWTs stored in localStorage.
 - **PWA Support** — Installable via "Add to Home Screen" with service worker support for offline access.
 - **IndexedDB** — Used for offline caching of today's schedule and recently viewed customer data.
-- **Push Notifications (Optional)** — Web Push API can be used where supported; business-critical reminders should be sent through WhatsApp, SMS, or email rather than relying solely on browser notifications.
+- **Push Notifications (Optional)** — Web Push API can be used where supported; business-critical reminders should be sent through WhatsAppor emai l rather than relying solely on browser notifications.
 
 ### State Management
 Business logic is separated from UI components.
@@ -235,6 +245,10 @@ Custom Hook
 - Automatic updates on deployment.
 - No App Store approval process.
 - Works on iPhone, Android, tablet, and desktop from the same codebase.
+
+#### Form + Validation
+- Use React hook form for form state management
+- Use zod for form validation
 ---
 
 ```
@@ -274,11 +288,7 @@ web/
 │   ├── store
 │   │   └── auth.store.ts
 │   ├── types
-│   └── vite-env.d.ts
-├── tsconfig.app.json
-├── tsconfig.json
-├── tsconfig.node.json
-└── vite.config.ts
+
 ```
 
 ## WhatsApp Integration Design
@@ -460,7 +470,8 @@ class ApiError extends Error {
     public readonly code: string,
     public readonly httpStatus: number,
     message: string,
-    public readonly details?: Record<string, unknown>
+    public readonly details?: Array<object>
+      | object,
   ) { super(message); }
 }
 
@@ -478,7 +489,7 @@ class PaymentFailedError extends ApiError {
 ### Global Error Handler
 ```typescript
 // apps/api/src/shared/middleware/error.middleware.ts
-export const errorMiddleware = (err: Error, req: Request, res: Response, next: NextFunction) => {
+export const errorMiddleware = async(err: Error, req: Request, res: Response, next: NextFunction) => {
   if (err instanceof AppError) {
     logger.warn({ code: err.code, path: req.path }, err.message);
     return res.status(err.httpStatus).json({ error: { code: err.code, message: err.message, details: err.details } });
