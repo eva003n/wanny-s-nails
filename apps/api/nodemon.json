@@ -1,0 +1,6 @@
+{
+    "watch": ["src", ".env", ".env.development", ".env.production"],
+    "ext": "ts,js,env",
+    "exec": "tsx src/index.ts",
+    "delay": 1000
+}
