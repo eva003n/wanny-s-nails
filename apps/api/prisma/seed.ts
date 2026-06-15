@@ -1,6 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
@@ -8,7 +8,7 @@ import dotenv from "dotenv";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config({ path: path.resolve(__dirname, "../.env") });
+dotenv.config({ path: path.resolve(__dirname, "../.env.development") });
 
 const SALT_ROUNDS = 12;
 
@@ -17,19 +17,7 @@ const users = [
     email: "wanny@wannysnails.com",
     name: "Wanny",
     password: "Admin123!",
-    role: "OWNER" as const,
-  },
-  {
-    email: "jane@wannysnails.com",
-    name: "Jane Muthoni",
-    password: "Staff123!",
-    role: "STAFF" as const,
-  },
-  {
-    email: "grace@wannysnails.com",
-    name: "Grace Kamau",
-    password: "Staff123!",
-    role: "STAFF" as const,
+    role: "ADMIN" as const,
   },
 ];
 

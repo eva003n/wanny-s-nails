@@ -1,5 +1,5 @@
 -- CreateEnum
-CREATE TYPE "UserRole" AS ENUM ('OWNER', 'STAFF');
+CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'OWNER', 'STAFF');
 
 -- CreateEnum
 CREATE TYPE "BookingStatus" AS ENUM ('PENDING', 'APPROVED', 'RESCHEDULED', 'COMPLETED', 'CANCELLED', 'NO_SHOW');
