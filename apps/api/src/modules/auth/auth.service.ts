@@ -1,8 +1,9 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { prisma } from "../../shared/lib/prisma.js";
+import { redis } from "../../shared/lib/redis.js";
 import { config } from "../../shared/lib/config.js";
-import { UnauthorizedError } from "../../shared/types/errors.js";
+import { UnauthorizedError, AccountLockedError } from "../../shared/types/errors.js";
 import type { JwtPayload } from "../../shared/middleware/auth.middleware.js";
 
 interface LoginInput {
@@ -12,7 +13,14 @@ interface LoginInput {
 
 const SALT_ROUNDS = 12;
 const ACCESS_TOKEN_EXPIRES = "1h";
-const REFRESH_TOKEN_EXPIRES = "30d";
+const REFRESH_TOKEN_EXPIRES = "7d";
+
+/** Account lockout after 5 failed attempts in 15 minutes. */
+const FAILED_ATTEMPTS_KEY_PREFIX = "auth:failed_attempts:";
+const LOCKOUT_KEY_PREFIX = "auth:lockout:";
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_DURATION_SECONDS = 30 * 60; // 30 minutes
+const RATE_WINDOW_SECONDS = 15 * 60; // 15 minutes
 
 function signAccessToken(payload: JwtPayload): string {
   return jwt.sign(payload, config.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES });
@@ -28,6 +36,13 @@ function extractPayload(token: string): JwtPayload {
 
 export const authService = {
   async login(input: LoginInput) {
+    // --- Check account lockout ---
+    const lockoutKey = LOCKOUT_KEY_PREFIX + input.email;
+    const lockoutTTL = await redis.ttl(lockoutKey);
+    if (lockoutTTL > 0) {
+      throw new AccountLockedError(lockoutTTL);
+    }
+
     const user = await prisma.user.findUnique({
       where: { email: input.email },
     });
@@ -42,8 +57,24 @@ export const authService = {
 
     const isPasswordValid = await bcrypt.compare(input.password, user.passwordHash);
     if (!isPasswordValid) {
+      // Increment failed attempts
+      const failedKey = FAILED_ATTEMPTS_KEY_PREFIX + input.email;
+      const attempts = await redis.incr(failedKey);
+      await redis.expire(failedKey, RATE_WINDOW_SECONDS);
+
+      // Lock account after max attempts
+      if (attempts >= MAX_FAILED_ATTEMPTS) {
+        await redis.setex(lockoutKey, LOCKOUT_DURATION_SECONDS, "locked");
+        await redis.del(failedKey); // reset counter after lockout
+        throw new AccountLockedError(LOCKOUT_DURATION_SECONDS);
+      }
+
       throw new UnauthorizedError("Invalid email or password");
     }
+
+    // Successful login — clear failed attempts counter
+    const failedKey = FAILED_ATTEMPTS_KEY_PREFIX + input.email;
+    await redis.del(failedKey);
 
     const payload: JwtPayload = {
       userId: user.id,

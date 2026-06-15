@@ -3,6 +3,8 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "../../shared/lib/prisma.js";
 import { config } from "../../shared/lib/config.js";
 import { logger } from "../../shared/lib/logger.js";
+
+const log = logger.child({ module: "payments" });
 import { PaymentFailedError, PaymentNotAllowedError, NotFoundError } from "../../shared/types/errors.js";
 import { parsePagination } from "../../shared/utils/pagination.js";
 
@@ -199,7 +201,7 @@ export const paymentsService = {
     });
 
     if (!payment) {
-      logger.warn({ checkoutRequestId }, "Payment not found for callback");
+      log.warn({ event: "payment.callback.not_found", checkoutRequestId }, "Payment not found for callback");
       return;
     }
 
@@ -214,7 +216,7 @@ export const paymentsService = {
       const transactionDate = metadata?.Item?.find((i) => i.Name === "TransactionDate")?.Value as string;
 
       if (amount && amount !== payment.amountKes) {
-        logger.warn({ expected: payment.amountKes, received: amount }, "Payment amount mismatch — DISPUTED");
+        log.warn({ event: "payment.callback.amount_mismatch", expected: payment.amountKes, received: amount }, "Payment amount mismatch — DISPUTED");
       }
 
       await prisma.payment.update({

@@ -2,6 +2,8 @@ import type { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 import { config } from "../../shared/lib/config.js";
 import { logger } from "../../shared/lib/logger.js";
+
+const log = logger.child({ module: "webhooks" });
 import { paymentsService } from "../payments/payments.service.js";
 import { redis } from "../../shared/lib/redis.js";
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";
@@ -12,10 +14,10 @@ export const verifyWhatsApp = asyncHandler(async (req: Request, res: Response, _
   const challenge = req.query["hub.challenge"] as string;
 
   if (mode === "subscribe" && token === config.WHATSAPP_VERIFY_TOKEN) {
-    logger.info("WhatsApp webhook verified");
+    log.info({ event: "whatsapp.webhook.verified" }, "WhatsApp webhook verified");
     res.status(200).send(challenge);
   } else {
-    logger.warn("WhatsApp webhook verification failed");
+    log.warn({ event: "whatsapp.webhook.verify_failed" }, "WhatsApp webhook verification failed");
     res.sendStatus(403);
   }
 });
@@ -37,7 +39,7 @@ export const handleWhatsApp = asyncHandler(async (req: Request, res: Response, _
         Buffer.from(expectedSignature),
       )
     ) {
-      logger.warn("WhatsApp webhook HMAC validation failed");
+      log.warn({ event: "whatsapp.webhook.hmac_failed" }, "WhatsApp webhook HMAC validation failed");
       res.status(200).json({ status: "ok" });
       return;
     }
@@ -57,14 +59,14 @@ export const handleWhatsApp = asyncHandler(async (req: Request, res: Response, _
               const dedupKey = `whatsapp:dedup:${wamid}`;
               const exists = await redis.exists(dedupKey);
               if (exists) {
-                logger.debug({ wamid }, "Duplicate WhatsApp message, skipping");
+                log.debug({ event: "whatsapp.message.duplicate", wamid }, "Duplicate WhatsApp message, skipping");
                 continue;
               }
               await redis.setex(dedupKey, 300, "1");
             }
 
-            logger.info(
-              { from: message.from, type: message.type, wamid },
+            log.info(
+              { event: "whatsapp.message.received", from: message.from, type: message.type, wamid },
               "WhatsApp message received",
             );
             // TODO: Route to FSM engine
@@ -76,7 +78,7 @@ export const handleWhatsApp = asyncHandler(async (req: Request, res: Response, _
 });
 
 export const handleDaraja = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-  logger.info("M-Pesa callback received");
+  log.info({ event: "payment.callback.received" }, "M-Pesa callback received");
   await paymentsService.handleCallback(req.body);
   res.status(200).json({ ResultCode: 0, ResultDesc: "Accepted" });
 });

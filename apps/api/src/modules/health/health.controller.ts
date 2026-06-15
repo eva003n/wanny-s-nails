@@ -2,6 +2,8 @@ import type { Request, Response, NextFunction } from "express";
 import { prisma } from "../../shared/lib/prisma.js";
 import { redis } from "../../shared/lib/redis.js";
 import { logger } from "../../shared/lib/logger.js";
+
+const log = logger.child({ module: "health" });
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";
 
 const startTime = Date.now();
@@ -18,7 +20,7 @@ export const healthCheck = asyncHandler(async (_req: Request, res: Response, _ne
   try {
     await prisma.$queryRaw`SELECT 1`;
   } catch (err) {
-    logger.error({ err }, "Health check: database failed");
+    log.error({ err, event: "health.check.database_failed" }, "Health check: database failed");
     checks.database = "error";
     status = "degraded";
   }
@@ -26,7 +28,7 @@ export const healthCheck = asyncHandler(async (_req: Request, res: Response, _ne
   try {
     await redis.ping();
   } catch (err) {
-    logger.error({ err }, "Health check: redis failed");
+    log.error({ err, event: "health.check.redis_failed" }, "Health check: redis failed");
     checks.redis = "error";
     status = "degraded";
   }

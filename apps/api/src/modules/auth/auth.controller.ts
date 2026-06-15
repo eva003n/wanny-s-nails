@@ -1,16 +1,36 @@
 import type { Request, Response, NextFunction } from "express";
 import { authService } from "./auth.service.js";
-import { UnauthorizedError } from "../../shared/types/errors.js";
+import { UnauthorizedError, AccountLockedError } from "../../shared/types/errors.js";
 import { success, noContent } from "../../shared/utils/response.js";
 import { config } from "../../shared/lib/config.js";
-import type { LoginAuth } from "../../shared/lib/schemas.js";
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";
+import { z } from "zod";
 
+// Shared (btw frontend and backend)
+export const loginSchema = z.object({
+  email: z.string().email().max(255),
+  password: z.string().min(8).max(72),
+});
+
+export type LoginAuth = z.infer<typeof loginSchema>
+
+/** Access token cookie — 1 hour TTL. Also returned in the response body. */
+export const ACCESS_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: config.NODE_ENV === "production",
+  sameSite: "strict" as const,
+  signed: true,
+  maxAge: 60 * 60 * 1000, // 1 hour
+  path: "/",
+};
+
+/** Refresh token cookie — 7-day TTL. */
 export const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: config.NODE_ENV === "production",
   sameSite: "strict" as const,
-  maxAge: 30 * 24 * 60 * 60 * 1000,
+  signed: true,
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   path: "/",
 };
 
@@ -18,24 +38,38 @@ const CLEAR_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: config.NODE_ENV === "production",
   sameSite: "strict" as const,
+  signed: true,
   path: "/",
 };
 
-export const login = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+export const login = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
   const input = req.validated!.body as LoginAuth;
-  const result = await authService.login(input);
 
-  res.cookie("refreshToken", result.refreshToken, REFRESH_COOKIE_OPTIONS);
+  try {
+    const result = await authService.login(input);
 
-  success(res, {
-    accessToken: result.accessToken,
-    expiresIn: 3600,
-    user: result.user,
-  });
+    // Both tokens are set as signed httpOnly cookies.
+    // The access token is also returned in the response body for the client to hold in memory.
+    res.cookie("accessToken", result.accessToken, ACCESS_COOKIE_OPTIONS);
+    res.cookie("refreshToken", result.refreshToken, REFRESH_COOKIE_OPTIONS);
+
+    success(res, {
+      accessToken: result.accessToken,
+      expiresIn: 3600,
+      user: result.user,
+    });
+  } catch (error) {
+    // Expose lockout info so the client can show a countdown
+    if (error instanceof AccountLockedError) {
+      return next(error);
+    }
+    next(error);
+  }
 });
 
 export const refresh = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-  const refreshToken = req.cookies?.refreshToken as string | undefined;
+  // The refresh token is stored in a signed httpOnly cookie
+  const refreshToken = req.signedCookies?.refreshToken as string | undefined;
 
   if (!refreshToken) {
     return next(new UnauthorizedError("Cookie missing, token expired, or token revoked"));
@@ -43,6 +77,7 @@ export const refresh = asyncHandler(async (req: Request, res: Response, next: Ne
 
   const result = await authService.refreshToken(refreshToken);
 
+  res.cookie("accessToken", result.accessToken, ACCESS_COOKIE_OPTIONS);
   res.cookie("refreshToken", result.refreshToken, REFRESH_COOKIE_OPTIONS);
 
   success(res, {
@@ -55,6 +90,7 @@ export const logout = asyncHandler(async (req: Request, res: Response, _next: Ne
   const userId = req.user!.userId;
   await authService.logout(userId);
 
+  res.clearCookie("accessToken", CLEAR_COOKIE_OPTIONS);
   res.clearCookie("refreshToken", CLEAR_COOKIE_OPTIONS);
   noContent(res);
 });

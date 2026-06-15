@@ -2,6 +2,8 @@ import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { config } from "../../shared/lib/config.js";
 import { logger } from "../../shared/lib/logger.js";
+
+const log = logger.child({ module: "events" });
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";
 
 type SSEClient = {
@@ -69,8 +71,8 @@ export const connectSse = asyncHandler(async (req: Request, res: Response, _next
   req.on("close", () => {
     clearInterval(pingInterval);
     clients.delete(clientId);
-    logger.debug({ clientId }, "SSE client disconnected");
+    log.debug({ event: "sse.client.disconnected", clientId }, "SSE client disconnected");
   });
 
-  logger.debug({ clientId, userId }, "SSE client connected");
+  log.debug({ event: "sse.client.connected", clientId, userId }, "SSE client connected");
 });
