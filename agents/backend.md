@@ -45,6 +45,7 @@ Never expose stack traces or internal messages in production responses.
 
 | Role    | Permissions                                                     |
 | ------- | --------------------------------------------------------------- |
+| `ADMIN` | Admin operations eg create users                                |
 | `OWNER` | All operations                                                  |
 | `STAFF` | CRUD bookings, view customers, see payment status (not amounts) |
 
@@ -181,10 +182,12 @@ Always use the standard response helpers from `shared/utils/response.ts`:
 | `paginated(res, data, total, page, limit)` | Paginated list | 200 |
 
 Never call `res.status().json()` directly in controllers — always go through these helpers.
+## Logging (Pino)
+Always use the logging instructions in `docs/LOGGING.md`
 
 ## Adding an endpoint
 
 1. Document it in `API_SPECIFICATION.md` first.
 2. Define Zod validation schema(s) in the controller file.
-3. Implement: route → validate → controller → service → Prisma → audit log.
+3. Implement: route → controller service → Prisma → audit log.
 4. Add integration test against `wannysnails_test` DB.

@@ -28,6 +28,7 @@
 16. [Events API (SSE)](#events-api-sse)
 17. [WhatsApp Webhook APIs](#whatsapp-webhook-apis)
 18. [Health API](#health-api)
+19. [Users API (Admin)](#users-api-admin)
 
 ---
 
@@ -209,12 +210,47 @@ When `code` is `VALIDATION_ERROR`, `details` contains field-level errors:
 
 ## Authentication & Security
 
+### JWT configuration
+
+| Property | Value |
+|---|---|
+| Algorithm | HS256 |
+| Secret | `JWT_SECRET` env var — minimum 256 bits (32 bytes), generated with `openssl rand -hex 32` |
+| Access token TTL | 1 hour |
+| Refresh token TTL | 7 days |
+| Password hashing | bcrypt, cost factor 12 |
+
 ### Token lifecycle
 
 | Token | TTL | Storage (client) | Rotation |
 |---|---|---|---|
-| Access token (JWT) | 1 hour | Memory (React context) — never localStorage | On every refresh |
-| Refresh token (opaque) | 30 days | `httpOnly` cookie set by API | Rotated on use (sliding window) |
+| Access token (JWT) | 1 hour | Signed `httpOnly` cookie + response body (React context) | On every refresh |
+| Refresh token (JWT, signed) | 7 days | Signed `httpOnly` `Secure` `SameSite=Strict` cookie set by API | Rotated on use (sliding window) |
+
+- The **access token** is set as a **signed `httpOnly` cookie** *and* returned in the response body (for the client to hold in memory as a React context backup). The cookie is preferred for browser clients; the body is used when clients cannot read cookies.
+- The **refresh token** is set as a **signed HTTP-only cookie** (via `cookie-parser` with a secret) — it is never exposed to client-side JavaScript.
+
+### Auth middleware (dual extraction)
+
+The `authenticate` middleware resolves the JWT from the request using the following priority order:
+
+1. **Signed HTTP-only cookie** (`req.signedCookies.accessToken`) — preferred for browser clients.
+2. **`Authorization: Bearer <token>` header** — used by APIs, mobile apps, and external clients (e.g. `EventSource` which cannot set custom headers).
+
+If both are present, the signed cookie takes precedence. Controllers and services must never parse cookies or headers directly — auth extraction is centralized in a single middleware.
+
+### Account lockout
+
+Failed login attempts are tracked per email address in Redis:
+
+| Threshold | Action |
+|---|---|
+| 5 failed attempts within 15 minutes | Account is **locked for 30 minutes** (`ACCOUNT_LOCKED` error with `retryAfterSeconds`) |
+| Successful login | Failed attempt counter is cleared immediately |
+
+- The lockout key is `auth:lockout:{email}` in Redis.
+- The failed-attempts counter is `auth:failed_attempts:{email}` in Redis.
+- Login error messages do **not** distinguish between invalid email and invalid password (prevents user enumeration).
 
 ### Silent refresh flow
 
@@ -223,11 +259,40 @@ When `code` is `VALIDATION_ERROR`, `details` contains field-level errors:
 3. If successful: retry the original request with the new access token.
 4. If refresh also fails: redirect to `/login`.
 
+### Cookies
+- All cookies **must be signed** using Express `cookie-parser` with a secret. Never create unsigned cookies.
+- Authentication middleware must accept credentials from either:
+  1. A signed HTTP-only cookie (preferred for browsers), or
+  2. The `Authorization: Bearer <token>` header (for APIs, mobile apps, and external clients).
+- Auth extraction logic should be centralized in a single utility or middleware. Controllers and services must never parse cookies or headers directly.
+- If both cookie and Authorization header are present, prefer the signed cookie unless explicitly configured otherwise.
+- Always verify the token signature and validate expiration before attaching the authenticated user to the request context.
+
+### Role-Based Access Control (RBAC)
+
+| Role | Permissions |
+|---|---|
+| `OWNER` | **Full access** — manage team (invite/deactivate staff), change M-Pesa/WhatsApp configuration, delete services, view all reports, mark manual payments, view payment amounts, soft-delete bookings |
+| `ADMIN` | All `STAFF` permissions **plus** user management (list/create/update/deactivate users), view payment amounts, manage bookings and customers |
+| `STAFF` | Create/view/approve/reschedule/cancel bookings; view customers; view payments (**amounts hidden**); view schedule |
+
+**Route enforcement examples:**
+
+| Guard | Roles allowed | Routes |
+|---|---|---|
+| `requireRole('OWNER')` | OWNER | Service management (create/update/delete), mark CASH payments, M-Pesa/WhatsApp config, notifications |
+| `requireRole('OWNER', 'ADMIN')` | OWNER, ADMIN | User management (`/users`) |
+| `requireRole('OWNER', 'ADMIN')` (future) | OWNER, ADMIN | Reports, service catalogue (read-only for STAFF) |
+| `requireRole('*')` / any authenticated | OWNER, ADMIN, STAFF | Bookings, customers, payments (view), slots |
+
+- Enforcement is via `requireRole()` middleware applied to individual routes.
+- A valid JWT but wrong role returns `403 FORBIDDEN` (not `401`).
+
 ### Webhook endpoints
 
 Webhook endpoints (`/webhooks/whatsapp`, `/payments/mpesa-callback`) do not use JWT. They are protected by:
-- **WhatsApp:** `X-Hub-Signature-256` HMAC header validated against `WHATSAPP_APP_SECRET`.
-- **Daraja:** IP allowlist (Safaricom's published Daraja IP ranges) + request body shape validation.
+- **WhatsApp:** `X-Hub-Signature-256` HMAC header validated against `WHATSAPP_APP_SECRET`. Signature must be validated against the **raw request body bytes** before JSON parsing.
+- **Daraja (M-Pesa callback):** IP allowlist (Safaricom's published Daraja IP ranges) + Zod request body shape validation. No HMAC is provided by Safaricom's design — IP allowlist is the primary security layer.
 
 ---
 
@@ -337,13 +402,14 @@ Authenticates a salon user (owner or staff).
 }
 ```
 
-Note: `refreshToken` is set as an `httpOnly` `Secure` `SameSite=Strict` cookie — not in the response body.
+Note: Both `accessToken` and `refreshToken` are set as **signed** `httpOnly` `Secure` `SameSite=Strict` cookies. The access token is also returned in the response body for the client to hold in memory (React context). The cookie is the primary mechanism; the response body is a supplement.
 
 **Error cases:**
 | Status | Code | Condition |
 |---|---|---|
 | `401` | `UNAUTHORIZED` | Wrong email or password (do not distinguish — prevents enumeration) |
-| `403` | `FORBIDDEN` | Account is deactivated |
+| `401` | `UNAUTHORIZED` | Account is deactivated |
+| `429` | `ACCOUNT_LOCKED` | 5+ failed attempts within 15 minutes — account locked for 30 minutes. `details.retryAfterSeconds` indicates remaining lockout time. |
 | `429` | `RATE_LIMITED` | 10+ failed attempts in 15 min from same IP |
 
 ---
@@ -352,7 +418,7 @@ Note: `refreshToken` is set as an `httpOnly` `Secure` `SameSite=Strict` cookie �
 
 Exchanges the refresh token cookie for a new access token.
 
-**Authorization:** Public (refresh token read from `httpOnly` cookie)  
+**Authorization:** Public (refresh token read from **signed** `httpOnly` cookie)  
 **Request body:** Empty `{}`
 
 **Response 200:**
@@ -365,7 +431,7 @@ Exchanges the refresh token cookie for a new access token.
 }
 ```
 
-New refresh token set in `httpOnly` cookie (rotated on use).
+New refresh token set in signed `httpOnly` cookie (rotated on use — sliding window). Expires after 7 days.
 
 **Error cases:**
 | Status | Code | Condition |
@@ -382,7 +448,32 @@ Revokes the current refresh token.
 **Request body:** Empty `{}`  
 **Response:** `204 No Content`
 
-Clears the `httpOnly` refresh token cookie.
+Clears both signed `httpOnly` cookies (accessToken and refreshToken).
+
+---
+
+### GET /auth/me
+
+Returns the currently authenticated user's identity from the access token.
+
+**Authorization:** Bearer JWT (any role)  
+**Request body:** None
+
+**Response 200:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "email": "wanny@wannysnails.co.ke",
+    "role": "OWNER"
+  }
+}
+```
+
+**Error cases:**
+| Status | Code | Condition |
+|---|---|---|
+| `401` | `UNAUTHORIZED` | Token missing, expired, or invalid |
 
 ---
 
@@ -1274,3 +1365,121 @@ Liveness and readiness check. Used by Docker health checks, load balancers, and 
 ```
 
 `503` triggers load balancer health check failure and removes the instance from rotation.
+
+---
+
+## Users API (Admin)
+
+> **Access:** OWNER or ADMIN role. All endpoints require `authenticate` + `requireRole('OWNER', 'ADMIN')`.
+
+### List Users
+
+`GET /users`
+
+**Query Parameters:**
+
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `page` | number | 1 | Page number |
+| `limit` | number | 20 | Items per page (max 100) |
+| `includeInactive` | boolean | false | Include soft-deleted/inactive users |
+
+**Response 200:**
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "name": "Jane Doe",
+      "email": "jane@wannysnails.co.ke",
+      "role": "STAFF",
+      "isActive": true,
+      "createdAt": "2026-06-01T09:00:00.000Z",
+      "updatedAt": "2026-06-01T09:00:00.000Z"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 20,
+    "total": 3,
+    "totalPages": 1,
+    "hasNextPage": false,
+    "hasPrevPage": false
+  }
+}
+```
+
+### Create User
+
+`POST /users`
+
+**Request Body:**
+
+```json
+{
+  "name": "Jane Doe",
+  "email": "jane@wannysnails.co.ke",
+  "password": "secureP@ss123",
+  "role": "STAFF"
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `name` | string | Yes | 2–100 characters |
+| `email` | string | Yes | Valid email, unique |
+| `password` | string | Yes | 8–72 characters, hashed with bcrypt |
+| `role` | enum | No | `OWNER`, `ADMIN`, or `STAFF` (default: `STAFF`) |
+
+**Response 201:** Created user object (without password).
+
+**Error 409:** `{ "error": { "code": "EMAIL_ALREADY_EXISTS", "message": "..." } }`
+
+### Get User
+
+`GET /users/:id`
+
+**Response 200:** User object.
+
+**Error 404:** `{ "error": { "code": "NOT_FOUND", "message": "User not found" } }`
+
+### Update User
+
+`PATCH /users/:id`
+
+**Request Body (all fields optional):**
+
+```json
+{
+  "name": "Jane Updated",
+  "email": "jane.new@wannysnails.co.ke",
+  "role": "ADMIN",
+  "isActive": false
+}
+```
+
+**Response 200:** Updated user object.
+
+### Reset Password
+
+`POST /users/:id/reset-password`
+
+**Request Body:**
+
+```json
+{
+  "password": "newSecureP@ss456"
+}
+```
+
+**Response 204:** No content.
+
+### Soft-Delete User
+
+`DELETE /users/:id`
+
+Sets `isActive: false` and `deletedAt: now()`. An inactive/deleted user cannot log in.
+
+**Response 204:** No content.
+
+**Error 404:** `{ "error": { "code": "NOT_FOUND", "message": "User not found" } }`
