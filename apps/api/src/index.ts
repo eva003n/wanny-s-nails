@@ -5,5 +5,5 @@ import { logger } from "./shared/lib/logger.js";
 const port = config.PORT;
 
 server.listen(port, () => {
-    logger.info(`Server running on ${config.BASE_URL}`)
+    logger.info({ event: "server.started", port, baseUrl: config.BASE_URL }, `Server running on ${config.BASE_URL}`)
 })

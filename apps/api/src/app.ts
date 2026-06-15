@@ -2,6 +2,7 @@ import { createServer } from "http";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import cookieParser from "cookie-parser"
 
 // Middlewares
 import { errorMiddleware } from "./shared/middleware/error.middleware.js";
@@ -19,8 +20,10 @@ import { webhooksRoutes } from "./modules/webhooks/webhooks.routes.js";
 import { notificationsRoutes } from "./modules/notifications/notifications.routes.js";
 import { eventsRoutes } from "./modules/events/events.routes.js";
 import { healthRoutes } from "./modules/health/health.routes.js";
+import { usersRoutes } from "./modules/users/users.routes.js";
 import { logMiddleware } from "./shared/middleware/log.middleware.js";
 import { config } from "./shared/lib/config.js";
+import { notFound } from "./shared/middleware/404.middleware.js";
 
 const app = express();
 
@@ -34,6 +37,9 @@ app.use(
     credentials: true,
   }),
 );
+
+// parse cookie
+app.use(cookieParser(config.COOKIE_SECRET.split(",")))
 
 // Raw body for webhook signature verification
 app.use(
@@ -72,7 +78,9 @@ app.use("/api/v1/slots", slotsRoutes);
 app.use("/api/v1/bookings", bookingsRoutes);
 app.use("/api/v1/payments", paymentsRoutes);
 app.use("/api/v1/notifications", notificationsRoutes);
+app.use("/api/v1/users", usersRoutes);
 
+app.use(notFound)
 // Global error handler (must be last)
 app.use(errorMiddleware);
 

@@ -75,6 +75,12 @@ export class ServiceNotFoundError extends NotFoundError {
   }
 }
 
+export class UserNotFoundError extends NotFoundError {
+  constructor() {
+    super("User");
+  }
+}
+
 // --- Gone ---
 export class GoneError extends AppError {
   constructor(resource: string) {
@@ -160,6 +166,14 @@ export class ServiceHasFutureBookingsError extends UnprocessableError {
 }
 
 // --- Rate Limited ---
+export class AccountLockedError extends AppError {
+  constructor(lockoutSeconds: number) {
+    super("ACCOUNT_LOCKED", 429, "Account temporarily locked due to too many failed login attempts.", {
+      retryAfterSeconds: lockoutSeconds,
+    });
+  }
+}
+
 export class RateLimitedError extends AppError {
   constructor(retryAfterSeconds: number) {
     super("RATE_LIMITED", 429, "Too many requests. Please wait before retrying.", {

@@ -40,7 +40,7 @@ if (isProduction) {
   targets.push({
     target: "pino-roll",
     options: {
-      file: `${process.cwd()}logs/app.log`,
+      file: `logs/app.log`,
       frequency: "daily", // rotate daily
       size: "20m", // also rotate at 20MB
       limit: { count: 14 }, // keep 14 files  ≈ maxFiles: "14d"
@@ -54,7 +54,7 @@ if (isProduction) {
     target: "pino-roll",
     level: "error",
     options: {
-      file: `${process.cwd()}logs/app.log`,
+      file: `logs/app.log`,
       frequency: "daily",
       size: "20m",
       limit: { count: 30 }, // keep 30 files  ≈ maxFiles: "30d"
