@@ -9,7 +9,7 @@
 ## Domain Model
 
 ```
-SalonService ◄──── Booking ────► Customer
+NailService ◄──── Booking ────► Customer
                       │
                       ├──► BookingStatusHistory
                       │
@@ -206,12 +206,12 @@ model Customer {
 }
 ```
 
-### salon_services
+### nail_services
 
 Configurable service catalogue.
 
 ```prisma
-model SalonService {
+model NailService {
   id              String    @id @default(uuid())
   name            String
   description     String?
@@ -294,7 +294,7 @@ model BookingStatusHistory {
   bookingId  String        @map("booking_id")
   fromStatus BookingStatus? @map("from_status")
   toStatus   BookingStatus @map("to_status")
-  actorType  String        @map("actor_type")  // "USER" | "SYSTEM" | "CUSTOMER"
+  actorType  ActorType        @map("actor_type")  // "USER" | "SYSTEM" | "CUSTOMER"
   actorId    String?       @map("actor_id")
   reason     String?
   createdAt  DateTime      @default(now()) @map("created_at")
@@ -303,6 +303,12 @@ model BookingStatusHistory {
 
   @@index([bookingId])
   @@map("booking_status_history")
+}
+
+enum ActorType {
+  CUSTOMER
+  USER
+  SYSTEM
 }
 ```
 
@@ -525,11 +531,33 @@ Hard deletes are only performed by a scheduled cleanup job that runs monthly on 
 
 ```typescript
 // Global Prisma middleware — auto-filter soft-deleted records
-prisma.$use(async (params, next) => {
-  const softDeleteModels = ['Booking', 'Customer', 'SalonService', 'User'];
-  if (softDeleteModels.includes(params.model) && params.action === 'findMany') {
-    params.args.where = { ...params.args.where, deletedAt: null };
-  }
-  return next(params);
+const softDeleteModels = ["Booking", "Customer", "SalonService", "User"];
+
+prisma.$extends({
+  query: {
+    $allModels: {
+      async findMany({ model, args, query }) {
+        if (model && softDeleteModels.includes(model) && args.where) {
+          args.where = {
+            ...args.where,
+            deletedAt: null,
+          };
+        }
+
+        return query(args);
+      },
+
+      async findFirst({ model, args, query }) {
+        if (model && softDeleteModels.includes(model) && args.where) {
+          args.where = {
+            ...args.where,
+            deletedAt: null,
+          };
+        }
+
+        return query(args);
+      },
+    },
+  },
 });
 ```
