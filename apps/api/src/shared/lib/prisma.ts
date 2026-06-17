@@ -1,4 +1,4 @@
-import { PrismaClient } from "../../generated/prisma/client.js";
+import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { config } from "./config.js";
 
@@ -23,7 +23,7 @@ if (config.NODE_ENV !== "production") {
 }
 
 // Global soft-delete middleware
-const softDeleteModels = ["Booking", "Customer", "SalonService", "User"];
+const softDeleteModels = ["Booking", "Customer", "NailService", "User"];
 
 prisma.$extends({
   query: {
