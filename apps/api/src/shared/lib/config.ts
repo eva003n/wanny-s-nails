@@ -15,7 +15,7 @@ const configSchema = z.object({
   JWT_SECRET: z.string().min(32),
   JWT_EXPIRES_IN: z.string().default("15m"),
   JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
-  CORS_ORIGIN: z.url(),
+  CORS_ORIGIN: z.string(),
   COOKIE_SECRET: z.string(),
   WHATSAPP_ACCESS_TOKEN: z.string().default(""),
   WHATSAPP_PHONE_NUMBER_ID: z.string().default(""),
