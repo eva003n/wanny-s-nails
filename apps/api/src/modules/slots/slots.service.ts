@@ -34,7 +34,7 @@ export const slotsService = {
     }
 
     // Get service duration
-    const service = await prisma.salonService.findUnique({
+    const service = await prisma.nailService.findUnique({
       where: { id: serviceId },
     });
 
