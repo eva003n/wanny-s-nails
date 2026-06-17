@@ -95,6 +95,18 @@ export const logout = asyncHandler(async (req: Request, res: Response, _next: Ne
   noContent(res);
 });
 
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(8).max(72),
+  newPassword: z.string().min(8).max(72),
+});
+
+export const changePassword = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+  const userId = req.user!.userId;
+  const { currentPassword, newPassword } = req.validated!.body as z.infer<typeof changePasswordSchema>;
+  await authService.changePassword(userId, currentPassword, newPassword);
+  noContent(res);
+});
+
 export const me = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
   success(res, {
     id: req.user!.userId,

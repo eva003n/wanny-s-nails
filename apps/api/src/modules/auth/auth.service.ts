@@ -135,6 +135,22 @@ export const authService = {
     return bcrypt.hash(password, SALT_ROUNDS);
   },
 
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedError("User not found");
+
+    const isCurrentValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isCurrentValid) {
+      throw new UnauthorizedError("Current password is incorrect");
+    }
+
+    const passwordHash = await this.hashPassword(newPassword);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+  },
+
   async createOwner(name: string, email: string, password: string) {
     const passwordHash = await this.hashPassword(password);
 

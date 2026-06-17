@@ -20,6 +20,11 @@ router.route("/refresh").post(refreshRateLimit, authController.refresh);
 // POST /auth/logout
 router.route("/logout").delete(authenticate, authController.logout);
 
+// POST /auth/change-password
+router
+  .route("/change-password")
+  .post(authenticate, validate(authController.changePasswordSchema), authController.changePassword);
+
 // GET /auth/me
 router.route("/me").get(authenticate, authController.me);
 
