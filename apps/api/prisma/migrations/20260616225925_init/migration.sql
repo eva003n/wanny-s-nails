@@ -1,5 +1,5 @@
 -- CreateEnum
-CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'OWNER', 'STAFF');
+CREATE TYPE "UserRole" AS ENUM ('OWNER', 'STAFF');
 
 -- CreateEnum
 CREATE TYPE "BookingStatus" AS ENUM ('PENDING', 'APPROVED', 'RESCHEDULED', 'COMPLETED', 'CANCELLED', 'NO_SHOW');
@@ -15,6 +15,9 @@ CREATE TYPE "ReminderChannel" AS ENUM ('WHATSAPP', 'EMAIL');
 
 -- CreateEnum
 CREATE TYPE "ReminderStatus" AS ENUM ('SCHEDULED', 'SENT', 'FAILED', 'CANCELLED');
+
+-- CreateEnum
+CREATE TYPE "ServiceCategory" AS ENUM ('MANICURE', 'OVERLAY', 'PEDICURE', 'ACRYLIC');
 
 -- CreateTable
 CREATE TABLE "users" (
@@ -53,6 +56,7 @@ CREATE TABLE "salon_services" (
     "description" TEXT,
     "duration_minutes" INTEGER NOT NULL,
     "price_kes" INTEGER NOT NULL,
+    "category" "ServiceCategory" NOT NULL,
     "is_active" BOOLEAN NOT NULL DEFAULT true,
     "sort_order" INTEGER NOT NULL DEFAULT 0,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -134,7 +138,7 @@ CREATE TABLE "reminders" (
     "id" TEXT NOT NULL,
     "booking_id" TEXT NOT NULL,
     "type" "ReminderType" NOT NULL,
-    "channel" "ReminderChannel" NOT NULL,
+    "channel" "ReminderChannel" NOT NULL DEFAULT 'EMAIL',
     "status" "ReminderStatus" NOT NULL DEFAULT 'SCHEDULED',
     "scheduled_at" TIMESTAMP(3) NOT NULL,
     "sent_at" TIMESTAMP(3),
