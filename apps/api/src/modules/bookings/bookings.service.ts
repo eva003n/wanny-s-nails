@@ -130,7 +130,7 @@ export const bookingsService = {
   },
 
   async create(input: CreateBookingInput) {
-    const service = await prisma.salonService.findUnique({
+    const service = await prisma.nailService.findUnique({
       where: { id: input.serviceId },
     });
     if (!service || service.deletedAt) {
@@ -293,7 +293,7 @@ export const bookingsService = {
     }
 
     // Check slot availability
-    const service = await prisma.salonService.findUnique({ where: { id: booking.serviceId } });
+    const service = await prisma.nailService.findUnique({ where: { id: booking.serviceId } });
     const conflicting = await prisma.booking.findFirst({
       where: {
         id: { not: id },

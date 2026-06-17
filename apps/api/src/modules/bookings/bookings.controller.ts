@@ -13,8 +13,8 @@ import { asyncHandler } from "../../shared/utils/asyncHandler.js";
 // --- Validation schemas (exported for use in routes) ---
 
 export const createBookingSchema = z.object({
-  customerId: z.string().uuid(),
-  serviceId: z.string().uuid(),
+  customerId: z.uuid(),
+  serviceId: z.uuid(),
   appointmentAt: z.string().datetime(),
   notes: z.string().max(500).optional(),
 });
