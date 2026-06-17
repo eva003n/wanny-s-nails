@@ -21,6 +21,7 @@ import { notificationsRoutes } from "./modules/notifications/notifications.route
 import { eventsRoutes } from "./modules/events/events.routes.js";
 import { healthRoutes } from "./modules/health/health.routes.js";
 import { usersRoutes } from "./modules/users/users.routes.js";
+import { businessHoursRoutes } from "./modules/business-hours/business-hours.routes.js";
 import { logMiddleware } from "./shared/middleware/log.middleware.js";
 import { config } from "./shared/lib/config.js";
 import { notFound } from "./shared/middleware/404.middleware.js";
@@ -44,9 +45,10 @@ app.use(cookieParser(config.COOKIE_SECRET.split(",")))
 // Raw body for webhook signature verification
 app.use(
   express.json({
-    verify: (req, _res, buf) => {
-      (req as unknown as Record<string, unknown>).rawBody = buf;
-    },
+    limit: "16kb"
+    // verify: (req, _res, buf) => {
+    //   (req as unknown as Record<string, unknown>).rawBody = buf;
+    // },
   }),
 );
 app.use(express.urlencoded({ extended: true }));
@@ -79,6 +81,7 @@ app.use("/api/v1/bookings", bookingsRoutes);
 app.use("/api/v1/payments", paymentsRoutes);
 app.use("/api/v1/notifications", notificationsRoutes);
 app.use("/api/v1/users", usersRoutes);
+app.use("/api/v1/business-hours", businessHoursRoutes);
 
 app.use(notFound)
 // Global error handler (must be last)
