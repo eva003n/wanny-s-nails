@@ -4,6 +4,7 @@ import { ServiceNotFoundError, ServiceHasFutureBookingsError } from "../../share
 interface CreateServiceInput {
   name: string;
   description?: string | undefined;
+  category: "MANICURE" | "OVERLAY" | "PEDICURE" | "ACRYLIC";
   durationMinutes: number;
   priceKes: number;
   sortOrder?: number | undefined;
@@ -24,14 +25,14 @@ export const servicesService = {
     if (!includeInactive) {
       where.isActive = true;
     }
-    return prisma.salonService.findMany({
+    return prisma.nailService.findMany({
       where,
       orderBy: { sortOrder: "asc" },
     });
   },
 
   async getById(id: string) {
-    const service = await prisma.salonService.findUnique({
+    const service = await prisma.nailService.findUnique({
       where: { id },
     });
     if (!service) {
@@ -41,10 +42,11 @@ export const servicesService = {
   },
 
   async create(data: CreateServiceInput) {
-    return prisma.salonService.create({
+    return prisma.nailService.create({
       data: {
         name: data.name,
         description: data.description ?? null,
+        category: data.category,
         durationMinutes: data.durationMinutes,
         priceKes: data.priceKes,
         sortOrder: data.sortOrder ?? 0,
@@ -54,7 +56,7 @@ export const servicesService = {
 
   async update(id: string, data: UpdateServiceInput) {
     await this.getById(id);
-    return prisma.salonService.update({
+    return prisma.nailService.update({
       where: { id },
       data: data as Record<string, unknown>,
     });
@@ -76,7 +78,7 @@ export const servicesService = {
       throw new ServiceHasFutureBookingsError();
     }
 
-    return prisma.salonService.update({
+    return prisma.nailService.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
