@@ -176,9 +176,11 @@ export const bookingsService = {
       throw new OutsideBusinessHoursError(input.appointmentAt);
     }
 
-    // Check slot alignment (30-min boundaries)
+    // Check slot alignment (service-duration boundaries)
     const minute = appointmentAt.getMinutes();
-    if (minute !== 0 && minute !== 30) {
+    const hour = appointmentAt.getHours();
+    const totalMinutesSinceMidnight = hour * 60 + minute;
+    if (totalMinutesSinceMidnight % service.durationMinutes !== 0) {
       throw new BookingConflictError();
     }
 
@@ -186,7 +188,7 @@ export const bookingsService = {
     const conflictingBooking = await prisma.booking.findFirst({
       where: {
         appointmentAt: {
-          gte: new Date(appointmentAt.getTime() - 30 * 60 * 1000),
+          gte: new Date(appointmentAt.getTime() - service.durationMinutes * 60 * 1000),
           lt: new Date(appointmentAt.getTime() + service.durationMinutes * 60 * 1000),
         },
         status: { notIn: ["CANCELLED", "NO_SHOW"] },
@@ -404,12 +406,13 @@ export const bookingsService = {
 
     // Check slot availability
     const service = await prisma.nailService.findUnique({ where: { id: booking.serviceId } });
+    const serviceDuration = service?.durationMinutes || 90;
     const conflicting = await prisma.booking.findFirst({
       where: {
         id: { not: id },
         appointmentAt: {
-          gte: new Date(newDate.getTime() - 30 * 60 * 1000),
-          lt: new Date(newDate.getTime() + (service?.durationMinutes || 60) * 60 * 1000),
+          gte: new Date(newDate.getTime() - serviceDuration * 60 * 1000),
+          lt: new Date(newDate.getTime() + serviceDuration * 60 * 1000),
         },
         status: { notIn: ["CANCELLED", "NO_SHOW"] },
       },
