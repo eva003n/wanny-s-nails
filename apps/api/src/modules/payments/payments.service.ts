@@ -1,20 +1,10 @@
-import axios from "axios";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../../shared/lib/prisma.js";
-import { config } from "../../shared/lib/config.js";
+import { paymentQueue } from "../../shared/lib/queue.js";
 import { logger } from "../../shared/lib/logger.js";
 
 const log = logger.child({ module: "payments" });
 import { PaymentFailedError, PaymentNotAllowedError, NotFoundError } from "../../shared/types/errors.js";
-import { parsePagination } from "../../shared/utils/pagination.js";
-
-interface DarajaSTKPushResponse {
-  MerchantRequestID: string;
-  CheckoutRequestID: string;
-  ResponseCode: string;
-  ResponseDescription: string;
-  CustomerMessage: string;
-}
 
 export const paymentsService = {
   async initiateStkPush(bookingId: string, phoneNumber: string) {
@@ -35,66 +25,49 @@ export const paymentsService = {
       throw new PaymentNotAllowedError("Booking already has a completed payment");
     }
 
-    const amount = booking.priceKes;
-    const timestamp = generateTimestamp();
-    const password = generatePassword(timestamp);
-
-    const response = await axios.post<DarajaSTKPushResponse>(
-      config.DARAJA_STK_PUSH_URL,
-      {
-        BusinessShortCode: config.DARAJA_SHORTCODE,
-        Password: password,
-        Timestamp: timestamp,
-        TransactionType: "CustomerPayBillOnline",
-        Amount: amount,
-        PartyA: phoneNumber,
-        PartyB: config.DARAJA_SHORTCODE,
-        PhoneNumber: phoneNumber,
-        CallBackURL: config.DARAJA_CALLBACK_URL,
-        AccountReference: booking.reference,
-        TransactionDesc: "Booking payment",
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${await this.getAccessToken()}`,
+    // Ensure payment record exists
+    let payment = booking.payment;
+    if (!payment) {
+      payment = await prisma.payment.create({
+        data: {
+          bookingId,
+          amountKes: booking.priceKes,
+          status: "UNPAID",
         },
-      }
-    );
-
-    const { CheckoutRequestID, ResponseCode } = response.data;
-
-    if (ResponseCode !== "0") {
-      throw new PaymentFailedError(Number(ResponseCode));
+      });
     }
 
-    // Update payment record
-    const payment = await prisma.payment.update({
-      where: { bookingId },
-      data: {
-        checkoutRequestId: CheckoutRequestID,
-        status: "PAYMENT_PENDING",
-        phoneNumber,
-      },
+    // Update status to PAYMENT_PENDING immediately
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: { status: "PAYMENT_PENDING", phoneNumber },
     });
 
-    // Log the transaction attempt
-    const attemptCount = await prisma.paymentTransaction.count({
-      where: { paymentId: payment.id },
-    });
-
-    await prisma.paymentTransaction.create({
-      data: {
+    // Enqueue STK Push job to BullMQ (async processing)
+    const job = await paymentQueue.add(
+      "stk-push",
+      {
+        bookingId,
         paymentId: payment.id,
-        attemptNumber: attemptCount + 1,
-        checkoutRequestId: CheckoutRequestID,
-        rawRequest: { MerchantRequestID: response.data.MerchantRequestID, CheckoutRequestID } as unknown as Record<string, string>,
+        phoneNumber,
+        amount: booking.priceKes,
+        accountReference: booking.reference,
       },
-    });
+      {
+        attempts: 2,
+        backoff: { type: "fixed", delay: 30000 },
+      },
+    );
+
+    log.info(
+      { event: "stk_push.enqueued", bookingId, paymentId: payment.id, jobId: job.id },
+      "STK Push job enqueued",
+    );
 
     return {
       paymentId: payment.id,
-      checkoutRequestId: CheckoutRequestID,
-      message: `Payment request sent to ${phoneNumber}. Awaiting customer approval.`,
+      checkoutRequestId: null,
+      message: `Payment request queued for ${phoneNumber}. You will receive an M-Pesa prompt shortly.`,
     };
   },
 
@@ -280,36 +253,7 @@ export const paymentsService = {
       });
     }
   },
-
-  async getAccessToken(): Promise<string> {
-    const response = await axios.get(
-      "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials",
-      {
-        auth: {
-          username: config.DARAJA_CONSUMER_KEY,
-          password: config.DARAJA_CONSUMER_SECRET,
-        },
-      }
-    );
-    return response.data.access_token;
-  },
 };
-
-function generateTimestamp(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  const hours = String(now.getHours()).padStart(2, "0");
-  const minutes = String(now.getMinutes()).padStart(2, "0");
-  const seconds = String(now.getSeconds()).padStart(2, "0");
-  return `${year}${month}${day}${hours}${minutes}${seconds}`;
-}
-
-function generatePassword(timestamp: string): string {
-  const data = `${config.DARAJA_SHORTCODE}${config.DARAJA_PASSKEY}${timestamp}`;
-  return Buffer.from(data).toString("base64");
-}
 
 function getFailureReason(code: number): string {
   const reasons: Record<number, string> = {

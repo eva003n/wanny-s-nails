@@ -1,4 +1,6 @@
 import { prisma } from "../../shared/lib/prisma.js";
+import { reminderQueue } from "../../shared/lib/queue.js";
+import { logger } from "../../shared/lib/logger.js";
 import {
   BookingConflictError,
   BookingNotFoundError,
@@ -6,6 +8,8 @@ import {
   OutsideBusinessHoursError,
   ServiceInactiveError,
 } from "../../shared/types/errors.js";
+
+const log = logger.child({ module: "bookings.service" });
 
 interface CreateBookingInput {
   customerId: string;
@@ -228,7 +232,7 @@ export const bookingsService = {
       throw new InvalidStatusTransitionError(booking.status, "approve");
     }
 
-    return prisma.booking.update({
+    const updated = await prisma.booking.update({
       where: { id },
       data: {
         status: "APPROVED",
@@ -248,6 +252,112 @@ export const bookingsService = {
         approvedBy: { select: { id: true, name: true } },
       },
     });
+
+    // ── Schedule reminder jobs ──────────────────────────────────
+    try {
+      const appointmentMs = booking.appointmentAt.getTime();
+      const nowMs = Date.now();
+      const EAT_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+      // 24h reminder: schedule for 24 hours before appointment (in EAT)
+      const reminder24hAt = new Date(appointmentMs - 24 * 60 * 60 * 1000);
+      const delay24h = reminder24hAt.getTime() - nowMs;
+
+      if (delay24h > 0) {
+        const reminder24h = await prisma.reminder.create({
+          data: {
+            bookingId: id,
+            type: "REMINDER_24H",
+            channel: "WHATSAPP",
+            status: "SCHEDULED",
+            scheduledAt: reminder24hAt,
+          },
+        });
+
+        const job24h = await reminderQueue.add(
+          "reminder-24h",
+          {
+            reminderId: reminder24h.id,
+            bookingId: id,
+            customerPhone: updated.customer.phone,
+            customerName: updated.customer.name,
+            serviceName: updated.service.name,
+            appointmentAt: booking.appointmentAt.toISOString(),
+          },
+          {
+            delay: delay24h,
+            attempts: 3,
+            backoff: { type: "exponential", delay: 60000 },
+          },
+        );
+
+        if (job24h.id) {
+          await prisma.reminder.update({
+            where: { id: reminder24h.id },
+            data: { jobId: job24h.id },
+          });
+        }
+
+        log.info(
+          { event: "reminder.24h.scheduled", bookingId: id, delay: delay24h },
+          "24h reminder scheduled",
+        );
+      }
+
+      // 1h reminder: schedule for 1 hour before appointment (in EAT)
+      const reminder1hAt = new Date(appointmentMs - 1 * 60 * 60 * 1000);
+      const delay1h = reminder1hAt.getTime() - nowMs;
+
+      if (delay1h > 0) {
+        const reminder1h = await prisma.reminder.create({
+          data: {
+            bookingId: id,
+            type: "REMINDER_1H",
+            channel: "WHATSAPP",
+            status: "SCHEDULED",
+            scheduledAt: reminder1hAt,
+          },
+        });
+
+        const job1h = await reminderQueue.add(
+          "reminder-1h",
+          {
+            reminderId: reminder1h.id,
+            bookingId: id,
+            customerPhone: updated.customer.phone,
+            customerName: updated.customer.name,
+            serviceName: updated.service.name,
+            appointmentAt: booking.appointmentAt.toISOString(),
+          },
+          {
+            delay: delay1h,
+            attempts: 3,
+            backoff: { type: "exponential", delay: 60000 },
+          },
+        );
+
+        if (job1h.id) {
+          await prisma.reminder.update({
+            where: { id: reminder1h.id },
+            data: { jobId: job1h.id },
+          });
+        }
+
+        log.info(
+          { event: "reminder.1h.scheduled", bookingId: id, delay: delay1h },
+          "1h reminder scheduled",
+        );
+      }
+    } catch (error: unknown) {
+      // Don't fail the approval if reminder scheduling fails
+      const err = error as { message?: string };
+      log.error(
+        { event: "reminder.schedule_failed", bookingId: id, error: err.message },
+        "Failed to schedule reminders — booking was still approved",
+      );
+    }
+
+    return updated;
   },
 
   async cancel(id: string, actorType: string, reason?: string) {

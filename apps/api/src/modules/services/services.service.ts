@@ -31,6 +31,30 @@ export const servicesService = {
     });
   },
 
+  async listByCategory(
+    category: string,
+    includeInactive = false,
+  ) {
+    const where: Record<string, unknown> = { category };
+    if (!includeInactive) {
+      where.isActive = true;
+    }
+    return prisma.nailService.findMany({
+      where,
+      orderBy: { sortOrder: "asc" },
+    });
+  },
+
+  async listCategories() {
+    const categories = await prisma.nailService.findMany({
+      where: { isActive: true },
+      select: { category: true },
+      distinct: ["category"],
+      orderBy: { category: "asc" },
+    });
+    return categories.map((c) => c.category);
+  },
+
   async getById(id: string) {
     const service = await prisma.nailService.findUnique({
       where: { id },
