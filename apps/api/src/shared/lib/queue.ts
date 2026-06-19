@@ -52,3 +52,14 @@ export const bookingQueue = new Queue("bookings", {
     },
   },
 });
+export const messagesQueue = new Queue("messages", {
+  connection: connectionOptions,
+  defaultJobOptions: {
+    attempts: 2,
+    backoff: {
+      type: "fixed",
+      delay: 30000,
+    },
+  },
+});
+
