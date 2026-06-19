@@ -1,663 +1,804 @@
-# DESIGN.md — Wanny's Nails PWA
-## Design System, Tokens & Product Guidelines v2.0
+# Design Rules — Wanny's Nails PWA
+
+**Source of truth:** `UI_UX_SPECIFICATION.md`  
+Read it before implementing any screen, component, or interaction.
 
 ---
 
-## 0. North Star
-
-Build a tool that feels like it was made by Apple for a Kenyan salon owner — not a startup trying to impress investors, and not a generic SaaS dashboard skinned with pastel colors. Every screen must pass the "one-thumb, mid-service" test: a stylist with gloves on and a client in the chair should be able to complete any critical action in under 3 taps.
-
-**Three words this product must feel:** Fast. Trustworthy. Mine.
+## Table of Contents
+1. [Design Principles](#1-design-principles)
+2. [Tokens — Colours](#2-tokens--colours)
+3. [Tokens — Typography](#3-tokens--typography)
+4. [Tokens — Spacing](#4-tokens--spacing)
+5. [Tokens — Radius & Shadows](#5-tokens--radius--shadows)
+6. [Component Specifications](#6-component-specifications)
+7. [Layout & Navigation](#7-layout--navigation)
+8. [Screen Patterns](#8-screen-patterns)
+9. [Motion & Animation](#9-motion--animation)
+10. [Responsive Design](#10-responsive-design)
+11. [Loading States](#11-loading-states)
+12. [Empty States](#12-empty-states)
+13. [Error States](#13-error-states)
+14. [Iconography](#14-iconography)
+15. [Dos and Don'ts](#15-dos-and-donts)
 
 ---
 
-## 1. Design Philosophy
+## 1. Design Principles
 
-### 1.1 Competitive Benchmarks
+These are decision filters. When two solutions seem equally valid, use these to choose.
 
-| Benchmark | What We Steal |
+| Principle | What it means in practice |
 |---|---|
-| Apple Wallet | Card stacks, bottom sheets, haptic confirmation patterns |
-| Stripe Mobile Dashboard | Information density, financial data hierarchy |
-| iOS Clock / Reminders | Native input patterns, list row anatomy |
-| WhatsApp Business | Speed, practical communication flow |
-
-### 1.2 Core Alignment Matrix
-
-| Prioritize | Strictly Avoid |
-|---|---|
-| Single-column, single-thumb execution | Any multi-column grid on mobile |
-| High density with breathing room at section breaks | Low-contrast "airy" Dribbble aesthetics |
-| Sophisticated, understated feminine editorial tone | Cutesy icons, playful gradients, neon |
-| 44–56px touch targets on every interactive element | Tiny inline links, checkbox-heavy forms |
-| Flat premium surfaces with precise micro-shadows | Heavy drop shadows, aggressive blurs |
-| Kenyan currency, locale, and naming conventions | Generic Western placeholders (USD, "John Doe") |
-| Skeleton loading, optimistic UI | Blank screens, full-page spinners |
+| **Clarity first** | One primary action per screen. If you're adding a second primary button, reconsider the screen's purpose. |
+| **Speed over features** | Approve a booking in 2 taps from the dashboard. Never make the owner navigate 3+ levels for a common action. |
+| **Status at a glance** | Booking status, payment status, and appointment time visible on the list item — never require a tap to see these. |
+| **Graceful loading** | Skeleton screens always. No blank white screens, no layout shift on load. |
+| **Forgiving** | Every destructive action (cancel, delete) requires a confirmation dialog. One-tap undo is never sufficient for permanent actions. |
+| **Offline-first** | Today's schedule readable from cache when network is unavailable. Degraded state communicated clearly — never silence. |
 
 ---
 
-## 2. Design Tokens
+## 2. Tokens — Colours
 
-### 2.1 Color System
+All colours are CSS custom properties defined in `index.css` via Tailwind's `@theme` directive. **Never use hardcoded hex values or Tailwind's default colour palette** (`gray-*`, `pink-*`, `red-*`, etc.) in components.
 
-All colors must pass **WCAG AA** for their intended text/background pairing. Never use color as the sole indicator of state — always pair with an icon, label, or shape change.
-
-#### Base Palette
-
-| Token | Hex | Usage |
-|---|---|---|
-| `--color-canvas` | `#FAF7F2` | App background, page canvas |
-| `--color-surface` | `#FFFFFF` | Cards, modals, input fields |
-| `--color-surface-raised` | `#F5F2ED` | Nested cards, tray backgrounds |
-| `--color-border` | `#E5E5E5` | Hairline dividers, card outlines |
-| `--color-border-strong` | `#C9C9C9` | Active input borders, focused states |
-
-#### Brand Accent
-
-| Token | Hex | Usage |
-|---|---|---|
-| `--color-accent` | `#B76E79` | Rose Gold — active tab, CTAs, selection state |
-| `--color-accent-light` | `#F5E6E8` | Accent tint for badge backgrounds, hover fills |
-| `--color-accent-dark` | `#8E4F58` | Pressed states, high-contrast accent text |
-
-#### Typography
-
-| Token | Hex | Usage |
-|---|---|---|
-| `--color-text-primary` | `#1C1C1E` | Headers, body, primary data |
-| `--color-text-secondary` | `#636366` | Captions, labels, metadata |
-| `--color-text-tertiary` | `#AEAEB2` | Placeholder text, disabled states |
-| `--color-text-inverse` | `#FFFFFF` | Text on dark/accent surfaces |
-
-#### Semantic States
-
-| Token | Hex | Light Tint (badge bg) | Usage |
-|---|---|---|---|
-| `--color-success` | `#34C759` | `#E6F9EC` | Confirmed, paid, completed |
-| `--color-warning` | `#FF9F0A` | `#FFF3E0` | Pending, action required |
-| `--color-error` | `#FF3B30` | `#FFEEED` | Cancelled, failed, overdue |
-| `--color-info` | `#007AFF` | `#E5F1FF` | Informational notices |
-
-#### Usage Rules
+### Palette
 
 ```
-Text on --color-canvas    → --color-text-primary    ✓ (contrast 13.2:1)
-Text on --color-accent    → --color-text-inverse     ✓ (contrast 4.8:1)
-Caption on --color-surface → --color-text-secondary  ✓ (contrast 5.9:1)
+Brand
+  primary:        #C084A8   bg-primary / text-primary / border-primary
+  primary-dark:   #9B5E82   hover states, pressed states
+  primary-light:  #EDD9EA   tinted backgrounds, highlights
+
+Backgrounds
+  bg:             #FAFAFA   page background — never pure white
+  surface:        #FFFFFF   cards, modals, nav
+  surface-raised: #F4F4F4   inputs, inactive tabs
+
+Text
+  text-primary:   #1A1A1A   headings, primary labels
+  text-secondary: #6B7280   supporting text, metadata
+  text-disabled:  #BDBDBD   disabled states, placeholder
+
+Semantic
+  success:        #22C55E   confirmed, paid, completed
+  success-bg:     #F0FDF4   success badge background
+  warning:        #F59E0B   pending, awaiting payment
+  warning-bg:     #FFFBEB   warning badge background
+  error:          #EF4444   cancelled, failed, destructive
+  error-bg:       #FEF2F2   error badge background
+  info:           #3B82F6   approved/confirmed status
+  info-bg:        #EFF6FF   info badge background
+
+Structure
+  border:         #E5E7EB   input borders, card borders, dividers
+  divider:        #F3F4F6   subtle section separators
 ```
+
+### Usage rules
+
+```tsx
+// ✅ Always use tokens
+<div className="bg-surface border border-border rounded-[--radius-md]">
+<p className="text-text-secondary text-sm">
+<button className="bg-primary text-white hover:bg-primary-dark">
+<span className="bg-success-bg text-success">Paid</span>
+
+// ❌ Never hardcode or use default Tailwind colours
+<div className="bg-white border border-gray-200">
+<p className="text-gray-500">
+<button style={{ backgroundColor: '#C084A8' }}>
+<span className="bg-green-100 text-green-600">
+```
+
+### Colour semantics — never swap
+
+| Colour | Always means | Never use for |
+|---|---|---|
+| `primary` | Brand action, CTA | Errors, success, info |
+| `success` | Completed, paid, confirmed | Progress, loading |
+| `warning` | Pending, attention needed | Low severity info |
+| `error` | Failed, cancelled, destructive | Warnings |
+| `info` | Neutral status, approved | Errors |
+
+### Contrast
+
+All text/background combinations must meet **WCAG AA** (4.5:1 for normal text, 3:1 for large text). Never put `text-primary` on `bg-primary` — use `text-white` instead. Never put `text-text-disabled` on `bg-surface-raised` for meaningful content.
 
 ---
 
-### 2.2 Typography
+## 3. Tokens — Typography
 
-Use the native iOS/macOS system font stack. No web font downloads — this preserves rendering fidelity, offline resilience, and 0 font load latency.
+Font stack: `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`
+Renders as SF Pro (iOS/macOS), Segoe UI (Windows), Roboto (Android). No external font dependency.
 
-```css
-font-family: -apple-system, "SF Pro Text", "SF Pro Display",
-             "Helvetica Neue", Arial, sans-serif;
-```
+### Scale
 
-#### Type Scale
-
-| Role | Size | Weight | Line Height | Letter Spacing | Use |
+| Token | rem | px equiv | Weight | Tailwind class | Usage |
 |---|---|---|---|---|---|
-| `--type-display` | 34px | 700 Bold | 41px | -0.5px | Greeting, hero number |
-| `--type-h1` | 28px | 700 Bold | 34px | -0.3px | Page titles |
-| `--type-h2` | 20px | 600 SemiBold | 24px | -0.2px | Section headers, card titles |
-| `--type-h3` | 17px | 600 SemiBold | 22px | -0.1px | Row titles, modal headers |
-| `--type-body` | 16px | 400 Regular | 22px | 0px | Client names, service names |
-| `--type-body-medium` | 16px | 500 Medium | 22px | 0px | Emphasized body, amounts |
-| `--type-caption` | 13px | 400 Regular | 18px | 0.1px | Timestamps, metadata |
-| `--type-caption-medium` | 13px | 500 Medium | 18px | 0.1px | Status labels, badge text |
-| `--type-micro` | 11px | 500 Medium | 14px | 0.5px | Tab bar labels |
+| `2xl` | 2rem | 32px | 700 | `text-2xl font-bold` | Screen titles |
+| `xl` | 1.5rem | 24px | 700 | `text-xl font-bold` | Section headers |
+| `lg` | 1.25rem | 20px | 600 | `text-lg font-semibold` | Card titles |
+| `md` | 1.0625rem | 17px | 600 | `text-[1.0625rem] font-semibold` | List item primary text |
+| `base` | 1rem | 16px | 400 | `text-base` | Body copy |
+| `sm` | 0.9375rem | 15px | 400 | `text-[0.9375rem]` | Secondary labels |
+| `xs` | 0.8125rem | 13px | 400 | `text-[0.8125rem]` | Metadata, timestamps |
+| `2xs` | 0.75rem | 12px | 400 | `text-xs` | Badges, small labels |
 
-**Rules:**
-- Never go below 13px for any readable text.
-- Never use font-weight below 400 (no thin/ultralight weights — unreadable under salon lighting).
-- Monetary amounts always use `--type-body-medium` or heavier. KES amounts should always be prefixed `KES` with a non-breaking space: `KES 18,500`.
-- Use `font-variant-numeric: tabular-nums` on all numeric data to prevent layout shifts.
+### Rules
 
----
+- **All font sizes in `rem`** — never `px`. Respects browser/OS font size preferences.
+- **Line height:** `leading-normal` (1.5) for body text, `leading-tight` (1.25) for headings.
+- **Letter spacing:** default for all sizes except `2xs` badges where `tracking-wide` improves legibility.
+- **Font weight** follows the scale above — never use 400 for primary labels, never use 700 for body copy.
+- **Truncation** on single-line list items with `truncate`. Never let customer names or service names overflow their container.
 
-### 2.3 Spacing Scale
+```tsx
+// ✅ Correct typography
+<h1 className="text-2xl font-bold text-text-primary leading-tight">Dashboard</h1>
+<p className="text-base text-text-primary leading-normal">Body text</p>
+<span className="text-xs text-text-secondary tracking-wide uppercase">Badge</span>
 
-All layout decisions derive from this 8pt base grid. Never use arbitrary pixel values outside this scale.
-
-```
---space-2:   2px   // Micro: icon-to-label tight coupling
---space-4:   4px   // XS: badge internal padding, icon micro-gap  
---space-8:   8px   // SM: label-to-input gap, internal card row gap
---space-12:  12px  // MD-: compact list rows
---space-16:  16px  // MD: standard page margins, card inner padding
---space-20:  20px  // MD+: form field vertical gap
---space-24:  24px  // LG: inter-card spacing, section gap
---space-32:  32px  // XL: major section isolation
---space-48:  48px  // XXL: bottom nav + safe area clearance buffer
-```
-
-**Page margin rule:** `--space-16` left/right on all screens. Never reduce below this.
-
----
-
-### 2.4 Elevation & Shadow
-
-Shadows simulate native iOS layer depth. Never use heavy drop shadows.
-
-```css
-/* Cards sitting on canvas */
---shadow-card:    0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-
-/* Modals, bottom sheets */
---shadow-sheet:   0 -2px 20px rgba(0,0,0,0.08);
-
-/* Floating action elements */
---shadow-float:   0 4px 16px rgba(0,0,0,0.10);
-
-/* Pressed/inset state */
---shadow-inset:   inset 0 1px 3px rgba(0,0,0,0.06);
+// ❌ Wrong
+<h1 style={{ fontSize: '32px', fontWeight: 'bold' }}>
+<p className="text-[14px]">       // px value
+<p className="text-gray-900">     // hardcoded colour
 ```
 
 ---
 
-### 2.5 Border Radius
+## 4. Tokens — Spacing
+
+All spacing uses Tailwind's 4px base scale. Only use values from the scale — never arbitrary spacing.
 
 ```
---radius-sm:   8px   // Badges, chips, small inputs
---radius-md:   12px  // Cards, standard modals
---radius-lg:   16px  // Large cards, bottom sheets
---radius-xl:   20px  // Hero cards, appointment ribbon cards
---radius-full: 9999px // Pills, avatar circles, toggle tracks
+space-1  →  4px   →  p-1,  m-1,  gap-1
+space-2  →  8px   →  p-2,  m-2,  gap-2
+space-3  →  12px  →  p-3,  m-3,  gap-3
+space-4  →  16px  →  p-4,  m-4,  gap-4   ← standard component padding
+space-5  →  20px  →  p-5,  m-5,  gap-5
+space-6  →  24px  →  p-6,  m-6,  gap-6   ← section spacing
+space-8  →  32px  →  p-8,  m-8,  gap-8   ← screen top padding
+space-10 →  40px  →  p-10, m-10, gap-10
+space-12 →  48px  →  p-12, m-12, gap-12
 ```
+
+### Spacing conventions
+
+| Context | Value | Class |
+|---|---|---|
+| Icon internal padding | 4px | `p-1` |
+| Tight element grouping | 8px | `gap-2` |
+| Standard card padding | 16px | `p-4` |
+| Between card sections | 24px | `gap-6` |
+| Screen horizontal padding | 16px | `px-4` |
+| Screen top padding | 32px | `pt-8` |
+| Bottom nav height | 64px | `h-16` |
 
 ---
 
-### 2.6 Motion & Animation
+## 5. Tokens — Radius & Shadows
 
-Keep animations sub-250ms. Never block user interaction for animation.
-
-```
---duration-instant:  100ms  // Pressed state feedback
---duration-fast:     150ms  // Tab switch, badge update
---duration-standard: 220ms  // Modal open, card expand
---duration-slow:     300ms  // Bottom sheet slide-up (max allowed)
-
---ease-out:  cubic-bezier(0.25, 0.46, 0.45, 0.94)  // Default for entrances
---ease-in:   cubic-bezier(0.55, 0.06, 0.68, 0.19)  // Exits
---ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1)   // One-time use: success confirmation only
-```
-
-**Prohibited:** Bouncy multi-axis transitions, looping pulse animations on data, slow fades over 300ms, rotation/flip card effects.
-
-**Preferred motion patterns:**
-- Modals/sheets: `translateY(100%) → translateY(0)` with `--ease-out`
-- Cards on load: `opacity 0 → 1` + `translateY(8px) → 0`
-- Tab switch: instant icon/label color change, 150ms underline/fill
-- Button press: `scale(0.97)` at `--duration-instant`
-
----
-
-## 3. Layout System
-
-### 3.1 Global Structural Rules
+### Border radius
 
 ```
-Max content width:  480px (centered on wider viewports)
-Page left/right:    --space-16 padding
+radius-sm  →  8px   →  rounded-[--radius-sm]   badges, chips, small tags
+radius-md  →  12px  →  rounded-[--radius-md]   cards, inputs, dropdowns
+radius-lg  →  16px  →  rounded-[--radius-lg]   buttons, modals
+radius-xl  →  24px  →  rounded-[--radius-xl]   bottom sheets
 ```
 
-```css
-/* iOS Safe Area injection — required on all screens */
-.page {
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: calc(env(safe-area-inset-bottom) + 72px); /* 72px = bottom nav height */
-}
-```
+Never use Tailwind's default `rounded-*` values (`rounded-lg` = 8px in Tailwind, but our `radius-lg` = 16px). Always use the `--radius-*` token.
 
-**Touch target law:** Every tappable element must be at minimum `44px` tall. Preferred height for primary list rows and buttons: `52px–56px`. Form inputs: `48px`.
-
-**Scroll rule:** Only one scrollable axis per screen. Horizontal scroll is permitted only inside the appointment ribbon (section 4.2). Never have two nested scroll containers.
-
-### 3.2 Card Anatomy
-
-Cards are the universal container. All cards share:
+### Shadows
 
 ```
-Background:  --color-surface
-Border:      1px solid --color-border
-Radius:      --radius-md (12px) or --radius-lg (16px) for hero cards
-Shadow:      --shadow-card
-Padding:     --space-16 all sides
-```
-
-**Card variants:**
-
-| Variant | Radius | Shadow | Use |
-|---|---|---|---|
-| Standard | 12px | `--shadow-card` | List groups, info blocks |
-| Hero | 16px | `--shadow-card` | Financial pulse, Action Center |
-| Appointment (ribbon) | 20px | `--shadow-card` | Horizontal scroll ribbon |
-| Modal Sheet | 20px top-only | `--shadow-sheet` | Bottom sheet modals |
-
-**Card group rule:** When stacking multiple cards in the same section, use `--space-12` gap between them and `--space-24` between section groups.
-
----
-
-## 4. Screen Architecture
-
-### 4.1 Home — The 4-Question Dashboard
-
-The landing screen answers four operational questions before the owner has finished reading the greeting:
-
-1. **What needs my attention right now?** → Action Center
-2. **Who am I seeing today?** → Schedule Ribbon
-3. **How is money moving?** → Financial Pulse
-4. **Who is trying to reach me?** → Communications
-
-```
-┌─────────────────────────────────────┐
-│ [safe-area-top]                     │
-│                                     │
-│  Good morning, Amina  ·  Tue 16 Jun │  ← H1 + caption date (--type-h1, --type-caption)
-│                                     │
-│ ╔═══════════════════════════════╗   │
-│ ║  ACTION CENTER                ║   │  ← Hero card (--radius-lg)
-│ ║  ─────────────────────────    ║   │
-│ ║  ⚠  3 Pending Bookings        ║   │  ← Warning icon + --color-warning
-│ ║  💳 2 Unpaid Appointments     ║   │
-│ ║  ─────────────────────────    ║   │
-│ ║  🔴 1 Client Waiting In-Salon ║   │  ← Live/urgent — red dot pulse (1 loop only)
-│ ╚═══════════════════════════════╝   │
-│                                     │
-│  TODAY'S SCHEDULE                   │  ← --type-caption-medium uppercase section label
-│  ← ─────────────────────────── →   │  ← Horizontal scroll, no scrollbar visible
-│  ┌────────────┐  ┌────────────┐     │
-│  │ 9:00 AM    │  │ 10:30 AM   │     │
-│  │ Gel Polish │  │ Acrylics   │     │
-│  │ Jane W.    │  │ Sarah N.   │     │
-│  │ ✅ Paid    │  │ ⚠ Unpaid  │     │
-│  └────────────┘  └────────────┘     │
-│                                     │
-│ ╔═══════════════════════════════╗   │
-│ ║  FINANCIAL PULSE              ║   │
-│ ║  KES 18,500   Today's Revenue ║   │  ← --type-display for the amount
-│ ║  ▲ 15% vs yesterday           ║   │
-│ ║  ─────────────────────────    ║   │
-│ ║  ⚠ KES 4,200 pending          ║   │
-│ ╚═══════════════════════════════╝   │
-│                                     │
-│ ╔═══════════════════════════════╗   │
-│ ║  💬 4 Unread Messages         ║   │
-│ ║                  Open WhatsApp→║   │
-│ ╚═══════════════════════════════╝   │
-│                                     │
-│ [bottom nav]                        │
-│ [safe-area-bottom]                  │
-└─────────────────────────────────────┘
-```
-
-**Section label treatment:**
-```
-font-size: 13px (--type-caption-medium)
-font-weight: 500
-letter-spacing: 0.6px
-text-transform: uppercase
-color: --color-text-secondary
-margin-bottom: --space-8
-```
-
----
-
-### 4.2 Appointment Card (Ribbon)
-
-Used in the horizontal scroll ribbon on Home and as a list row in the Bookings screen.
-
-```
-┌───────────────────────────┐
-│ 9:00 AM          [Confirmed] │  ← time (body-medium) + status pill (right-aligned)
-│ Jane Wanjiku                 │  ← client name (body regular)
-│ Gel Polish · Amina           │  ← service · technician (caption muted)
-│ KES 1,500                    │  ← amount (body-medium, right side)
-└───────────────────────────┘
-```
-
-**Ribbon card dimensions:** `min-width: 200px`, `max-width: 220px`, height: auto (min 104px). Snap to nearest card on scroll: `scroll-snap-type: x mandatory`.
-
-#### Status Badge Specification
-
-| State | Background | Text Color | Icon | Label |
-|---|---|---|---|---|
-| Confirmed | `--color-success` light `#E6F9EC` | `#1A7A38` | ✓ | Confirmed |
-| Pending | `--color-warning` light `#FFF3E0` | `#7A4A00` | ⏳ | Pending |
-| Completed | `#F2F2F7` | `#636366` | — | Done |
-| Cancelled | `--color-error` light `#FFEEED` | `#8A1A1A` | ✗ | Cancelled |
-| In Progress | `#E5F1FF` | `#003F8A` | ● | In Salon |
-
-Badge anatomy:
-```
-padding: 3px 10px
-border-radius: --radius-full
-font: --type-caption-medium
-```
-
----
-
-## 5. Navigation
-
-### 5.1 Bottom Tab Bar
-
-```
-┌─────────────────────────────────────────┐
-│  🏠        📅        💳       👥       ⚙️  │
-│ Dashboard    Bookings  Payments Clients  Settings│
-└─────────────────────────────────────────┘
-```
-
-```css
-.tab-bar {
-  position: fixed;
-  bottom: 0;
-  width: 100%;
-  height: 72px;
-  padding-bottom: env(safe-area-inset-bottom);
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(20px) saturate(180%);
-  border-top: 1px solid var(--color-border);
-}
-```
-
-**Active state:** Icon + label tint to `--color-accent`. Transition: `color 150ms --ease-out`. No animated underlines or sliding pills — instant color swap only.
-
-**Tab icon sizes:** 24×24px SVG, 1.5px stroke weight, rounded line caps.
-
-**Labels:** `--type-micro` (11px, 500 weight). Always visible — never hide labels to save space.
-
----
-
-### 5.2 Screen Header
-
-Each screen (except Home) uses a consistent header:
-
-```
-┌─────────────────────────────┐
-│  [safe-area-top]            │
-│  < Back    [Screen Title]   + │  ← back chevron (left) + primary action (right)
-└─────────────────────────────┘
-```
-
-```
-Height: 44px (navigation bar) + safe area
-Title: --type-h3, centered
-Back: "‹ Back" — --type-body, --color-accent
-Primary action: text button or icon in --color-accent
-```
-
----
-
-## 6. Form System
-
-### 6.1 Input Anatomy
-
-```
-[Label — always above input]
-┌─────────────────────────────┐
-│  placeholder / value        │  ← 48px min-height
-└─────────────────────────────┘
-[Inline error message if invalid]
-```
-
-```css
-.form-input {
-  height: 48px;
-  padding: 0 var(--space-16);
-  background: var(--color-surface);
-  border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-sm);        /* 8px */
-  font-size: 16px;                        /* Prevents iOS auto-zoom */
-  transition: border-color 150ms ease-out;
-}
-.form-input:focus {
-  border-color: var(--color-accent);
-  outline: none;
-}
-.form-input.error {
-  border-color: var(--color-error);
-}
-```
-
-**Label:**
-```
-font: --type-caption-medium
-color: --color-text-secondary
-margin-bottom: --space-4
-```
-
-**Error message:**
-```
-font: --type-caption
-color: --color-error
-margin-top: --space-4
-```
-
-**Never:** Clear field content on validation error. Never use placeholder text as the only label.
-
-### 6.2 Keyboard Triggers
-
-| Field Type | Attribute |
-|---|---|
-| Phone number | `inputmode="tel"` |
-| Amount / KES | `inputmode="decimal"` |
-| Date | Native `<input type="date">` or rolling picker sheet |
-| Time | Native `<input type="time">` or time scroll wheel |
-| Client search | `inputmode="search"` `autocomplete="off"` |
-
-### 6.3 Primary Button
-
-```css
-.btn-primary {
-  width: 100%;
-  height: 52px;
-  background: var(--color-accent);
-  color: white;
-  font-size: 16px;
-  font-weight: 600;
-  border-radius: var(--radius-md);
-  border: none;
-  transition: transform 100ms ease-out, opacity 100ms ease-out;
-}
-.btn-primary:active {
-  transform: scale(0.97);
-  opacity: 0.88;
-}
-.btn-primary:disabled {
-  background: var(--color-border);
-  color: var(--color-text-tertiary);
-  pointer-events: none;
-}
-```
-
-**Loading state:** Replace label text with a single inline spinner (16px, white). Lock `pointer-events: none` to prevent double-submit.
-
-### 6.4 Secondary / Destructive Buttons
-
-| Variant | Background | Border | Text |
-|---|---|---|---|
-| Secondary | `--color-surface` | `1.5px --color-border` | `--color-text-primary` |
-| Destructive | `#FFEEED` | `1.5px #FF3B30` | `#FF3B30` |
-| Ghost | transparent | none | `--color-accent` |
-
----
-
-## 7. System States
-
-### 7.1 Loading — Skeletons
-
-Every list row and card must have a skeleton counterpart. Skeletons use static fills (no shimmer animation — too distracting in a busy salon).
-
-```css
-.skeleton {
-  background: #EBEBEB;
-  border-radius: var(--radius-sm);
-  /* Static — no animation */
-}
-```
-
-Skeleton blocks should match the exact height and width of the content they replace. Do not use generic grey rectangles that don't match the layout.
-
-### 7.2 Empty States
-
-Every screen with a list must have an empty state.
-
-```
-         [ monochrome icon — 48×48px ]
-         
-         No appointments today
-         
-         Your schedule is clear. Book a client
-         to get started.
-         
-         [ Book Appointment ] ← --btn-primary, full width
+shadow-card   →  shadow-[--shadow-card]    cards, list items, stat blocks
+shadow-raised →  shadow-[--shadow-raised]  dropdowns, popovers, hover states
+shadow-modal  →  shadow-[--shadow-modal]   modals, bottom sheets, dialogs
 ```
 
 Rules:
-- Icon: monochrome, line-style, 48px, `--color-text-tertiary`
-- Heading: `--type-h3`, `--color-text-primary`
-- Body: `--type-body`, `--color-text-secondary`, max 2 lines
-- CTA always present and actionable
+- Cards always use `shadow-card` — never `shadow-md` or `drop-shadow-*`.
+- Do not apply shadow to elements that already sit on a coloured or raised background.
+- Never stack shadows (two nested elements both with `shadow-card`).
 
-### 7.3 Error States
+---
+
+## 6. Component Specifications
+
+### Button
+
+Three variants. Never create a fourth.
+
+```tsx
+// Primary — one per screen section maximum
+<button className="
+  bg-primary hover:bg-primary-dark active:scale-[0.98]
+  text-white font-semibold text-[1.0625rem]
+  min-h-11 px-6 w-full
+  rounded-[--radius-lg]
+  transition-colors duration-150
+  disabled:opacity-50 disabled:cursor-not-allowed
+">
+  Approve Booking
+</button>
+
+// Secondary — supporting action
+<button className="
+  bg-surface hover:bg-surface-raised
+  border border-border
+  text-primary font-semibold text-[1.0625rem]
+  min-h-11 px-6
+  rounded-[--radius-lg]
+  transition-colors duration-150
+">
+  Reschedule
+</button>
+
+// Destructive — irreversible actions only, always behind confirmation
+<button className="
+  bg-error hover:bg-red-600 active:scale-[0.98]
+  text-white font-semibold text-[1.0625rem]
+  min-h-11 px-6 w-full
+  rounded-[--radius-lg]
+  transition-colors duration-150
+">
+  Cancel Booking
+</button>
+```
+
+**Loading state:** Replace label with a spinner (`animate-spin` SVG). Keep button dimensions identical — never resize on load.
+
+**Icon buttons** (close, back, menu): minimum `min-h-11 min-w-11`, centered icon, no visible background unless hovered.
+
+### Booking Status Badge
+
+Pill-shaped. Background is always the `*-bg` tint of the status colour. Text is the status colour. Never background = status colour (too harsh).
+
+```tsx
+const badgeConfig = {
+  PENDING:            { bg: "bg-warning-bg",  text: "text-warning", label: "Pending" },
+  APPROVED:           { bg: "bg-info-bg",     text: "text-info",    label: "Confirmed" },
+  PAYMENT_PENDING:    { bg: "bg-warning-bg",  text: "text-warning", label: "Awaiting Payment" },
+  PAYMENT_COMPLETED:  { bg: "bg-success-bg",  text: "text-success", label: "Paid" },
+  CANCELLED:          { bg: "bg-error-bg",    text: "text-error",   label: "Cancelled" },
+  COMPLETED:          { bg: "bg-success-bg",  text: "text-success", label: "Completed" },
+  RESCHEDULED:        { bg: "bg-info-bg",     text: "text-info",    label: "Rescheduled" },
+};
+
+// Always include aria-label — colour is not the only indicator
+<span
+  className={`${config.bg} ${config.text} text-xs font-medium px-2 py-1 rounded-[--radius-sm]`}
+  aria-label={`Status: ${config.label}`}
+>
+  {config.label}
+</span>
+```
+
+### Booking Card
+
+List item. Fixed height on mobile. Swipe-left reveals contextual actions.
 
 ```
-         [ ! icon — red, 48px ]
-         
-         Couldn't load your schedule
-         
-         Check your connection and try again.
-         
-         [ Try Again ] ← --btn-primary
+┌─────────────────────────────────────┐
+│ [Avatar]  Wanjiku Kamau     [PAID] │  ← avatar 36px circle, initials
+│           Gel Manicure             │  ← text-sm text-text-secondary
+│           2:00 PM                  │  ← text-sm text-text-secondary
+└─────────────────────────────────────┘
 ```
 
-Errors explain what happened in plain terms. Never say "An error occurred" with no path forward.
+Rules:
+- Customer name: `truncate` — never wraps.
+- Avatar: generated from initials, background colour deterministic from name (hash → pick from 6 brand-adjacent colours).
+- Time always formatted in EAT 12-hour format: "2:00 PM" not "14:00".
+- Swipe actions revealed contextually: only show actions valid for the current booking status.
 
-### 7.4 Toast Notifications
-
-Non-blocking feedback anchored above the bottom nav.
-
-```
-┌─────────────────────────────┐
-│  ✓  Booking confirmed       │  ← success
-└─────────────────────────────┘
-```
+### Stat Card
 
 ```
-Position: fixed, bottom: 84px (above nav), centered, max-width: calc(100% - 32px)
-Background: #1C1C1E (dark), text: white
-Border-radius: --radius-md
-Padding: 12px 16px
-Font: --type-body-medium
-Auto-dismiss: 3000ms
-Animation: slide up from bottom 220ms, fade out 200ms
+┌──────────────────────────┐
+│ [icon circle]            │
+│ 6                        │  ← text-2xl font-bold
+│ Today's Bookings         │  ← text-sm text-text-secondary
+│ ↑ 2 from yesterday       │  ← text-xs, green/red
+└──────────────────────────┘
+```
+
+Icon circle: 40×40px, `bg-primary-light`, `rounded-full`, icon in `text-primary`.  
+Trend indicator: `text-success` for positive, `text-error` for negative, `text-text-secondary` for neutral.
+
+### Text Input
+
+```tsx
+<div className="relative">
+  <label className="
+    absolute left-3 transition-all duration-150 pointer-events-none
+    text-text-secondary
+    peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-base
+    top-1.5 text-xs                          // floated state
+  ">
+    Customer name
+  </label>
+  <input
+    className="
+      peer w-full bg-surface-raised
+      border border-border focus:border-primary
+      rounded-[--radius-md]
+      pt-6 pb-2 px-3
+      text-base text-text-primary
+      outline-none transition-colors duration-150
+      aria-[invalid=true]:border-error
+    "
+    placeholder=" "
+  />
+  {error && (
+    <p className="mt-1 text-xs text-error">{error.message}</p>
+  )}
+</div>
+```
+
+### Toast Notification
+
+Fixed position, bottom of viewport, above bottom nav. Slides up on enter, slides down on exit.
+
+```tsx
+// Position
+<div className="fixed bottom-[calc(64px+env(safe-area-inset-bottom)+8px)] left-4 right-4 z-50">
+
+// Variants
+const toastConfig = {
+  success: "bg-success-bg border-success text-success",
+  error:   "bg-error-bg border-error text-error",
+  info:    "bg-info-bg border-info text-info",
+};
+
+// Shape
+<div className={`
+  ${config} border rounded-[--radius-md]
+  shadow-[--shadow-raised]
+  px-4 py-3 flex items-center gap-3
+  animate-slide-up
+`}
+  role="status"        // "alert" for errors
+  aria-live="polite"   // "assertive" for errors
+>
+  <Icon size={16} />
+  <p className="text-sm font-medium">{message}</p>
+</div>
+```
+
+Auto-dismisses after 3 seconds. Error toasts require manual dismiss.
+
+### Confirmation Dialog
+
+Use native `<dialog>` element. Never use a custom div-based modal for confirmations.
+
+```tsx
+// Always focus the non-destructive action on open
+// Destructive action is always on the right
+<dialog className="rounded-[--radius-lg] shadow-[--shadow-modal] p-6 max-w-sm w-full">
+  <h2 className="text-lg font-semibold text-text-primary mb-2">{title}</h2>
+  <p className="text-base text-text-secondary mb-6">{description}</p>
+  <div className="flex gap-3">
+    <button autofocus className="flex-1 /* secondary styles */">Keep Appointment</button>
+    <button className="flex-1 /* destructive styles */">Cancel Appointment</button>
+  </div>
+</dialog>
+```
+
+### Bottom Sheet
+
+Mobile modal. Slides up from bottom edge.
+
+```tsx
+<div className="
+  fixed inset-x-0 bottom-0 z-50
+  bg-surface
+  rounded-t-[--radius-xl]
+  shadow-[--shadow-modal]
+  pb-[env(safe-area-inset-bottom)]
+  max-h-[90vh] overflow-y-auto
+">
+  {/* Drag handle */}
+  <div className="w-10 h-1 bg-border rounded-full mx-auto mt-3 mb-4" aria-hidden="true" />
+  {children}
+</div>
+```
+
+Backdrop: `fixed inset-0 bg-black/40 backdrop-blur-sm z-40`  
+Drag-to-dismiss: `touchstart`/`touchmove`/`touchend` tracking 80px downward drag threshold.  
+Focus trap: active while sheet is open.
+
+### Skeleton
+
+Match the exact shape of the content it replaces. Use `animate-pulse` with `bg-surface-raised`.
+
+```tsx
+// Booking card skeleton
+<div className="flex items-center gap-3 p-4">
+  <div className="w-9 h-9 rounded-full bg-surface-raised animate-pulse" />
+  <div className="flex-1 space-y-2">
+    <div className="h-4 w-32 bg-surface-raised rounded animate-pulse" />
+    <div className="h-3 w-24 bg-surface-raised rounded animate-pulse" />
+  </div>
+  <div className="h-6 w-16 bg-surface-raised rounded-[--radius-sm] animate-pulse" />
+</div>
+```
+
+Never use a generic full-page spinner as a loading state. Always skeleton the actual content shape.
+
+---
+
+## 7. Layout & Navigation
+
+### Bottom navigation (mobile, < 768px)
+
+```
+Fixed at bottom. Height 64px. 5 tabs.
+padding-bottom: env(safe-area-inset-bottom)
+Background: bg-surface
+Border top: 1px border-border
+```
+
+Active tab: icon + label in `text-primary`.  
+Inactive tab: icon + label in `text-text-disabled`.  
+Badge: absolute-positioned red pill on Bookings tab when `pendingCount > 0`.
+
+### Sidebar (desktop, ≥ 768px)
+
+```
+Fixed left. Width 240px expanded, 64px collapsed.
+Background: bg-surface
+Border right: 1px border-border
+```
+
+Same 5 items as bottom nav. Hover state: `bg-surface-raised`. Active: `bg-primary-light text-primary`.
+
+### Page layout
+
+```tsx
+// Mobile
+<div className="min-h-screen bg-bg pb-16">   // pb-16 = bottom nav height
+  <header className="sticky top-0 bg-surface border-b border-border px-4 py-3 z-10">
+    <h1 className="text-xl font-bold text-text-primary">{title}</h1>
+  </header>
+  <main className="px-4 pt-4 pb-6">
+    {children}
+  </main>
+</div>
+
+// Desktop
+<div className="flex min-h-screen bg-bg">
+  <Sidebar />
+  <div className="flex-1 ml-64">
+    <main className="p-8 max-w-5xl mx-auto">
+      {children}
+    </main>
+  </div>
+</div>
+```
+
+### Z-index scale
+
+```
+Base content:      z-0
+Sticky headers:    z-10
+Dropdowns:         z-20
+Bottom nav:        z-30
+Backdrop:          z-40
+Sheets / Modals:   z-50
+Toasts:            z-60
+```
+
+Never use arbitrary z-index values outside this scale.
+
+---
+
+## 8. Screen Patterns
+
+### Dashboard
+
+Grid layout for stat cards. 2 columns on mobile, 4 on desktop.
+
+```tsx
+<div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+  <StatCard label="Today's Bookings" value={6} icon={Calendar} />
+  <StatCard label="Pending" value={2} icon={Clock} badge />
+  <StatCard label="Revenue" value="KES 8,500" icon={TrendingUp} />
+  <StatCard label="Unpaid" value="KES 1,500" icon={AlertCircle} />
+</div>
+```
+
+Section headers use `text-xs font-semibold text-text-secondary uppercase tracking-wide` — a visual hierarchy separator, not a heading level.
+
+### List screens (Bookings, Customers, Payments)
+
+```
+Sticky search bar below sticky header.
+Grouped list with date section headers.
+Pull-to-refresh on mobile (touch overscroll).
+Infinite scroll or "Load more" button for pagination.
+```
+
+Date section headers: `text-xs font-semibold text-text-secondary uppercase tracking-wide py-2 px-4 bg-bg sticky top-[104px]`
+
+### Detail screens
+
+Back button in header, action buttons at the bottom in a fixed footer (not inline):
+
+```tsx
+// Content scrolls, actions are fixed
+<div className="flex flex-col min-h-screen">
+  <Header back title="Booking Detail" />
+  <main className="flex-1 overflow-y-auto px-4 pt-4 pb-32">
+    {/* booking details */}
+  </main>
+  <footer className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)] space-y-2">
+    <PrimaryButton>Approve Booking</PrimaryButton>
+    <SecondaryButton>Reschedule</SecondaryButton>
+    <DestructiveButton>Cancel Booking</DestructiveButton>
+  </footer>
+</div>
 ```
 
 ---
 
-## 8. Data Display Conventions
+## 9. Motion & Animation
 
-### 8.1 Currency
+### Principles
+- Motion must have **purpose** — it communicates state change, not decoration.
+- All durations under 300ms. Anything longer feels sluggish on mobile.
+- Always respect `prefers-reduced-motion`.
 
-- Always prefix: `KES` with a non-breaking space (`&nbsp;` or `\u00A0`)
-- Always use comma-separated thousands: `KES 18,500` not `KES 18500`
-- Amounts at rest: `--type-body-medium`
-- Hero revenue figures: `--type-display` (34px bold)
-- Negative / deductions: `--color-error` tint
-- `font-variant-numeric: tabular-nums` on all monetary values
+### Duration scale
 
-### 8.2 Timestamps & Dates
-
-- Time: 12-hour format — `9:00 AM`, `2:30 PM` (no leading zero)
-- Date: `Tue, 16 Jun` for short form; `Tuesday, 16 June 2026` for full form
-- Relative time (for recent activity): `2 min ago`, `Just now`, `Yesterday`
-
-### 8.3 Client Names
-
-Display full names: first + last. Never truncate with an ellipsis inside a card. If a name would overflow (rare), reduce font to `--type-caption-medium` before truncating.
-
----
-
-## 9. PWA Configuration
-
-### 9.1 Manifest
-
-```json
-{
-  "name": "Wannys Nails",
-  "short_name": "Wanny's",
-  "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#FAF7F2",
-  "theme_color": "#FAF7F2",
-  "start_url": "/",
-  "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/icons/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
-  ]
-}
+```
+instant:    0ms    state changes that need no transition (badge count)
+fast:       100ms  icon swaps, colour changes
+normal:     150ms  button hover, focus rings
+moderate:   200ms  dropdown appear, toast slide
+slow:       250ms  bottom sheet, modal enter
 ```
 
-### 9.2 Viewport & Browser Behavior
+### Standard transitions
 
-```html
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-```
-
-Block pull-to-refresh on scroll containers where it would conflict:
 ```css
-.scroll-container {
-  overscroll-behavior-y: contain;
+/* Button colour change */
+transition-colors duration-150
+
+/* Bottom sheet slide up */
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.animate-slide-up { animation: slide-up 250ms cubic-bezier(0.32, 0.72, 0, 1); }
+
+/* Toast slide up */
+@keyframes toast-in {
+  from { transform: translateY(calc(100% + 16px)); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+.animate-toast-in { animation: toast-in 200ms ease-out; }
+
+/* Skeleton pulse — use Tailwind's animate-pulse */
+```
+
+### Reduced motion
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 ```
 
-### 9.3 Service Worker Caching Strategy
+This is in `index.css`. Do not add it per-component.
 
-| Resource | Strategy |
+---
+
+## 10. Responsive Design
+
+### Breakpoints
+
+```
+mobile:   < 768px    single column, bottom nav, bottom sheets
+tablet:   768–1024px sidebar (icon only), modals as overlays
+desktop:  > 1024px   sidebar (icon + label), master-detail layouts
+```
+
+### Mobile-first rule
+
+Write mobile styles first, add `md:` and `lg:` prefixes for larger screens:
+
+```tsx
+// ✅ Mobile first
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+
+// ❌ Desktop first
+<div className="grid grid-cols-4 sm:grid-cols-2 xs:grid-cols-1 gap-3">
+```
+
+### Touch targets
+
+44×44px minimum on all interactive elements — enforced with `min-h-11 min-w-11`.
+
+### Safe areas
+
+```tsx
+// Bottom nav
+<nav className="pb-[env(safe-area-inset-bottom)]">
+
+// Fixed footer on detail screens
+<footer className="pb-[calc(env(safe-area-inset-bottom)+12px)]">
+
+// Toast
+<div className="bottom-[calc(64px+env(safe-area-inset-bottom)+8px)]">
+```
+
+---
+
+## 11. Loading States
+
+### Rules
+- **Never use a full-page spinner.** Always skeleton the exact shape of the content.
+- **Skeleton screens appear immediately** — no delay, no fade-in threshold.
+- **Skeleton width is approximate, not exact.** Use `w-32`, `w-24`, `w-full` — not pixel-perfect.
+- **Multiple skeletons** when a list is loading — show 3–5 skeleton items.
+
+### Pattern per screen
+
+| Screen | Skeleton |
 |---|---|
-| App shell (HTML, CSS, JS) | Cache-first with background revalidation |
-| API data (bookings, payments) | Network-first, fallback to stale cache |
-| Static assets (icons, fonts) | Cache-first, long TTL |
-| Client photos / avatars | Stale-while-revalidate |
-
-Offline state: Serve cached shell with a non-intrusive offline banner at the top: `"You're offline — showing last synced data"`.
-
----
-
-## 10. Accessibility
-
-- All interactive elements: `role`, `aria-label`, or visible label. Never icon-only buttons without an `aria-label`.
-- Color contrast: minimum AA on all text. Test `--color-text-secondary` (#636366) on `--color-surface` (#FFF) — passes at 5.9:1.
-- Focus indicators: `outline: 2px solid var(--color-accent); outline-offset: 2px` on all focusable elements. Never `outline: none` without a replacement.
-- VoiceOver: Use semantic HTML (`<button>`, `<nav>`, `<main>`, `<section>`) — no `div` soup.
-- Reduced motion: wrap all non-essential animations in `@media (prefers-reduced-motion: no-preference)`.
-- Minimum touch target: 44×44px. Use padding to extend tap area without affecting visual size.
+| Dashboard | 4 stat card skeletons + 3 booking card skeletons |
+| Bookings list | 5 booking card skeletons |
+| Booking detail | Full-page skeleton matching the detail layout |
+| Customers list | 5 customer row skeletons |
+| Payments list | 4 transaction row skeletons |
 
 ---
 
-## 11. Design Anti-Patterns (Never Do)
+## 12. Empty States
 
-| Anti-Pattern | Why |
+Centred vertically and horizontally in the content area. Never flush to the top.
+
+```tsx
+<div className="flex flex-col items-center justify-center py-16 px-8 text-center">
+  <Icon size={48} className="text-text-disabled mb-4" strokeWidth={1.5} />
+  <h3 className="text-lg font-semibold text-text-primary mb-2">{title}</h3>
+  <p className="text-base text-text-secondary mb-6 max-w-xs">{description}</p>
+  {cta && <PrimaryButton>{cta}</PrimaryButton>}
+</div>
+```
+
+| Screen | Icon | Title | Description | CTA |
+|---|---|---|---|---|
+| Dashboard (no bookings) | `CalendarX` | "No appointments today" | — | — |
+| Bookings list | `Calendar` | "No bookings found" | "Customers book via WhatsApp" | "+ New Booking" |
+| Customers | `Users` | "No customers yet" | "Customers appear after their first WhatsApp booking" | — |
+| Payments | `CreditCard` | "No transactions" | "No payments in this period" | — |
+| Customer history | `Clock` | "No past bookings" | — | — |
+| Search (no results) | `SearchX` | "No results for '…'" | "Try a different name or phone number" | — |
+
+---
+
+## 13. Error States
+
+### Full-screen error (page load failure)
+
+```tsx
+<div className="flex flex-col items-center justify-center min-h-[60vh] px-8 text-center">
+  <WifiOff size={48} className="text-text-disabled mb-4" />
+  <h3 className="text-lg font-semibold text-text-primary mb-2">Couldn't load data</h3>
+  <p className="text-base text-text-secondary mb-6">Check your connection and try again</p>
+  <SecondaryButton onClick={refetch}>Retry</SecondaryButton>
+</div>
+```
+
+### Inline error (form field)
+
+```tsx
+<p className="mt-1 text-xs text-error flex items-center gap-1">
+  <AlertCircle size={12} />
+  {error.message}
+</p>
+```
+
+### Toast error (mutation failure)
+
+```tsx
+showToast({ type: "error", message: "Failed to approve booking. Try again." });
+```
+
+Rules:
+- Never show raw API error codes to users.
+- Never show stack traces or technical details.
+- Always give the user a next action (Retry, Go back, Contact support).
+- Offline errors show `WifiOff` icon — distinguish from server errors.
+
+---
+
+## 14. Iconography
+
+Use **Lucide React** exclusively. No other icon libraries. No custom SVGs unless a required icon is genuinely missing from Lucide.
+
+### Size conventions
+
+| Context | Size | Stroke width |
+|---|---|---|
+| Navigation icons | 22px | 2 |
+| Action button icons | 18px | 2 |
+| Inline text icons | 16px | 2 |
+| Empty state illustrations | 48px | 1.5 |
+| Badge/chip icons | 12px | 2 |
+| Stat card icons | 20px | 2 |
+
+### Icon + text alignment
+
+Always use `flex items-center gap-2` — never manual margin adjustments:
+
+```tsx
+// ✅
+<span className="flex items-center gap-2 text-sm text-text-secondary">
+  <Clock size={16} />
+  2:00 PM
+</span>
+
+// ❌
+<span><Clock size={16} style={{ marginRight: 6, verticalAlign: 'middle' }} /> 2:00 PM</span>
+```
+
+### Standard icon assignments
+
+| Icon | Usage |
 |---|---|
-| Removing field labels on focus | User loses context mid-input |
-| Auto-clearing inputs on error | Forces re-entry, causes frustration |
-| Gradient backgrounds | Feels cheap, reduces text legibility |
-| Looping shimmer skeletons | Distracting in a busy work environment |
-| Multi-column layouts on mobile | Breaks single-thumb operation |
-| Bouncy / spring animations on data | Undermines professionalism |
-| Spinner replacing entire screen | Breaks perceived continuity |
-| KES amounts without comma separators | Misread at a glance |
-| Toast banners that require dismissal | Blocks content, interrupts workflow |
-| "An error occurred. Please try again." | Tells user nothing useful |
+| `Calendar` | Bookings, dates |
+| `Clock` | Time, pending status |
+| `CheckCircle` | Approved, confirmed |
+| `XCircle` | Cancelled |
+| `CreditCard` | Payments |
+| `BadgeCheck` | Paid |
+| `Users` | Customers |
+| `Settings` | Settings |
+| `ChevronRight` | Navigation, list items |
+| `ChevronLeft` | Back navigation |
+| `Plus` | Create actions |
+| `RefreshCw` | Rescheduled, retry |
+| `WifiOff` | Offline state |
+| `AlertCircle` | Warning, error |
+| `Star` | Completed |
 
 ---
 
-*End of DESIGN.md v2.0*
+## 15. Dos and Don'ts
+
+### ✅ Do
+
+- Read `UI_UX_SPECIFICATION.md` before implementing any screen.
+- Use token classes — `bg-primary`, `text-text-secondary`, `border-border`.
+- Skeleton every loading state to match content shape.
+- Confirm every destructive action with a dialog.
+- Test on a real mobile device or iOS Simulator before marking complete.
+- Use `min-h-11` on every interactive element.
+- Include `aria-label` on every icon-only button.
+- Show WhatsApp link (`wa.me/254...`) on customer detail screens.
+- Format all times in EAT 12-hour format ("2:00 PM").
+- Format all amounts as "KES 1,500" (not "KES1500", not "1,500 KES").
+
+### ❌ Don't
+
+- Hardcode any colour (`#C084A8`, `gray-500`, `bg-pink-400`).
+- Use `px` for font sizes.
+- Show two primary buttons on the same screen.
+- Add motion without checking `prefers-reduced-motion`.
+- Show a blank white screen while loading.
+- Use placeholder text as the only label on an input.
+- Show raw error codes or stack traces to users.
+- Put action buttons inline mid-page on detail screens — fix them to the footer.
+- Use Tailwind's default `rounded-lg` — use `rounded-[--radius-lg]`.
+- Use emoji as UI icons — use Lucide icons instead.
+- Render lists without `key` props.
+- Leave empty states blank — always explain why it's empty and what to do.
