@@ -27,7 +27,8 @@ import { config } from "./shared/lib/config.js";
 import { notFound } from "./shared/middleware/404.middleware.js";
 
 const app = express();
-
+// express app is behind a proxy(trust first proxy hoop)
+app.set("trust proxy", 1)
 // Security headers
 app.use(helmet());
 
@@ -45,10 +46,10 @@ app.use(cookieParser(config.COOKIE_SECRET.split(",")))
 // Raw body for webhook signature verification
 app.use(
   express.json({
-    limit: "16kb"
-    // verify: (req, _res, buf) => {
-    //   (req as unknown as Record<string, unknown>).rawBody = buf;
-    // },
+    limit: "16kb",
+    verify: (req, _res, buf) => {
+      (req as unknown as Record<string, unknown>).rawBody = buf;
+    },
   }),
 );
 app.use(express.urlencoded({ extended: true }));
