@@ -73,10 +73,10 @@ export const slotsService = {
       },
     });
 
-    // Generate all possible slots (30-min intervals)
+    // Generate all possible slots (service-duration intervals)
     const slots: Slot[] = [];
     const current = new Date(dayStart);
-    const totalSlotsCount = Math.floor((dayEnd.getTime() - dayStart.getTime()) / (30 * 60 * 1000));
+    const totalSlotsCount = Math.floor((dayEnd.getTime() - dayStart.getTime()) / (durationMinutes * 60 * 1000));
 
     while (current.getTime() + durationMinutes * 60 * 1000 <= dayEnd.getTime()) {
       const slotEnd = new Date(current.getTime() + durationMinutes * 60 * 1000);
@@ -99,8 +99,8 @@ export const slotsService = {
         appointmentAt: current.toISOString(),
       });
 
-      // Move to next slot (30-minute intervals)
-      current.setMinutes(current.getMinutes() + 30);
+      // Move to next slot (service-duration intervals)
+      current.setMinutes(current.getMinutes() + durationMinutes);
     }
 
     const availableCount = slots.filter((s) => s.available).length;
