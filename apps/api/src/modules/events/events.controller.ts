@@ -5,6 +5,7 @@ import { logger } from "../../shared/lib/logger.js";
 
 const log = logger.child({ module: "events" });
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";
+import { UnauthorizedError } from "../../shared/types/errors.js";
 
 type SSEClient = {
   id: string;
@@ -27,9 +28,7 @@ export const connectSse = asyncHandler(async (req: Request, res: Response, _next
   if (!token) {
     res
       .status(401)
-      .json({
-        error: { code: "UNAUTHORIZED", message: "Missing token parameter" },
-      });
+      .json(new UnauthorizedError());
     return;
   }
 
@@ -40,9 +39,7 @@ export const connectSse = asyncHandler(async (req: Request, res: Response, _next
   } catch {
     res
       .status(401)
-      .json({
-        error: { code: "UNAUTHORIZED", message: "Invalid or expired token" },
-      });
+      .json(new UnauthorizedError());
     return;
   }
 
@@ -50,7 +47,7 @@ export const connectSse = asyncHandler(async (req: Request, res: Response, _next
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
-    "X-Accel-Buffering": "no",
+    "X-Accel-Buffering": "no", // if the app is behind a reverse proxy this tells the proxy not to buffer the response to enhance the real time effect no delays
   });
 
   res.write(`event: connected\ndata: {"userId":"${userId}"}\n\n`);

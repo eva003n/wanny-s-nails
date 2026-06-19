@@ -1,6 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { bookingsService } from "./bookings.service.js";
+import { notificationQueue } from "../../shared/lib/queue.js";
+import { logger } from "../../shared/lib/logger.js";
 import {
   success,
   created,
@@ -9,6 +11,8 @@ import {
 } from "../../shared/utils/response.js";
 import { parsePagination } from "../../shared/utils/pagination.js";
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";
+
+const log = logger.child({ module: "bookings.controller" });
 
 // --- Validation schemas (exported for use in routes) ---
 
@@ -77,6 +81,53 @@ export const approveBooking = asyncHandler(async (req: Request, res: Response, _
     req.params.id as string,
     req.user!.userId,
   );
+
+  // ── Enqueue WhatsApp confirmation to customer (async) ─────────
+  try {
+    const EAT_OFFSET_MS = 3 * 60 * 60 * 1000;
+    const eatDate = new Date(booking.appointmentAt.getTime() + EAT_OFFSET_MS);
+    const dateDisplay = eatDate.toLocaleDateString("en-KE", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+    const hours = eatDate.getUTCHours();
+    const minutes = eatDate.getUTCMinutes();
+    const period = hours >= 12 ? "PM" : "AM";
+    const hours12 = hours % 12 || 12;
+    const timeDisplay = `${hours12}:${String(minutes).padStart(2, "0")} ${period}`;
+
+    const confirmationText = [
+      "Your booking has been approved! ✅",
+      "",
+      `📋 Booking: ${booking.reference}`,
+      `✂️ Service: ${booking.service.name}`,
+      `📅 ${dateDisplay}`,
+      `⏰ ${timeDisplay}`,
+      "📍 Wanny's Nails, Nairobi",
+      "",
+      "Please complete payment when prompted. Thank you! 💅",
+    ].join("\n");
+
+    await notificationQueue.add(
+      "whatsapp-booking-approved",
+      {
+        type: "text",
+        to: booking.customer.phone,
+        text: confirmationText,
+      },
+      { attempts: 3, backoff: { type: "exponential", delay: 1000 } },
+    );
+  } catch (error: unknown) {
+    const err = error as { message?: string };
+    log.error(
+      { event: "booking.approve.notify_failed", bookingId: booking.id, error: err.message },
+      "Failed to enqueue WhatsApp notification for approved booking",
+    );
+    // Don't fail the response — the booking was approved successfully
+  }
+
   success(res, booking);
 });
 

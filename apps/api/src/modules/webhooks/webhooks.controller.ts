@@ -1,5 +1,4 @@
 import type { Request, Response, NextFunction } from "express";
-import axios from "axios";
 import { z } from "zod";
 
 import crypto from "crypto";
@@ -10,6 +9,11 @@ const log = logger.child({ module: "webhooks" });
 import { paymentsService } from "../payments/payments.service.js";
 import { redis } from "../../shared/lib/redis.js";
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";
+import { processMessage } from "../../workflows/engine.js";
+import { sendMessage, sendTemplateMessage } from "../../workflows/whatsapp.js";
+import { loadSession, saveSession, deleteSession } from "../../workflows/session.js";
+import { formatDateEAT, formatTime12h } from "../../workflows/helpers.js";
+import { prisma } from "../../shared/lib/prisma.js";
 
 
 export const verifyWhatsApp = asyncHandler(
@@ -44,7 +48,7 @@ const MetadataSchema = z.object({
 const ContactSchema = z.object({
   profile: z.object({
     name: z.string(),
-  }),
+  }).optional(),
   wa_id: z.string(),
 });
 
@@ -235,12 +239,15 @@ export const handleWhatsApp = asyncHandler(
           { event: "whatsapp.webhook.hmac_failed" },
           "WhatsApp webhook HMAC validation failed",
         );
+        // even when Hmac validation failed send a success to avoid whatsapp webhook retries
         res.status(200).json({ status: "ok" });
         return;
       }
     }
 
+    // Success  response is sent immediately
     res.status(200).json({ status: "ok" });
+  
 
     const parsed = WhatsAppWebhookSchema.safeParse(req.body);
     // Only supported message formats are allowed
@@ -248,7 +255,7 @@ export const handleWhatsApp = asyncHandler(
       log.warn(
         {
           event: "whatsapp.webhook.invalid_schema",
-          error: parsed.error.flatten(),
+          error: parsed.error,
         },
         "Invalid webhook payload",
       );
@@ -260,8 +267,7 @@ export const handleWhatsApp = asyncHandler(
       for (const entry of body.entry ?? []) {
         for (const change of entry.changes ?? []) {
           if (change.field === "messages") {
-            const phoneNumberId = change.value?.metadata
-              ?.phone_number_id as string;
+           
             const messages = change.value?.messages ?? [];
             for (const message of messages) {
               const wamid = message.id;
@@ -288,8 +294,34 @@ export const handleWhatsApp = asyncHandler(
                 "WhatsApp message received",
               );
 
-              replyToMessage(message.from, phoneNumberId);
-              // TODO: Route to FSM engine
+              // Extract message body text based on message type(text, button, interactive)
+              let messageBody = "";
+              if (message.type === "text") {
+                messageBody = (message as unknown as { text: { body: string } }).text.body;
+              } else if (message.type === "button") {
+                messageBody = (message as unknown as { button: { text: string } }).button.text;
+              } else if (message.type === "interactive") {
+                const interactive = (message as unknown as { interactive: { button_reply?: { id: string }; list_reply?: { id: string; title: string } } }).interactive;
+              if (interactive.button_reply) {
+                  messageBody = interactive.button_reply.id;
+                } else if (interactive.list_reply) {
+                  messageBody = interactive.list_reply.id;
+                }
+              }
+
+              // if no message body skip FSM engine
+              if (!messageBody) {
+                log.debug({ event: "whatsapp.message.empty_body", wamid }, "Message has no text body, skipping FSM");
+                continue;
+              }
+
+              // Route to FSM engine asynchronously (don't block the webhook response)
+              processMessage(message.from, messageBody).catch((err) => {
+                log.error(
+                  { event: "webhook.fsm.error", from: message.from, error: err },
+                  "FSM processing failed",
+                );
+              });
             }
           }
         }
@@ -298,36 +330,110 @@ export const handleWhatsApp = asyncHandler(
   },
 );
 
-export const replyToMessage = async (
-  messageFrom: string,
-  phoneNumberId: string,
-) => {
-  await axios.post(
-    `https://graph.facebook.com/v23.0/${phoneNumberId}/messages`,
-    {
-      messaging_product: "whatsapp",
-      to: messageFrom,
-      type: "text",
-      text: {
-        body: "Hello from my bot!",
-      },
-    },
-
-    {
-      headers: {
-        Authorization: `Bearer ${config.WHATSAPP_ACCESS_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-    },
-  );
-};
 export const handleDaraja = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
     log.info(
       { event: "payment.callback.received" },
       "M-Pesa callback received",
     );
+
+    // Process the payment callback first
     await paymentsService.handleCallback(req.body);
+
+    // Extract callback data to determine success/failure
+    const body = req.body as { Body?: { stkCallback?: Record<string, unknown> } };
+    const stkCallback = body.Body?.stkCallback ?? {};
+    const resultCode = stkCallback.ResultCode as number;
+    const checkoutRequestId = stkCallback.CheckoutRequestID as string;
+
+    // Look up the payment and booking to find the customer's phone
+    try {
+      const payment = await prisma.payment.findUnique({
+        where: { checkoutRequestId },
+        include: {
+          booking: {
+            include: {
+              customer: { select: { id: true, name: true, phone: true } },
+              service: { select: { name: true, durationMinutes: true, priceKes: true } },
+            },
+          },
+        },
+      });
+
+      if (payment && payment.booking?.customer) {
+        const customerPhone = payment.booking.customer.phone;
+        const customerName = payment.booking.customer.name;
+        const booking = payment.booking;
+        const serviceName = booking.service.name;
+
+        // Find the customer's WhatsApp session
+        const session = await loadSession(customerPhone);
+
+        if (resultCode === 0) {
+          // Payment succeeded
+          log.info(
+            { event: "payment.callback.success", checkoutRequestId, phone: customerPhone },
+            "Payment succeeded, sending WhatsApp confirmation",
+          );
+
+          const dateDisplay = formatDateEAT(booking.appointmentAt.toISOString());
+          const eatDate = new Date(booking.appointmentAt.getTime() + 3 * 60 * 60 * 1000);
+          const period = eatDate.getUTCHours() >= 12 ? "PM" : "AM";
+          const hours12 = eatDate.getUTCHours() % 12 || 12;
+          const timeDisplay = `${hours12}:${String(eatDate.getUTCMinutes()).padStart(2, "0")} ${period}`;
+
+          const confirmationText = [
+            "Payment received! ✅",
+            "",
+            `📋 Booking: ${booking.reference}`,
+            `✂️ Service: ${serviceName}`,
+            `📅 ${dateDisplay}`,
+            `⏰ ${timeDisplay}`,
+            "📍 Wanny's Nails, Nairobi",
+            "",
+            "We'll send you a reminder 24 hours before. See you then! 💅",
+          ].join("\n");
+
+          await sendMessage(customerPhone, { type: "text", text: confirmationText });
+
+          // Clear the customer's session
+          await deleteSession(customerPhone);
+        } else {
+          // Payment failed
+          log.info(
+            { event: "payment.callback.failed", checkoutRequestId, resultCode, phone: customerPhone },
+            "Payment failed, notifying customer",
+          );
+
+          await sendMessage(customerPhone, {
+            type: "text",
+            text: "The payment wasn't completed.",
+          });
+
+          await sendMessage(customerPhone, {
+            type: "interactive_button",
+            text: "What would you like to do?",
+            buttonTitle: "Choose an option",
+            buttons: [
+              { id: "1", title: "Try Again" },
+              { id: "2", title: "Cancel Booking" },
+            ],
+          });
+
+          // Update session to stay in AWAITING_PAYMENT
+          if (session) {
+            session.state = "AWAITING_PAYMENT";
+            await saveSession(customerPhone, session);
+          }
+        }
+      }
+    } catch (error) {
+      log.error(
+        { event: "payment.callback.whatsapp_notify_failed", error, checkoutRequestId },
+        "Failed to send WhatsApp payment notification",
+      );
+    }
+
     res.status(200).json({ ResultCode: 0, ResultDesc: "Accepted" });
   },
 );
