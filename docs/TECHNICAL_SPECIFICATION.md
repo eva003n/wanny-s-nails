@@ -143,7 +143,7 @@ Errors at any stage are caught by a global error handler that maps domain errors
   "error": {
     "code": "BOOKING_SLOT_UNAVAILABLE",
     "message": "The selected time slot is no longer available.",
-    "details": {}
+    "details": [{}]
   }
 }
 ```
@@ -181,7 +181,6 @@ const ConfigSchema = z.object({
 ```
 
 ---
-
 ## Progressive Web App Design
 
 ### Architecture Pattern
