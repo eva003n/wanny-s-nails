@@ -10,7 +10,7 @@ const router: ReturnType<typeof Router> = Router();
 router.get(
   "/availability",
   authenticate,
-  validate(availabilitySchema),
+  validate({query: availabilitySchema}),
   slotsController.getAvailability,
 );
 
