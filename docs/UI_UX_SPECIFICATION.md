@@ -357,7 +357,7 @@ Sidebar navigation replaces bottom bar on wider screens. Same 5 items, with labe
 │  │ Payment  [AWAITING]    │  │
 │  └────────────────────────┘  │
 │                              │
-│  REF: NB-2025-00123          │
+│  REF: WN-2025-00123          │
 │                              │
 │  [Approve Booking]           │
 │  [Reschedule]                │
@@ -428,13 +428,13 @@ Full M-Pesa transaction details: receipt number, phone, amount, timestamp, statu
 
 Grouped list rendered as `<section>` blocks with headings:
 
+
 1. **Business** — name, address, phone, logo upload
 2. **Hours** — day-of-week toggles with open/close time pickers
-3. **Services** — CRUD list, drag-to-reorder
+3. **Services** — CRUD list, drag-to-reorder, grouped by categories(Manicure, Pedicure, Overlay, Acrylic)
 4. **Reminders** — toggles for 24h / 1h, editable message preview
 5. **WhatsApp** — read-only config display, template approval status
-6. **M-Pesa** — shortcode, test mode toggle
-7. **Team** — invite by email, active staff list, deactivate button
+6. **M-Pesa** — read-only shortcode
 8. **Account** — change password, logout (clears tokens + service worker cache)
 
 ---
