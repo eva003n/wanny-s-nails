@@ -10,6 +10,7 @@ interface Slot {
 /**
  * Compute available time slots for a given date and service.
  * Pure function — no side effects. Reads from DB but does not mutate.
+ * Since the minimum duration per service is 60 minutes at max 90 minutes the maximum available slots is 12, minimum 8((closeTime - openTime) / duration in hours)
  */
 export const slotsService = {
   async getAvailableSlots(date: string, serviceId: string): Promise<{
@@ -20,15 +21,16 @@ export const slotsService = {
     totalSlots: number;
     availableSlots: number;
     slots: Slot[];
-  }> {
-    const targetDate = new Date(date + "T00:00:00.000Z");
-    const dayOfWeek = targetDate.getDay();
+  }> {                 //YYYY_MM_DD  T(delimiter/seperator)  HH:mm:ss.sssZ(UTC timezone) 
+    const targetDate = new Date(date + "T00:00:00.000Z");// data obj for current target
+    const dayOfWeek = targetDate.getDay();// sunday(0) -> saturday(6)
 
     // Get business hours for this day
     const businessHours = await prisma.businessHours.findUnique({
       where: { dayOfWeek },
     });
 
+    // no business hours or not a working day(mostly sunday)
     if (!businessHours || !businessHours.isActive) {
       throw new BusinessClosedError();
     }
@@ -42,7 +44,7 @@ export const slotsService = {
       throw new Error("Service not found");
     }
 
-    const durationMinutes = service.durationMinutes;
+    const durationMinutes = service.durationMinutes; // 60 -90
 
     // Parse open/close times
     const openParts = businessHours.openTime.split(":");
@@ -76,6 +78,7 @@ export const slotsService = {
     // Generate all possible slots (service-duration intervals)
     const slots: Slot[] = [];
     const current = new Date(dayStart);
+    // get available slots for a particular day by working in millisecods
     const totalSlotsCount = Math.floor((dayEnd.getTime() - dayStart.getTime()) / (durationMinutes * 60 * 1000));
 
     while (current.getTime() + durationMinutes * 60 * 1000 <= dayEnd.getTime()) {
