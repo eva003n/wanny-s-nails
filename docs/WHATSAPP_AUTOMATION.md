@@ -1,12 +1,31 @@
 # WhatsApp Automation — Wanny's Nails
 
-**Version:** 1.2
+**Version:** 1.3
 
 ---
 
 ## Overview
 
 The WhatsApp chatbot uses a **hybrid FSM + AI** architecture. A deterministic Finite State Machine handles all structured booking flows. A free-tier LLM (Gemini 2.0 Flash) handles edge cases the FSM cannot — FAQs, complaints, open questions, and ambiguous intent. Human escalation is the last resort, only when AI also cannot resolve.
+
+## WhatsApp Cloud API integration flow
+```
+Facebook Account
+   |
+   |__Meta App
+   |    |__Webhooks-------------------- Step 2
+   |
+   |__Business Portfolio
+        |_Test WhatsApp Business     --- Step 1
+        | account (WABA)
+        |_Your WhatsApp Business account (WABA)
+        |    |__Phone Number --------------- Step 2
+        |    |__Message Templates ---------- Step 2
+        |    |__Payment Method ------------- Step 2
+        |
+        |__System User --------------------- Step 2
+        |__Business Verification ----------- Step 3
+```
 
 **Escalation ladder:**
 ```
@@ -47,7 +66,7 @@ POST /webhooks/whatsapp
 Signature validation (X-Hub-Signature-256)
          │
          ▼
-Message normalisation (extract phone, text/button reply)
+Message normalisation (extract phone, text/button reply/list reply)
          │
          ▼
 Async queue (immediate 200 OK to WhatsApp)
@@ -69,7 +88,39 @@ FSM Engine.process(phone, message)
          ├── Save updated session to Redis (TTL 30 min)
          │
          └── Send outbound messages via WhatsApp Cloud API
+              (text, interactive lists, or interactive buttons)
 ```
+
+---
+
+## Interactive Messages
+
+The bot uses WhatsApp interactive message types instead of plain text where appropriate. This gives customers a native, tap-to-select experience rather than typing numbers manually.
+
+### Message Types Used
+
+| WhatsApp Type | Used For | When |
+|---|---|---|
+| `interactive` (list) | Main menu, service selection, date selection, time selection | Multi-option menus with 3+ choices |
+| `interactive` (buttons) | Confirmations (booking, cancel, reschedule), payment retry/cancel | Binary yes/no or 2-3 action choices |
+| `text` | Status messages, error messages, data collection (name/email, phone number) | Free-text input or informational-only messages |
+
+### Interactive List Messages
+
+Lists present a scrollable menu with a button trigger. When the customer taps the button, they see a sheet with sections and rows. Each row has:
+- `id` — machine-readable identifier sent back to the FSM (e.g. `"1"`, `"2"`)
+- `title` — short label visible in the list (max 24 chars)
+- `description` — optional subtitle (max 72 chars)
+
+### Interactive Button Messages
+
+Buttons present 1-3 tappable buttons below a body message. Each button has:
+- `id` — machine-readable identifier sent back to the FSM (e.g. `"yes"`, `"no"`)
+- `title` — button label (max 20 chars, text only — no emoji)
+
+### How Replies Are Parsed
+
+When a customer taps a list row or button, WhatsApp sends an `interactive` webhook with `list_reply` or `button_reply`. The webhook controller extracts the `id` field and passes it as the message body to the FSM engine. This means the FSM receives the same values (`"1"`, `"yes"`, `"book"`, etc.) regardless of whether the customer typed the text or tapped an interactive element.
 
 ---
 
@@ -116,6 +167,7 @@ interface ConversationSession {
 type ConversationState =
   | 'IDLE'
   | 'GREETING'
+  | 'DATA_COLLECTION'
   | 'SERVICE_SELECTION'
   | 'DATE_SELECTION'
   | 'TIME_SELECTION'
@@ -134,7 +186,13 @@ type ConversationState =
 
 ```mermaid
 stateDiagram-v2
-    [*] --> GREETING : Any message (new/expired session)
+    [*] --> IDLE : Any message (new/expired session)
+
+    IDLE --> GREETING : Returning customer (phone in DB)
+    IDLE --> DATA_COLLECTION : New customer (phone not in DB)
+
+    DATA_COLLECTION --> DATA_COLLECTION : Invalid name / invalid email
+    DATA_COLLECTION --> GREETING : Name + email collected → customer created
 
     GREETING --> SERVICE_SELECTION : "1" (Book)
     GREETING --> LOOKUP : "2" (View appointment)
@@ -186,112 +244,251 @@ stateDiagram-v2
 **Entry condition:** No existing session or TTL expired.
 
 **Behaviour:**
-- Create a new customer record if phone number is not in DB (or load existing)
-- Check if customer has a prior incomplete session (same session in DB)
-- Transition to GREETING
+- Check if customer exists in DB by phone number
+- **Returning customer (phone in DB):** Load customer, transition to GREETING and send the interactive list menu
+- **New customer (phone not in DB):** Do NOT create record yet — transition to DATA_COLLECTION to collect name & email
+
+---
+
+### State: DATA_COLLECTION
+
+**Entry condition:** IDLE handler detected a new customer (phone not in DB). `session.collectionPhase` is set to `"NAME"`.
+
+**Purpose:** Collect the new customer's name and optional email before creating their DB record and entering the main menu.
+
+**Message type:** Plain text (free-text input required)
+
+**Sub-phases:** Tracked via `session.collectionPhase`:
+
+#### Phase: NAME
+
+**Bot message (on entry):**
+```
+Hi! Welcome to Wanny's Nails! 👋
+
+We'd love to get to know you better.
+What's your name?
+```
+
+**Transitions:**
+
+| Input | Transition |
+|---|---|
+| Valid name (≥2 characters) | Save to `temporaryName`, set phase → EMAIL, ask for email |
+| Too short / empty | "Please enter your full name (at least 2 characters)." — stay in NAME |
+
+#### Phase: EMAIL
+
+**Bot message:**
+```
+Nice to meet you, [Name]! 😊
+
+Could you share your email address for your booking receipt? You can also type *skip* to continue without one.
+```
+
+**Transitions:**
+
+| Input | Transition |
+|---|---|
+| Valid email | Create customer in DB (name + email), set `customerId` + `customerName` → GREETING |
+| "skip" / "no" / "nah" / "none" / "n/a" | Create customer in DB (name only, email=null) → GREETING |
+| Invalid email format | "That doesn't look like a valid email address. Please enter a valid email, or type *skip* to continue." — stay in EMAIL |
+
+**On DB creation failure:** Log error, proceed to GREETING with the collected name as fallback.
 
 ---
 
 ### State: GREETING
 
+**Message type:** 📋 Interactive List
+
 **Bot message:**
 ```
+Header:
+Wanny's Nails 💅
+
+Body:
 Hi [name]! 👋 Welcome to Wanny's Nails.
-What would you like to do?
+How can we help you today?
 
-1. Book an appointment
-2. View my upcoming appointment
-3. Cancel my appointment
-4. Reschedule my appointment
+Button:
+Choose an option
 
-Reply with a number.
+Section: Appointments
+
+┌──────────────────────────────────────────┐
+│ Row 1: Book Appointment                  │
+│         Schedule a new appointment       │
+├──────────────────────────────────────────┤
+│ Row 2: View Appointment                  │
+│         Check your upcoming appointment  │
+├──────────────────────────────────────────┤
+│ Row 3: Reschedule                        │
+│         Change your appointment date/time│
+├──────────────────────────────────────────┤
+│ Row 4: Cancel                            │
+│         Cancel an existing appointment   │
+└──────────────────────────────────────────┘
 ```
 
 (If new/unknown customer, use "Hi there!")
 
 **Transitions:**
 
-| Input | Transition | Notes |
+| Input (list row id) | Transition | Notes |
 |---|---|---|
-| "1" or "book" | → SERVICE_SELECTION | |
-| "2" or "view" | → LOOKUP (inline, no new state) | Respond with booking details |
-| "3" or "cancel" | → Check for active booking | If found → CANCEL_CONFIRMATION; if not → "No active booking found" |
-| "4" or "reschedule" | → Check for active booking | If found → RESCHEDULE_DATE; if not → "No active booking" |
+| `"1"` | → SERVICE_SELECTION | |
+| `"2"` | → LOOKUP (inline, no new state) | Respond with booking details + action buttons |
+| `"3"` | → Check for active booking | If found → CANCEL_CONFIRMATION; if not → "No active booking found" |
+| `"4"` | → Check for active booking | If found → RESCHEDULE_DATE; if not → "No active booking" |
 | Anything else | Stay in GREETING, increment invalidInputCount | Show menu again |
+
+#### View Appointment Result
+
+When the customer views an appointment, two messages are sent:
+
+1. **Text message** showing the booking details
+2. **Interactive button** with actions:
+
+```
+Body: What would you like to do?
+Button: Manage booking
+
+┌─────────────┐ ┌─────────────┐
+│   Cancel    │ │  Reschedule │
+└─────────────┘ └─────────────┘
+```
+
+| Button ID | Transition |
+|---|---|
+| `"3"` | → CANCEL_CONFIRMATION |
+| `"4"` | → RESCHEDULE_DATE |
 
 ---
 
 ### State: SERVICE_SELECTION
 
+**Message type:** 📋 Interactive List
+
 **Bot message:**
 ```
+Header:
+Our Services
+
+Body:
 Which service would you like?
 
-1. Gel Manicure — KES 1,500 (60 min)
-2. Acrylic Set — KES 2,500 (90 min)
-3. Nail Art — KES 2,000 (75 min)
-4. Regular Manicure — KES 800 (45 min)
+Button:
+Choose a service
 
-Reply with a number.
+Section: Available Services
+
+┌──────────────────────────────────────────┐
+│ Gel Manicure                             │
+│ KES 1,500 — 60 min                      │
+├──────────────────────────────────────────┤
+│ Acrylic Set                              │
+│ KES 2,500 — 90 min                      │
+├──────────────────────────────────────────┤
+│ Nail Art                                 │
+│ KES 2,000 — 75 min                      │
+├──────────────────────────────────────────┤
+│ Regular Manicure                         │
+│ KES 800 — 45 min                        │
+└──────────────────────────────────────────┘
 ```
 
 Services are fetched from DB (only `isActive=true`, ordered by `sortOrder`).
 
 **Transitions:**
 
-| Input | Transition |
+| Input (list row id) | Transition |
 |---|---|
 | Valid number (1–N) | Save service to session → DATE_SELECTION |
-| Invalid | Increment invalidInputCount, resend menu |
+| Invalid | Increment invalidInputCount, resend list |
 
 ---
 
 ### State: DATE_SELECTION
 
+**Message type:** 📋 Interactive List
+
 **Bot message:**
 ```
+Header:
+Pick a Date
+
+Body:
 When would you like your [Service Name]?
 
-1. Today (Thu 5 Jun) — 3 slots available
-2. Fri 6 Jun — 5 slots available
-3. Sat 7 Jun — 4 slots available
-4. Mon 9 Jun — 6 slots available
-5. Tue 10 Jun — Full
+Button:
+Choose a date
 
-Reply with a number.
+Section: Available Dates
+
+┌──────────────────────────────────────────┐
+│ Today (Thu 5 Jun)                        │
+│ Available                                │
+├──────────────────────────────────────────┤
+│ Fri 6 Jun                                │
+│ Available                                │
+├──────────────────────────────────────────┤
+│ Sat 7 Jun                                │
+│ Available                                │
+├──────────────────────────────────────────┤
+│ Mon 9 Jun                                │
+│ Available                                │
+├──────────────────────────────────────────┤
+│ Tue 10 Jun                               │
+│ (Full — no description shown)            │
+└──────────────────────────────────────────┘
 ```
 
-Presents the next 7 days. Fully booked days shown as "Full" (not selectable). Closed days omitted.
+Presents the next 7 business days. Fully booked days appear without a description (not selectable). Closed days are omitted.
 
-**Slot count** is fetched from the availability engine to show context.
+**Slot count** is fetched from the availability engine. Available dates show "Available" in the description.
 
 **Transitions:**
 
-| Input | Transition |
+| Input (list row id) | Transition |
 |---|---|
 | Valid number for an available date | Save date to session → TIME_SELECTION |
 | Number for a full date | "That day is fully booked. Please choose another." |
-| Invalid | Increment invalidInputCount, resend menu |
+| Invalid | Increment invalidInputCount, resend list |
 
 ---
 
 ### State: TIME_SELECTION
 
+**Message type:** 📋 Interactive List
+
 **Bot message:**
 ```
+Header:
+Pick a Time
+
+Body:
 Available times for [Service] on [Date]:
 
-1. 10:00 AM
-2. 11:30 AM
-3. 2:00 PM
-4. 3:30 PM
+Button:
+Choose a time
 
-Reply with a number.
+Section: Available Times
+
+┌──────────────────────────────────────────┐
+│ 10:00 AM                                 │
+├──────────────────────────────────────────┤
+│ 11:30 AM                                 │
+├──────────────────────────────────────────┤
+│ 2:00 PM                                  │
+├──────────────────────────────────────────┤
+│ 3:30 PM                                  │
+└──────────────────────────────────────────┘
 ```
 
 **Transitions:**
 
-| Input | Transition |
+| Input (list row id) | Transition |
 |---|---|
 | Valid number | Save time to session → BOOKING_CONFIRMATION |
 | Invalid | Increment invalidInputCount, resend list |
@@ -300,7 +497,11 @@ Reply with a number.
 
 ### State: BOOKING_CONFIRMATION
 
-**Bot message:**
+**Message type:** Text summary + 🔘 Interactive Buttons
+
+**Bot messages:**
+
+Message 1 (text):
 ```
 Please confirm your booking:
 
@@ -308,20 +509,30 @@ Please confirm your booking:
 📅 Date: Thursday, 5 June 2025
 ⏰ Time: 2:00 PM
 💰 Price: KES 1,500
+```
 
-Reply YES to confirm or NO to start over.
+Message 2 (interactive button):
+```
+Body: Does everything look good?
+Button: Confirm booking
+
+┌──────────────────┐ ┌──────────────────┐
+│  Yes, Confirm    │ │ No, Start Over   │
+└──────────────────┘ └──────────────────┘
 ```
 
 **Transitions:**
 
-| Input | Transition |
+| Input (button id) | Transition |
 |---|---|
-| "yes", "YES", "Yes", "y", "1" | Create PENDING booking in DB → AWAITING_PAYMENT_PHONE |
-| "no", "NO", "n", "2" | Clear session context, "OK, let's start over." → GREETING |
+| `"yes"` / `"YES"` / `"Yes"` / `"y"` / `"1"` | Create PENDING booking in DB → AWAITING_PAYMENT_PHONE |
+| `"no"` / `"NO"` / `"n"` / `"2"` | Clear session context, "OK, let's start over." → GREETING |
 
 ---
 
 ### State: AWAITING_PAYMENT_PHONE
+
+**Message type:** Text (free-text input for phone number)
 
 **Bot message:**
 ```
@@ -369,40 +580,110 @@ We'll send you a reminder 24 hours before. See you then! 💅
 Session cleared → IDLE
 
 **When payment fails (triggered by Daraja callback):**
+
+Message 1 (text):
 ```
 The payment wasn't completed.
+```
 
-1. Try again
-2. Cancel booking
+Message 2 (interactive button):
+```
+Body: What would you like to do?
+Button: Choose an option
 
-Reply with a number.
+┌─────────────┐ ┌───────────────────┐
+│  Try Again  │ │  Cancel Booking   │
+└─────────────┘ └───────────────────┘
 ```
 
 **If customer replies while in AWAITING_PAYMENT:**
-- "1" or "retry" → enqueue new STK Push, stay in AWAITING_PAYMENT
-- "2" or "cancel" → cancel the PENDING booking → IDLE
+- Button `"1"` or "retry" → enqueue new STK Push, stay in AWAITING_PAYMENT
+- Button `"2"` or "cancel" → cancel the PENDING booking → IDLE
+
+**On any other input while waiting:** Reminds the customer about the pending payment and shows the same action buttons.
 
 ---
 
 ### State: CANCEL_CONFIRMATION
 
-**Bot message:**
+**Message type:** Text summary + 🔘 Interactive Buttons
+
+**Bot messages:**
+
+Message 1 (text):
 ```
 Are you sure you want to cancel your appointment?
 
 ✂️ Gel Manicure
 📅 Thursday, 5 June at 2:00 PM
+```
 
-1. Yes, cancel it
-2. No, keep my appointment
+Message 2 (interactive button):
+```
+Body: Please confirm:
+Button: Cancel appointment
+
+┌────────────────┐ ┌────────────────┐
+│  Yes, Cancel   │ │  No, Keep It   │
+└────────────────┘ └────────────────┘
 ```
 
 **Transitions:**
 
-| Input | Transition |
+| Input (button id) | Transition |
 |---|---|
-| "1" or "yes" | Cancel booking in DB → send confirmation → IDLE |
-| "2" or "no" | "Your appointment is still on! See you then. 💅" → IDLE |
+| `"1"` / `"yes"` | Cancel booking in DB → send confirmation → IDLE |
+| `"2"` / `"no"` | "Your appointment is still on! See you then. 💅" → IDLE |
+
+---
+
+### State: RESCHEDULE_DATE
+
+**Message type:** 📋 Interactive List
+
+Presents available dates for rescheduling, identical format to DATE_SELECTION but with the header "Pick a New Date" and button text "Choose a date".
+
+---
+
+### State: RESCHEDULE_TIME
+
+**Message type:** 📋 Interactive List
+
+Presents available times for the selected reschedule date, with header "Pick a New Time" and button text "Choose a time".
+
+---
+
+### State: RESCHEDULE_CONFIRMATION
+
+**Message type:** Text summary + 🔘 Interactive Buttons
+
+**Bot messages:**
+
+Message 1 (text):
+```
+Please confirm your new appointment time:
+
+✂️ Service: Gel Manicure
+📅 Date: Thursday, 12 June 2025
+⏰ Time: 3:00 PM
+```
+
+Message 2 (interactive button):
+```
+Body: Does everything look good?
+Button: Confirm reschedule
+
+┌────────────────────┐ ┌────────────────┐
+│ Yes, Reschedule    │ │   No, Cancel   │
+└────────────────────┘ └────────────────┘
+```
+
+**Transitions:**
+
+| Input (button id) | Transition |
+|---|---|
+| `"yes"` / `"y"` / `"1"` | Reschedule booking in DB → send confirmation → IDLE |
+| `"no"` / `"n"` / `"2"` | "Reschedule cancelled. Your original appointment remains unchanged. 💅" → IDLE |
 
 ---
 
@@ -555,6 +836,31 @@ You can also call us on +254 700 000 000.
 
 ---
 
+## Interactive Message Summary by State
+
+| State | Message Type | Details |
+|---|---|---|
+| **IDLE → GREETING** | 📋 Interactive list | Main menu with 4 options |
+| **DATA_COLLECTION** | Text | Free-text input for name and email |
+| **GREETING** (menu) | 📋 Interactive list | Main menu re-displayed on invalid input |
+| **GREETING** (view) | Text + 🔘 Buttons | Booking details text, then Cancel/Reschedule buttons |
+| **SERVICE_SELECTION** | 📋 Interactive list | Service options with price and duration |
+| **DATE_SELECTION** | 📋 Interactive list | Available dates with slot info |
+| **TIME_SELECTION** | 📋 Interactive list | Available time slots |
+| **BOOKING_CONFIRMATION** | Text + 🔘 Buttons | Summary text, then Yes, Confirm / No, Start Over |
+| **AWAITING_PAYMENT_PHONE** | Text | Free-text input for phone number |
+| **AWAITING_PAYMENT** | Text + 🔘 Buttons | Payment status, then Resend Request / Cancel Booking |
+| **CANCEL_CONFIRMATION** | Text + 🔘 Buttons | Summary text, then Yes, Cancel / No, Keep It |
+| **RESCHEDULE_DATE** | 📋 Interactive list | Available dates for rescheduling |
+| **RESCHEDULE_TIME** | 📋 Interactive list | Available times for rescheduling |
+| **RESCHEDULE_CONFIRMATION** | Text + 🔘 Buttons | Summary text, then Yes, Reschedule / No, Cancel |
+| **AI_FALLBACK** | Text | AI-generated responses |
+| **HUMAN_ESCALATION** | Text | Escalation notice |
+| **Payment callback (success)** | Text | Confirmation details |
+| **Payment callback (fail)** | Text + 🔘 Buttons | Error text, then Try Again / Cancel Booking |
+
+---
+
 ## Timeout Handling
 
 Redis TTL automatically expires sessions after 30 minutes of inactivity. When an expired customer sends a new message, the system detects the absence of a session and starts fresh.
@@ -564,7 +870,7 @@ Redis TTL automatically expires sessions after 30 minutes of inactivity. When an
 Your previous session expired due to inactivity.
 Let's start fresh! 😊
 
-[Sends GREETING menu]
+[Sends GREETING interactive list menu]
 ```
 
 ---
@@ -573,7 +879,7 @@ Let's start fresh! 😊
 
 Every state increments `invalidInputCount` on an unrecognised input.
 
-- Counts 1–2: Resend the menu/options with: "Sorry, I didn't understand that. Please reply with a number from the list."
+- Counts 1–2: Resend the interactive menu/options with the appropriate message type
 - Count 3: Transition to `AI_FALLBACK` — the AI attempts to understand what the customer needs and either answers, routes back to the menu, or escalates to human.
 
 The counter resets to 0 on any successful state transition.
@@ -588,8 +894,10 @@ Before processing a message with the current state's handler, the FSM checks for
 |---|---|
 | "stop", "STOP", "unsubscribe" | Opt out of all messaging. Log consent withdrawal. Send farewell message. |
 | "human", "agent", "help me", "talk to someone" | → HUMAN_ESCALATION (skip AI — customer explicitly wants a person) |
-| "menu", "start" (in non-IDLE states) | → GREETING (restart flow) |
+| "menu", "start" (in non-IDLE states) | → GREETING (restart flow — sends interactive list) |
 | Unrecognised in any FSM state ×3 | → AI_FALLBACK |
+
+Note: Global intent keywords also work when the customer types them instead of tapping interactive elements, providing a text-based escape hatch at any point.
 
 ---
 
@@ -647,6 +955,40 @@ Your appointment has been cancelled.
 ✂️ {{1}} on {{2}}
 
 We hope to see you again soon. Book a new appointment anytime by messaging us here.
+```
+
+---
+
+## Interactive Message Payload Types
+
+The `OutboundMessage` type in `types.ts` supports three message formats:
+
+```typescript
+interface OutboundMessage {
+  type: "text" | "interactive_list" | "interactive_button";
+  
+  // For "text" messages
+  text?: string;
+  
+  // For "interactive_list" messages
+  listTitle?: string;       // Header text (max 60 chars)
+  listButtonText?: string;  // Trigger button label (max 20 chars)
+  listSections?: Array<{
+    title?: string;          // Section heading
+    rows: Array<{
+      id: string;            // Machine-readable ID sent back on tap
+      title: string;         // Row label (max 24 chars)
+      description?: string;  // Optional subtitle (max 72 chars)
+    }>;
+  }>;
+  
+  // For "interactive_button" messages
+  buttonTitle?: string;     // Hidden field for button group metadata
+  buttons?: Array<{
+    id: string;              // Machine-readable ID sent back on tap
+    title: string;           // Button label (max 20 chars, text only)
+  }>;
+}
 ```
 
 ---
