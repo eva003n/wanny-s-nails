@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { prisma } from "../../shared/lib/prisma.js";
-import { redis } from "../../shared/lib/redis.js";
+import { redis } from "@wannys-nails/packages"
 import { config } from "../../shared/lib/config.js";
 import { UnauthorizedError, AccountLockedError } from "../../shared/types/errors.js";
 import type { JwtPayload } from "../../shared/middleware/auth.middleware.js";
@@ -38,7 +38,7 @@ export const authService = {
   async login(input: LoginInput) {
     // --- Check account lockout ---
     const lockoutKey = LOCKOUT_KEY_PREFIX + input.email;
-    const lockoutTTL = await redis.ttl(lockoutKey);
+    const lockoutTTL = await redis.auth.ttl(lockoutKey);
     if (lockoutTTL > 0) {
       throw new AccountLockedError(lockoutTTL);
     }
@@ -59,13 +59,13 @@ export const authService = {
     if (!isPasswordValid) {
       // Increment failed attempts
       const failedKey = FAILED_ATTEMPTS_KEY_PREFIX + input.email;
-      const attempts = await redis.incr(failedKey);
-      await redis.expire(failedKey, RATE_WINDOW_SECONDS);
+      const attempts = await redis.auth.incr(failedKey);
+      await redis.auth.expire(failedKey, RATE_WINDOW_SECONDS);
 
       // Lock account after max attempts
       if (attempts >= MAX_FAILED_ATTEMPTS) {
-        await redis.setex(lockoutKey, LOCKOUT_DURATION_SECONDS, "locked");
-        await redis.del(failedKey); // reset counter after lockout
+        await redis.auth.setex(lockoutKey, LOCKOUT_DURATION_SECONDS, "locked");
+        await redis.auth.del(failedKey); // reset counter after lockout
         throw new AccountLockedError(LOCKOUT_DURATION_SECONDS);
       }
 
@@ -74,7 +74,7 @@ export const authService = {
 
     // Successful login — clear failed attempts counter
     const failedKey = FAILED_ATTEMPTS_KEY_PREFIX + input.email;
-    await redis.del(failedKey);
+    await redis.auth.del(failedKey);
 
     const payload: JwtPayload = {
       userId: user.id,
