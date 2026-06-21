@@ -21,7 +21,10 @@ export const createCustomerSchema = z.object({
 export const updateCustomerSchema = z.object({
   name: z.string().min(2).max(100).optional(),
   email: z.email().optional(),
-  phone: z.string().regex(/^\+254[17]\d{8}$/, "Invalid Kenyan phone number").optional(),
+  phone: z
+    .string()
+    .regex(/^\+254[17]\d{8}$/, "Invalid Kenyan phone number")
+    .optional(),
 });
 
 // --- Handlers ---
@@ -107,7 +110,7 @@ export const getCustomerPayments = asyncHandler(
     const isOwner = req.user?.role === "OWNER";
     const payments = isOwner
       ? result.payments
-      : result.payments.map((p) => ({ ...p, amountKes: null }));
+      : result.payments.map((p: any) => ({ ...p, amountKes: null }));
     paginated(res, payments, result.total, result.page, result.limit);
   },
 );

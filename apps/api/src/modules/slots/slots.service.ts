@@ -13,7 +13,10 @@ interface Slot {
  * Since the minimum duration per service is 60 minutes at max 90 minutes the maximum available slots is 12, minimum 8((closeTime - openTime) / duration in hours)
  */
 export const slotsService = {
-  async getAvailableSlots(date: string, serviceId: string): Promise<{
+  async getAvailableSlots(
+    date: string,
+    serviceId: string,
+  ): Promise<{
     date: string;
     serviceId: string;
     serviceName: string;
@@ -21,9 +24,10 @@ export const slotsService = {
     totalSlots: number;
     availableSlots: number;
     slots: Slot[];
-  }> {                 //YYYY_MM_DD  T(delimiter/seperator)  HH:mm:ss.sssZ(UTC timezone) 
-    const targetDate = new Date(date + "T00:00:00.000Z");// data obj for current target
-    const dayOfWeek = targetDate.getDay();// sunday(0) -> saturday(6)
+  }> {
+    //YYYY_MM_DD  T(delimiter/seperator)  HH:mm:ss.sssZ(UTC timezone)
+    const targetDate = new Date(date + "T00:00:00.000Z"); // data obj for current target
+    const dayOfWeek = targetDate.getDay(); // sunday(0) -> saturday(6)
 
     // Get business hours for this day
     const businessHours = await prisma.businessHours.findUnique({
@@ -79,16 +83,23 @@ export const slotsService = {
     const slots: Slot[] = [];
     const current = new Date(dayStart);
     // get available slots for a particular day by working in millisecods
-    const totalSlotsCount = Math.floor((dayEnd.getTime() - dayStart.getTime()) / (durationMinutes * 60 * 1000));
+    const totalSlotsCount = Math.floor(
+      (dayEnd.getTime() - dayStart.getTime()) / (durationMinutes * 60 * 1000),
+    );
 
-    while (current.getTime() + durationMinutes * 60 * 1000 <= dayEnd.getTime()) {
+    while (
+      current.getTime() + durationMinutes * 60 * 1000 <=
+      dayEnd.getTime()
+    ) {
       const slotEnd = new Date(current.getTime() + durationMinutes * 60 * 1000);
 
       // Check if slot overlaps with any existing booking
-      const isAvailable = !existingBookings.some((booking) => {
+      const isAvailable = !existingBookings.some((booking: any) => {
         const bookingStart = new Date(booking.appointmentAt).getTime();
         const bookingEnd = bookingStart + booking.durationMinutes * 60 * 1000;
-        return current.getTime() < bookingEnd && slotEnd.getTime() > bookingStart;
+        return (
+          current.getTime() < bookingEnd && slotEnd.getTime() > bookingStart
+        );
       });
 
       // Convert to EAT display time (UTC+3)

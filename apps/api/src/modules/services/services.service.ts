@@ -1,5 +1,8 @@
 import { prisma } from "../../shared/lib/prisma.js";
-import { ServiceNotFoundError, ServiceHasFutureBookingsError } from "../../shared/types/errors.js";
+import {
+  ServiceNotFoundError,
+  ServiceHasFutureBookingsError,
+} from "../../shared/types/errors.js";
 
 interface CreateServiceInput {
   name: string;
@@ -31,10 +34,7 @@ export const servicesService = {
     });
   },
 
-  async listByCategory(
-    category: string,
-    includeInactive = false,
-  ) {
+  async listByCategory(category: string, includeInactive = false) {
     const where: Record<string, unknown> = { category };
     if (!includeInactive) {
       where.isActive = true;
@@ -52,7 +52,7 @@ export const servicesService = {
       distinct: ["category"],
       orderBy: { category: "asc" },
     });
-    return categories.map((c) => c.category);
+    return categories.map((c: any) => c.category);
   },
 
   async getById(id: string) {

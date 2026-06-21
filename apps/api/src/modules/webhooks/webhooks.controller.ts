@@ -14,6 +14,7 @@ import { sendMessage, sendTemplateMessage } from "../../workflows/whatsapp.js";
 import { loadSession, saveSession, deleteSession } from "../../workflows/session.js";
 import { formatDateEAT, formatTime12h } from "../../workflows/helpers.js";
 import { prisma } from "../../shared/lib/prisma.js";
+import type { Message } from "../../workflows/types.js";
 
 
 export const verifyWhatsApp = asyncHandler(
@@ -315,8 +316,13 @@ export const handleWhatsApp = asyncHandler(
                 continue;
               }
 
-              // Route to FSM engine asynchronously (don't block the webhook response)
-              processMessage(message.from, messageBody).catch((err) => {
+              const whatsappMessage: Message = {
+                type: "Incoming",
+                phone: message.from,
+                messageBody
+              } 
+
+              processMessage(whatsappMessage).catch((err) => {
                 log.error(
                   { event: "webhook.fsm.error", from: message.from, error: err },
                   "FSM processing failed",
