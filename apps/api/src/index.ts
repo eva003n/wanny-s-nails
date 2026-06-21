@@ -4,6 +4,11 @@ import { logger } from "./shared/lib/logger.js";
 
 const port = config.PORT;
 
+
 server.listen(port, () => {
     logger.info({ event: "server.started", port, baseUrl: config.BASE_URL }, `Server running on ${config.BASE_URL}`)
+})
+
+process.on("uncaughtException", (err) => {
+    logger.error(err, err.message)
 })
