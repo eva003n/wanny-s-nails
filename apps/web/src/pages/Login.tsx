@@ -1,6 +1,16 @@
+/**
+ * §6.1 Login Page
+ *
+ * Uses Input component with labels above.
+ * §6.3: Primary button 52px, full width.
+ * §3.1: Max width 480px centered.
+ * §9.1: Standalone page (no bottom nav).
+ */
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuthStore } from "../store/auth.store.js";
+import { useAuthStore } from "@/store/auth.store";
+import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -12,58 +22,104 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-
     try {
       await login(email, password);
       navigate("/dashboard");
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: { message?: string } } } };
-      setError(axiosErr.response?.data?.error?.message ?? "Login failed");
+      setError(axiosErr.response?.data?.error?.message ?? "Login failed. Check your credentials.");
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-md">
-        <h1 className="mb-6 text-center text-2xl font-bold text-gray-900">
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "var(--color-canvas)",
+        padding: "var(--space-16)",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 480,
+          background: "var(--color-surface)",
+          borderRadius: "var(--radius-lg)",
+          padding: "var(--space-32)",
+          boxShadow: "var(--shadow-modal)",
+        }}
+      >
+        {/* §9.1 Brand */}
+        <h1
+          style={{
+            fontSize: "28px",
+            lineHeight: "34px",
+            letterSpacing: "-0.3px",
+            fontWeight: 700,
+            color: "var(--color-text-primary)",
+            textAlign: "center",
+            margin: "0 0 var(--space-8)",
+          }}
+        >
           Wanny's Nails
         </h1>
-        <p className="mb-6 text-center text-sm text-gray-500">Sign in to your account</p>
+        <p
+          style={{
+            fontSize: "16px",
+            lineHeight: "22px",
+            color: "var(--color-text-secondary)",
+            textAlign: "center",
+            margin: "0 0 var(--space-32)",
+          }}
+        >
+          Sign in to your account
+        </p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "var(--space-20)" }} noValidate>
+          {/* §7.3 Error display */}
           {error && (
-            <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">{error}</div>
+            <div
+              role="alert"
+              style={{
+                background: "var(--color-error-bg)",
+                color: "var(--color-error)",
+                borderRadius: "var(--radius-sm)",
+                padding: "var(--space-12) var(--space-16)",
+                fontSize: "14px",
+                lineHeight: "20px",
+              }}
+            >
+              {error}
+            </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
+          {/* §6.1 Email input with label above */}
+          <Input
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+          />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
+          {/* §6.1 Password input with label above */}
+          <Input
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            autoComplete="current-password"
+          />
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {isLoading ? "Signing in..." : "Sign In"}
-          </button>
+          {/* §6.3 Primary button */}
+          <Button type="submit" loading={isLoading}>
+            Sign In
+          </Button>
         </form>
       </div>
     </div>

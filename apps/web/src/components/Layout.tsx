@@ -1,78 +1,92 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { useAuthStore } from "../store/auth.store";
-import {
-  LayoutDashboard,
-  CalendarClock,
-  Users,
-  CreditCard,
-  Settings,
-  LogOut,
-} from "lucide-react";
+/**
+ * §5.1 Bottom Tab Bar + §3.1 Layout Structure
+ *
+ * Mobile-first: fixed bottom tab bar, content centered.
+ * Top-level layout wraps all protected routes.
+ * §14 Iconography: Lucide React exclusively, 22px for navigation icons.
+ */
+import { NavLink, Outlet } from "react-router-dom";
+import { LayoutGrid, Calendar, CreditCard, Users, Settings } from "lucide-react";
+import { clsx } from "clsx";
 
-const navItems = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/bookings", label: "Bookings", icon: CalendarClock },
-  { to: "/customers", label: "Customers", icon: Users },
-  { to: "/payments", label: "Payments", icon: CreditCard },
-  { to: "/settings", label: "Settings", icon: Settings },
+/* ── §5.1 Tab definitions ── */
+const tabs = [
+  {
+    to: "/dashboard",
+    label: "Dashboard",
+    icon: LayoutGrid,
+  },
+  {
+    to: "/bookings",
+    label: "Bookings",
+    icon: Calendar,
+  },
+  {
+    to: "/payments",
+    label: "Payments",
+    icon: CreditCard,
+  },
+  {
+    to: "/customers",
+    label: "Customers",
+    icon: Users,
+  },
+  {
+    to: "/settings",
+    label: "Settings",
+    icon: Settings,
+  },
 ];
 
 export default function Layout() {
-  const { user, logout } = useAuthStore();
-  const navigate = useNavigate();
-
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
-
   return (
-    <div className="flex h-screen bg-gray-100">
-      {/* Sidebar */}
-      <aside className="hidden w-64 bg-gray-900 text-white md:flex md:flex-col">
-        <div className="flex h-16 items-center px-6">
-          <span className="text-xl font-bold">Wanny's Nails</span>
-        </div>
+    <div className="min-h-screen bg-bg">
+      {/* §3.1 Max content width centered + safe area page wrapper */}
+      <main id="main-content" role="main" className="page mx-auto max-w-[480px]">
+        <Outlet />
+      </main>
 
-        <nav className="flex-1 space-y-1 px-3 py-4">
-          {navItems.map((item) => (
+      {/* §5.1 Bottom Tab Bar — height 64px */}
+      <nav
+        role="navigation"
+        aria-label="Main navigation"
+        className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-surface"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
+        <div className="mx-auto flex h-16 max-w-[480px] items-center justify-around">
+          {tabs.map(({ to, label, icon: Icon }) => (
             <NavLink
-              key={item.to}
-              to={item.to}
+              key={to}
+              to={to}
               className={({ isActive }) =>
-                `flex items-center rounded-lg px-3 py-2 text-sm font-medium ${
-                  isActive
-                    ? "bg-gray-800 text-white"
-                    : "text-gray-300 hover:bg-gray-800 hover:text-white"
-                }`
+                clsx(
+                  "flex flex-1 flex-col items-center justify-center gap-[2px] py-2 transition-colors",
+                )
               }
             >
-              <item.icon className="mr-3 h-5 w-5" />
-              {item.label}
+              {({ isActive }) => (
+                <>
+                  <Icon
+                    size={22}
+                    strokeWidth={2}
+                    className={clsx(
+                      isActive ? "text-primary" : "text-text-disabled",
+                    )}
+                  />
+                  <span
+                    className={clsx(
+                      "font-medium leading-none text-xs",
+                      isActive ? "text-primary" : "text-text-disabled",
+                    )}
+                  >
+                    {label}
+                  </span>
+                </>
+              )}
             </NavLink>
           ))}
-        </nav>
-
-        <div className="border-t border-gray-800 p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-400">{user?.name ?? "User"}</span>
-            <button
-              onClick={handleLogout}
-              className="text-gray-400 hover:text-white"
-              title="Logout"
-            >
-              <LogOut className="h-5 w-5" />
-            </button>
-          </div>
         </div>
-      </aside>
-
-      {/* Main content */}
-      <main className="flex-1 overflow-auto">
-        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          <Outlet />
-        </div>
-      </main>
+      </nav>
     </div>
   );
 }

@@ -94,7 +94,7 @@ export default function BookingDetailPage() {
   };
 
   const handleCancel = () => {
-    cancelMutation.mutate(booking.id, {
+    cancelMutation.mutate({ bookingId: booking.id }, {
       onSuccess: () => {
         showToast("success", `Booking cancelled. ${booking.customer.name} has been notified.`);
         closeDialog();
@@ -133,10 +133,13 @@ export default function BookingDetailPage() {
   };
 
   const handleSendPaymentRequest = () => {
-    paymentRequestMutation.mutate(booking.id, {
-      onSuccess: () => showToast("success", "Payment request sent via M-Pesa."),
-      onError: () => showToast("error", "Payment request failed. Retry from the booking detail."),
-    });
+    paymentRequestMutation.mutate(
+      { bookingId: booking.id, phoneNumber: booking.customer.phone },
+      {
+        onSuccess: () => showToast("success", "Payment request sent via M-Pesa."),
+        onError: () => showToast("error", "Payment request failed. Retry from the booking detail."),
+      },
+    );
   };
 
   const isPaid = booking.paymentStatus === "PAID";

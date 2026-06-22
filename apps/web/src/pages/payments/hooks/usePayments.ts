@@ -1,0 +1,135 @@
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+import { validateOrThrow } from "@/lib/guards";
+import { PaymentListSchema, type PaymentTransaction } from "@/lib/schemas";
+
+export const paymentKeys = {
+  all: ["payments"] as const,
+  list: (filters?: Record<string, string>) =>
+    ["payments", "list", filters] as const,
+  detail: (id: string) => ["payments", "detail", id] as const,
+};
+
+export interface PaymentFilters {
+  period?: "today" | "week" | "month" | "all";
+}
+
+/**
+ * Normalize a backend payment record into PaymentTransaction shape.
+ * The backend returns `customer` nested inside `booking`, and `method`
+ * is not present — we infer it from the payment context.
+ */
+function normalizePayment(p: Record<string, any>): PaymentTransaction {
+  return {
+    id: p.id,
+    bookingId: p.bookingId ?? p.booking?.id,
+    booking: {
+      id: p.bookingId ?? p.booking?.id,
+      reference: p.booking?.reference ?? p.reference ?? "",
+      service: {
+        id: p.booking?.service?.id ?? "",
+        name: p.booking?.service?.name ?? "",
+      },
+    },
+    customer: {
+      id: p.booking?.customer?.id ?? p.customer?.id ?? "",
+      name: p.booking?.customer?.name ?? p.customer?.name ?? "",
+      phone: p.booking?.customer?.phone ?? p.customer?.phone ?? "",
+    },
+    amountKes: p.amountKes ?? 0,
+    status: p.status ?? "UNPAID",
+    mpesaReceiptNumber: p.mpesaReceiptNumber ?? null,
+    method: "MPESA",
+    createdAt: p.createdAt ?? new Date().toISOString(),
+  };
+}
+
+export function usePayments(filters: PaymentFilters = {}) {
+  const queryParams = useMemo(() => {
+    const params: Record<string, string> = {};
+
+    // Convert period filter to date range
+    if (filters.period && filters.period !== "all") {
+      const now = new Date();
+      let from: Date;
+      switch (filters.period) {
+        case "today":
+          from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case "week": {
+          const dayOfWeek = now.getDay();
+          from = new Date(now);
+          from.setDate(now.getDate() - dayOfWeek);
+          from.setHours(0, 0, 0, 0);
+          break;
+        }
+        case "month":
+          from = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+      }
+      params.from = from!.toISOString();
+      params.to = now.toISOString();
+    }
+
+  return params;
+  }, [filters.period]);
+
+  return useQuery({
+    queryKey: paymentKeys.list(queryParams),
+    queryFn: async () => {
+      // First try the dedicated /payments endpoint
+      try {
+        const { data } = await api.get("/payments", { params: queryParams });
+        const rawList = data.data ?? data;
+        if (Array.isArray(rawList) && rawList.length > 0) {
+          const normalized = rawList.map(normalizePayment);
+          return validateOrThrow(
+            PaymentListSchema,
+            normalized,
+            "GET /payments",
+          );
+        }
+      } catch {
+        // Fall back to /bookings if /payments fails
+      }
+
+      // Fallback: fetch bookings with payment info
+      const { data } = await api.get("/bookings", { params: queryParams });
+      const bookings = data.data ?? data;
+      if (!Array.isArray(bookings)) return [];
+
+      return bookings
+        .filter((b: any) => b.payment)
+        .map((b: any) => normalizePayment({
+          id: b.payment.id,
+          bookingId: b.id,
+          booking: {
+            id: b.id,
+            reference: b.reference,
+            customer: b.customer,
+            service: b.service,
+          },
+          customer: b.customer,
+          amountKes: b.payment.amountKes,
+          status: b.payment.status,
+          mpesaReceiptNumber: b.payment.mpesaReceiptNumber,
+          createdAt: b.payment.createdAt,
+        }));
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function usePayment(id: string | undefined) {
+  return useQuery({
+    queryKey: paymentKeys.detail(id ?? ""),
+    queryFn: async () => {
+      const { data } = await api.get(`/payments/${id}`);
+      const raw = data.data ?? data;
+      return normalizePayment(raw);
+    },
+    enabled: !!id,
+    staleTime: 60_000,
+  });
+}

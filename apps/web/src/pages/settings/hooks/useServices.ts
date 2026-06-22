@@ -49,7 +49,10 @@ export function useUpdateService() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Service> & { id: string }) => {
+    mutationFn: async ({
+      id,
+      ...updates
+    }: Partial<Service> & { id: string }) => {
       const { data } = await api.patch(`/services/${id}`, updates);
       return validateOrThrow(ServiceSchema, data.data, "PATCH /services/:id");
     },
@@ -69,5 +72,23 @@ export function useDeleteService() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: serviceKeys.all });
     },
+  });
+}
+
+export function useAvailableSlots(
+  serviceId: string | undefined,
+  dateIso: string | undefined,
+) {
+  return useQuery({
+    queryKey: ["slots", serviceId, dateIso],
+    queryFn: () =>
+      api.get("/services/availability", {
+        params: {
+          serviceId,
+          dateIso,
+        },
+      }),
+    enabled: !!serviceId && !!dateIso,
+    staleTime: 15_000,
   });
 }

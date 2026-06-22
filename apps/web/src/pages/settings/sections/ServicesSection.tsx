@@ -98,7 +98,7 @@ export default function ServicesSection() {
 
   const openAddSheet = () => {
     setEditingId(null);
-    reset({ name: "", description: "", category: "MANICURE", durationMinutes: 60, priceKes: 0 });
+    reset({ name: "", description: "", category: "MANICURE", durationMinutes: 90, priceKes: 0 });
     setSheetOpen(true);
   };
 

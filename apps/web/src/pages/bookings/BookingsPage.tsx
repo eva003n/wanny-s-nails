@@ -9,6 +9,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBookings } from "./hooks/useBookings";
+import { CalendarDays } from "lucide-react";
 import PageHeader from "@/components/layout/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge, { bookingStatusToBadge, paymentStatusToBadge } from "@/components/ui/Badge";
@@ -108,16 +109,9 @@ export default function BookingsPage() {
         ) : bookings.length === 0 ? (
           /* §7.2 Empty state */
           <EmptyState
-            icon={
-              <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="6" y="8" width="36" height="36" rx="4" />
-                <line x1="6" y1="20" x2="42" y2="20" />
-                <line x1="16" y1="4" x2="16" y2="12" />
-                <line x1="32" y1="4" x2="32" y2="12" />
-              </svg>
-            }
+            icon={CalendarDays}
             heading="No bookings yet"
-            body="Your schedule is clear. Book a client to get started."
+            description="Your schedule is clear. Book a client to get started."
             action={<Button onClick={() => navigate("/bookings/new")}>Book Appointment</Button>}
           />
         ) : (
