@@ -17,12 +17,12 @@ router.post(
 );
 
 // GET /api/v1/payments — paginated list
-router.get("/", authenticate, paymentsController.listPayments);
+router.get("/", authenticate, validate({query: paymentsController.paymentQuerySchema}), paymentsController.listPayments);
 
 // GET /api/v1/payments/:id
-router.get("/:id", authenticate, paymentsController.getPaymentById);
+router.get("/:id", authenticate, validate({params: paymentsController.paymentParamSchema}), paymentsController.getPaymentById);
 
 // POST /api/v1/payments/mpesa-callback — public, validated by IP
-router.post("/mpesa-callback", paymentsController.handleMpesaCallback);
+router.post("/stk-callback", paymentsController.handleMpesaCallback);
 
 export { router as paymentsRoutes };

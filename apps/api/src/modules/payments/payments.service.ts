@@ -169,6 +169,7 @@ export const paymentsService = {
     const resultCode = stkCallback.ResultCode as number;
     const resultDesc = stkCallback.ResultDesc as string;
 
+    // find the payment 
     const payment = await prisma.payment.findUnique({
       where: { checkoutRequestId },
     });

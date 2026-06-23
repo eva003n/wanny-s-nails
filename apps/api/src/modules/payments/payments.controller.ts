@@ -28,6 +28,12 @@ export const initiateStkPush = asyncHandler(
   },
 );
 
+export const paymentQuerySchema = z.object({
+  status: z.string().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+  custmerId: z.string().optional(),
+})
 export const listPayments = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
     const { page, limit } = parsePagination(
@@ -51,6 +57,9 @@ export const listPayments = asyncHandler(
   },
 );
 
+export const paymentParamSchema = z.object({
+  id: z.string()
+})
 export const getPaymentById = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
     const payment = await paymentsService.getById(req.params.id as string);
