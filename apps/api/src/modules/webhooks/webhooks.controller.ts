@@ -7,14 +7,12 @@ import { logger } from "../../shared/lib/logger.js";
 
 const log = logger.child({ module: "webhooks" });
 import { paymentsService } from "../payments/payments.service.js";
+import { paymentQueue } from "../../shared/lib/queue.js";
 import { redis } from "../../shared/lib/redis.js";
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";
 import { processMessage } from "../../workflows/engine.js";
-import { sendMessage, sendTemplateMessage } from "../../workflows/whatsapp.js";
-import { loadSession, saveSession, deleteSession } from "../../workflows/session.js";
-import { formatDateEAT, formatTime12h } from "../../workflows/helpers.js";
-import { prisma } from "../../shared/lib/prisma.js";
 import type { Message } from "../../workflows/types.js";
+import { DarajaCallbackSchema } from "./schemas.js";
 
 
 export const verifyWhatsApp = asyncHandler(
@@ -335,7 +333,6 @@ export const handleWhatsApp = asyncHandler(
     }
   },
 );
-
 export const handleDaraja = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
     log.info(
@@ -343,102 +340,42 @@ export const handleDaraja = asyncHandler(
       "M-Pesa callback received",
     );
 
-    // Process the payment callback first
+    // 1. Validate the callback payload with Zod (discriminated union for success/failure)
+    const parsed = DarajaCallbackSchema.safeParse(req.body);
+    if (!parsed.success) {
+      log.warn(
+        { event: "payment.callback.invalid_schema", error: parsed.error },
+        "Invalid M-Pesa callback payload",
+      );
+      // Always respond 200 to Daraja to prevent retries
+      res.status(200).json({ ResultCode: 0, ResultDesc: "Accepted" });
+      return;
+    }
+
+    const resultCode = parsed.data.Body.stkCallback.ResultCode;
+    const checkoutRequestId = parsed.data.Body.stkCallback.CheckoutRequestID;
+
+    // 2. Persist DB updates (existing service — unchanged)
     await paymentsService.handleCallback(req.body);
 
-    // Extract callback data to determine success/failure
-    const body = req.body as { Body?: { stkCallback?: Record<string, unknown> } };
-    const stkCallback = body.Body?.stkCallback ?? {};
-    const resultCode = stkCallback.ResultCode as number;
-    const checkoutRequestId = stkCallback.CheckoutRequestID as string;
+    // 3. Enqueue payment-callback job for asynchronous side effects (WhatsApp notifications)
+    await paymentQueue.add(
+      "payment-callback",
+      {
+        resultCode,
+        checkoutRequestId,
+        rawCallback: req.body,
+      },
+      {
+        attempts: 3,
+        backoff: { type: "exponential", delay: 5000 },
+      },
+    );
 
-    // Look up the payment and booking to find the customer's phone
-    try {
-      const payment = await prisma.payment.findUnique({
-        where: { checkoutRequestId },
-        include: {
-          booking: {
-            include: {
-              customer: { select: { id: true, name: true, phone: true } },
-              service: { select: { name: true, durationMinutes: true, priceKes: true } },
-            },
-          },
-        },
-      });
-
-      if (payment && payment.booking?.customer) {
-        const customerPhone = payment.booking.customer.phone;
-        const customerName = payment.booking.customer.name;
-        const booking = payment.booking;
-        const serviceName = booking.service.name;
-
-        // Find the customer's WhatsApp session
-        const session = await loadSession(customerPhone);
-
-        if (resultCode === 0) {
-          // Payment succeeded
-          log.info(
-            { event: "payment.callback.success", checkoutRequestId, phone: customerPhone },
-            "Payment succeeded, sending WhatsApp confirmation",
-          );
-
-          const dateDisplay = formatDateEAT(booking.appointmentAt.toISOString());
-          const eatDate = new Date(booking.appointmentAt.getTime() + 3 * 60 * 60 * 1000);
-          const period = eatDate.getUTCHours() >= 12 ? "PM" : "AM";
-          const hours12 = eatDate.getUTCHours() % 12 || 12;
-          const timeDisplay = `${hours12}:${String(eatDate.getUTCMinutes()).padStart(2, "0")} ${period}`;
-
-          const confirmationText = [
-            "Payment received! ✅",
-            "",
-            `📋 Booking: ${booking.reference}`,
-            `✂️ Service: ${serviceName}`,
-            `📅 ${dateDisplay}`,
-            `⏰ ${timeDisplay}`,
-            "📍 Wanny's Nails, Nairobi",
-            "",
-            "We'll send you a reminder 24 hours before. See you then! 💅",
-          ].join("\n");
-
-          await sendMessage(customerPhone, { type: "text", text: confirmationText });
-
-          // Clear the customer's session
-          await deleteSession(customerPhone);
-        } else {
-          // Payment failed
-          log.info(
-            { event: "payment.callback.failed", checkoutRequestId, resultCode, phone: customerPhone },
-            "Payment failed, notifying customer",
-          );
-
-          await sendMessage(customerPhone, {
-            type: "text",
-            text: "The payment wasn't completed.",
-          });
-
-          await sendMessage(customerPhone, {
-            type: "interactive_button",
-            text: "What would you like to do?",
-            buttonTitle: "Choose an option",
-            buttons: [
-              { id: "1", title: "Try Again" },
-              { id: "2", title: "Cancel Booking" },
-            ],
-          });
-
-          // Update session to stay in AWAITING_PAYMENT
-          if (session) {
-            session.state = "AWAITING_PAYMENT";
-            await saveSession(customerPhone, session);
-          }
-        }
-      }
-    } catch (error) {
-      log.error(
-        { event: "payment.callback.whatsapp_notify_failed", error, checkoutRequestId },
-        "Failed to send WhatsApp payment notification",
-      );
-    }
+    log.info(
+      { event: "payment.callback.enqueued", checkoutRequestId, resultCode },
+      "Payment callback enqueued for processing",
+    );
 
     res.status(200).json({ ResultCode: 0, ResultDesc: "Accepted" });
   },
