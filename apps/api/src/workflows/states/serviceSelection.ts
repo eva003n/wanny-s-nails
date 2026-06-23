@@ -4,6 +4,9 @@ import { servicesService } from "../../modules/services/services.service.js";
 import { truncateTitle } from "../helpers.js";
 import type { ServiceCategory } from "../types.js";
 
+/** WhatsApp interactive list max rows */
+const MAX_LIST_ROWS = 10;
+
 /**
  * Human-readable labels for categories (shown in the list header).
  */
@@ -15,27 +18,40 @@ const CATEGORY_LABELS: Record<ServiceCategory, string> = {
 };
 
 /**
- * Build the service selection interactive list message for a specific category.
+ * Build the service selection message for a specific category.
+ * Uses interactive list when services fit within WhatsApp's 10-row limit,
+ * otherwise falls back to a text-based numbered list.
  */
 function buildServiceListMessage(
   services: Array<{ name: string; priceKes: number; durationMinutes: number }>,
   categoryLabel: string,
 ): StateTransitionResult["messages"][0] {
+  if (services.length <= MAX_LIST_ROWS) {
+    return {
+      type: "interactive_list",
+      text: `Which ${categoryLabel} service would you like?`,
+      listTitle: `${categoryLabel} Services`,
+      listButtonText: "Choose a service",
+      listSections: [
+        {
+          title: "Available Services",
+          rows: services.map((s, i) => ({
+            id: String(i + 1),
+            title: truncateTitle(s.name),
+            description: `KES ${s.priceKes.toLocaleString()} — ${s.durationMinutes} min`,
+          })),
+        },
+      ],
+    };
+  }
+
+  // Too many services for an interactive list — send a numbered text message
+  const lines = services.map(
+    (s, i) => `${i + 1}. ${s.name} — KES ${s.priceKes.toLocaleString()} (${s.durationMinutes} min)`,
+  );
   return {
-    type: "interactive_list",
-    text: `Which ${categoryLabel} service would you like?`,
-    listTitle: `${categoryLabel} Services`,
-    listButtonText: "Choose a service",
-    listSections: [
-      {
-        title: "Available Services",
-        rows: services.map((s, i) => ({
-          id: String(i + 1),
-          title: truncateTitle(s.name),
-          description: `KES ${s.priceKes.toLocaleString()} — ${s.durationMinutes} min`,
-        })),
-      },
-    ],
+    type: "text",
+    text: `Which ${categoryLabel} service would you like?\n\n${lines.join("\n")}\n\nReply with a number to pick a service.`,
   };
 }
 

@@ -1,8 +1,7 @@
-import type { ConversationSession, ConversationState, StateHandlerContext, StateTransitionResult } from "./types.js";
+import type { ConversationSession, ConversationState, Message, StateHandlerContext, StateTransitionResult } from "./types.js";
 import { loadSession, saveSession, deleteSession, createNewSession } from "./session.js";
 import { sendMessage } from "./whatsapp.js";
 import { logger } from "../shared/lib/logger.js";
-import { redis } from "../shared/lib/redis.js";
 
 // State handlers
 import { handleIdle } from "./states/idle.js";
@@ -17,8 +16,8 @@ import { handleAwaitingPaymentPhone } from "./states/awaitingPaymentPhone.js";
 import { handleAwaitingPayment } from "./states/awaitingPayment.js";
 import { handleCancelConfirmation } from "./states/cancelConfirmation.js";
 import { handleRescheduleDate, handleRescheduleTime, handleRescheduleConfirmation } from "./states/reschedule.js";
-import { handleAiFallback } from "./states/aiFallback.js";
 import { handleHumanEscalation } from "./states/humanEscalation.js";
+import type { OutboundMessage } from "@wannys-nails/packages";
 
 const log = logger.child({ module: "fsm-engine" });
 
@@ -47,7 +46,6 @@ const STATE_HANDLERS: Record<ConversationState, StateHandler> = {
   RESCHEDULE_TIME: handleRescheduleTime,
   RESCHEDULE_CONFIRMATION: handleRescheduleConfirmation,
   CANCEL_CONFIRMATION: handleCancelConfirmation,
-  AI_FALLBACK: handleAiFallback,
   HUMAN_ESCALATION: handleHumanEscalation,
 };
 
@@ -56,7 +54,7 @@ const STATE_HANDLERS: Record<ConversationState, StateHandler> = {
 /**
  * Process an incoming WhatsApp message through the FSM.
  *
- * This is the main entry point called by the webhook handler.
+ * This is the main entry point to the Finite state machine .
  * It handles:
  *  1. Session loading (or creation)
  *  2. Global intent detection
@@ -68,9 +66,11 @@ const STATE_HANDLERS: Record<ConversationState, StateHandler> = {
 
 
 export async function processMessage(
-  phone: string,
-  messageText: string,
+  message: Message,
+
 ): Promise<void> {
+  const {phone, messageBody: messageText} = message
+
   log.info({ event: "fsm.process.start", phone }, "Processing WhatsApp message");
 
   // ── 1. Load or create session ──
@@ -94,10 +94,13 @@ export async function processMessage(
     log.info({ event: "fsm.global.stop", phone }, "Customer opted out");
     await deleteSession(phone);
 
-    await sendMessage(phone, {
+    // TODO: Remove this function(only for testing purposes)
+    await sendMessage({
+      to: phone,
       type: "text",
       text: "You've been unsubscribed from messages. If you'd like to re-subscribe, just send us a message. Take care! 👋",
     });
+
 
     // Log consent withdrawal
     try {
@@ -137,7 +140,7 @@ export async function processMessage(
     session.invalidInputCount = 0;
   }
 
-  // ── 3. Handle IDLE state → transition to GREETING or DATA_COLLECTION ──
+  // 3. Handle IDLE state → transition to GREETING or DATA_COLLECTION(onew customer)
 
   if (session.state === "IDLE") {
     const ctx: StateHandlerContext = {
@@ -153,7 +156,7 @@ export async function processMessage(
 
     // If the IDLE handler returned messages, send them
     for (const msg of result.messages) {
-      await sendMessage(phone, msg);
+      await sendMessage({ ...msg, to: phone });
     }
 
     // Reload session after IDLE handler
@@ -173,7 +176,7 @@ export async function processMessage(
           };
           const entryResult = await entryHandler(entryCtx);
           for (const msg of entryResult.messages) {
-            await sendMessage(phone, msg);
+            await sendMessage(msg);
           }
         } catch (error) {
           log.error(
@@ -190,7 +193,7 @@ export async function processMessage(
     session.state = "GREETING";
 
     const name = session.customerName || "there";
-    await sendMessage(phone, buildMainMenuMessage(name));
+    await sendMessage(buildMainMenuMessage(name));
 
     await saveSession(phone, session);
     return;
@@ -235,53 +238,10 @@ export async function processMessage(
 
   applyTransition(session, result);
 
-  // ── 7. Handle invalid input count escalation to AI_FALLBACK ──
-
-  if (
-    session.invalidInputCount >= 3 &&
-    currentState !== "AI_FALLBACK" &&
-    currentState !== "HUMAN_ESCALATION" &&
-    result.nextState !== "AI_FALLBACK" &&
-    result.nextState !== "HUMAN_ESCALATION" &&
-    result.nextState !== "GREETING"
-  ) {
-    log.info(
-      { event: "fsm.invalid_input.escalation", count: session.invalidInputCount, phone },
-      "Invalid input count reached 3 — escalating to AI_FALLBACK",
-    );
-    session.state = "AI_FALLBACK";
-    session.invalidInputCount = 0;
-
-    // Try AI fallback
-    const aiCtx: StateHandlerContext = {
-      message: trimmedMessage.toLowerCase(),
-      rawMessage: messageText,
-      session: { ...session },
-      phone,
-    };
-
-    try {
-      const aiResult = await handleAiFallback(aiCtx);
-      applyTransition(session, aiResult);
-
-      // Send AI response
-      for (const msg of aiResult.messages) {
-        await sendMessage(phone, msg);
-      }
-
-      await saveSession(phone, session);
-      return;
-    } catch (error) {
-      log.error({ event: "fsm.ai_fallback.error", error, phone }, "AI fallback handler failed");
-      // Fall through to HUMAN_ESCALATION
-      session.state = "HUMAN_ESCALATION";
-    }
-  }
-
-  // ── 8. Send outbound messages ──
+  // ── 7. Send outbound messages ──
 
   for (const msg of result.messages) {
-    await sendMessage(phone, msg);
+    await sendMessage({ ...msg, to: phone });
   }
 
   // ── 8b. Send initial prompt if transitioning to a new state with no messages ──
@@ -303,7 +263,7 @@ export async function processMessage(
         };
         const entryResult = await nextHandler(entryCtx);
         for (const msg of entryResult.messages) {
-          await sendMessage(phone, msg);
+          await sendMessage({ ...msg, to: phone });
         }
       } catch (error) {
         log.error(

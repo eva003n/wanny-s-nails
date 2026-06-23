@@ -35,7 +35,6 @@ export async function handleIdle(
         collectionPhase: undefined,
         temporaryName: undefined,
         temporaryEmail: undefined,
-        aiContext: undefined,
       },
       nextState: "GREETING",
     };
@@ -60,7 +59,6 @@ export async function handleIdle(
       paymentPhone: undefined,
       temporaryName: undefined,
       temporaryEmail: undefined,
-      aiContext: undefined,
     },
     nextState: "DATA_COLLECTION",
   };

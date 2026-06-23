@@ -11,7 +11,9 @@ const log = logger.child({ module: "fsm-human-escalation" });
  *
  * Triggered when:
  *  1. Customer explicitly asks for a human ("human", "agent", "help me", "talk to someone")
- *  2. AI_FALLBACK cannot resolve the issue
+ *  2. Invalid input reaches the escalation threshold (this was previously routed
+ *     through AI_FALLBACK; that path is now disabled — future versions may
+ *     re-introduce AI handling before escalating)
  *
  * Actions:
  *  1. Send Web Push notification to owner's PWA (via SSE)
@@ -24,22 +26,15 @@ export async function handleHumanEscalation(
   const customerName = ctx.session.customerName || "Customer";
   const phone = ctx.phone;
 
-  // Build conversation summary from AI context
-  const aiContext = ctx.session.aiContext ?? [];
-  const lastMessages = aiContext
-    .slice(-4)
-    .map((m) => `${m.role}: ${m.parts.map((p) => p.text).join(" ")}`)
-    .join("\n");
-
   // 1. Send notification to owner via SSE/Redis pubsub
   try {
     const notificationPayload = JSON.stringify({
       title: "Customer needs help — Wanny's Nails",
       body: `${customerName} (${phone}) needs assistance.`,
-      data: {
+    data: {
         url: ctx.session.customerId ? `/customers/${ctx.session.customerId}` : "/customers",
         customerPhone: phone,
-        conversationSummary: lastMessages || "No conversation history available",
+        conversationSummary: "Customer requested human assistance.",
       },
       timestamp: new Date().toISOString(),
     });
@@ -59,14 +54,14 @@ export async function handleHumanEscalation(
 
   // 2. Send confirmation message to customer
   const customerMessage = [
-    "I'm going to connect you with our team right away.",
+    "I'm going to connect you with our staff",
     "Please wait a moment — someone will be with you shortly.",
     "",
     `You can also call us on ${config.APP_NAME === "Wanny's Nails" ? "+254 700 000 000" : config.APP_NAME}.`,
   ].join("\n");
 
   return {
-    messages: [{ type: "text", text: customerMessage }],
+    messages: [{ to: phone, type: "text", text: customerMessage }],
     sessionUpdates: {
       ...resetInvalidCount(ctx.session),
       // Clear all flow-related data
@@ -78,7 +73,6 @@ export async function handleHumanEscalation(
       selectedTime: undefined,
       appointmentAt: undefined,
       flow: undefined,
-      aiContext: undefined,
     },
     nextState: "IDLE",
   };

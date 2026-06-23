@@ -36,13 +36,13 @@ export async function handleDataCollection(
     const name = ctx.rawMessage.trim();
 
     // Validate name
-    if (!name || name.length < 2) {
+    if (!name || name.length < 5) {
       const newSession = incrementInvalidCount(ctx.session);
       return {
         messages: [
           {
             type: "text",
-            text: "Please enter your full name (at least 2 characters).",
+            text: "Please enter your full name (at least 5 characters).",
           },
         ],
         sessionUpdates: newSession,
@@ -60,7 +60,7 @@ export async function handleDataCollection(
       messages: [
         {
           type: "text",
-          text: `Nice to meet you, ${name}! \u{1F60A}\n\nCould you share your email address for your booking receipt? You can also type *skip* to continue without one.`,
+          text: `Nice to meet you, ${name}! \u{1F60A}\n\nCould you share your email address for remainders? You can also type *skip* to continue without one.`,
         },
       ],
       sessionUpdates: {

@@ -39,7 +39,7 @@ export class ValidationError extends AppError {
 
 // --- Auth ---
 export class UnauthorizedError extends AppError {
-  constructor(message = "Missing, expired, or invalid JWT") {
+  constructor(message = "Missing, expired, or invalid token") {
     super("UNAUTHORIZED", 401, message);
   }
 }

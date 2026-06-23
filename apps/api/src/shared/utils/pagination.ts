@@ -6,7 +6,7 @@ export interface PaginationParams {
 
 export function parsePagination(query: Record<string, unknown>, defaults?: { sort?: string }): PaginationParams {
   const page = Math.max(1, Number(query.page) || 1);
-  const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
+  const limit = Math.min(100, Math.max(1, Number(query.limit) || 10));
   const sort = (query.sort as string) || defaults?.sort;
   return { page, limit, sort };
 }
