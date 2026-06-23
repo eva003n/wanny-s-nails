@@ -4,7 +4,7 @@ import pinoHttp from "pino-http";
 import type { Request, Response, RequestHandler } from "express";
 import { logger } from "../lib/logger.js";
 
-export const logMiddleware: RequestHandler = pinoHttp({
+export const logMiddleware: RequestHandler = (pinoHttp as unknown as any)({
   logger, // reuse your configured pino instance
 
   // add request id for logging
@@ -35,7 +35,7 @@ export const logMiddleware: RequestHandler = pinoHttp({
       return {
         method: req.method,
         url: req.url,
-        ip: req.socket?.remoteAddress || req.headers?.["x-forwarded-for"],//(behind proxies)
+        ip: req.socket?.remoteAddress || req.headers?.["x-forwarded-for"], //(behind proxies)
         userAgent: req.headers["user-agent"],
         requestId: req.requestId,
       };

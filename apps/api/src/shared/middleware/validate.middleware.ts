@@ -1,7 +1,7 @@
 import { z, ZodType, type ZodIssue } from "zod";
 import type { Request, Response, NextFunction, RequestHandler } from "express";
-import { ValidationError } from "../types/errors";
-import { asyncHandler } from "../utils/asyncHandler";
+import { ValidationError } from "../types/errors.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 // Structure represents all schemas
 
@@ -31,7 +31,7 @@ type RequestWithValidation<TSchema extends RequestSchema> = Request & {
 const formatError = (source: keyof RequestSchema, errors: ZodIssue[]) => {
   return errors.map((error: ZodIssue) => ({
     message: error.message,
-    field: [source, ...error.path.join(".")],
+    field: [{source, path: error.path}],
   }));
 };
 
