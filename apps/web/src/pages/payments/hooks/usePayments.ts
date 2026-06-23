@@ -2,7 +2,11 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { validateOrThrow } from "@/lib/guards";
-import { PaymentListSchema, type PaymentTransaction } from "@/lib/schemas";
+import {
+  PaymentListSchema,
+  PaginatedPaymentsSchema,
+  type PaymentTransaction,
+} from "@/lib/schemas";
 
 export const paymentKeys = {
   all: ["payments"] as const,
@@ -13,6 +17,20 @@ export const paymentKeys = {
 
 export interface PaymentFilters {
   period?: "today" | "week" | "month" | "all";
+}
+
+export interface PaymentMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
+
+export interface PaymentsResult {
+  data: PaymentTransaction[];
+  meta?: PaymentMeta;
 }
 
 /**
@@ -45,7 +63,11 @@ function normalizePayment(p: Record<string, any>): PaymentTransaction {
   };
 }
 
-export function usePayments(filters: PaymentFilters = {}) {
+export function usePayments(
+  filters: PaymentFilters = {},
+  page = 1,
+  limit = 20,
+) {
   const queryParams = useMemo(() => {
     const params: Record<string, string> = {};
 
@@ -72,24 +94,35 @@ export function usePayments(filters: PaymentFilters = {}) {
       params.to = now.toISOString();
     }
 
-  return params;
-  }, [filters.period]);
+    params.page = String(page);
+    params.limit = String(limit);
+    return params;
+  }, [filters.period, page, limit]);
 
-  return useQuery({
+  return useQuery<PaymentsResult>({
     queryKey: paymentKeys.list(queryParams),
     queryFn: async () => {
       // First try the dedicated /payments endpoint
       try {
         const { data } = await api.get("/payments", { params: queryParams });
-        const rawList = data.data ?? data;
-        if (Array.isArray(rawList) && rawList.length > 0) {
-          const normalized = rawList.map(normalizePayment);
-          return validateOrThrow(
-            PaymentListSchema,
-            normalized,
-            "GET /payments",
-          );
-        }
+        const validated = validateOrThrow(
+          PaginatedPaymentsSchema,
+          data,
+          "GET /payments",
+        );
+        return {
+          data: validated.data.map(normalizePayment),
+          meta: validated.meta
+            ? {
+                page: validated.meta.page,
+                limit: validated.meta.limit,
+                total: validated.meta.total,
+                totalPages: validated.meta.totalPages,
+                hasNextPage: validated.meta.hasNextPage,
+                hasPrevPage: validated.meta.hasPrevPage,
+              }
+            : undefined,
+        };
       } catch {
         // Fall back to /bookings if /payments fails
       }
@@ -97,9 +130,9 @@ export function usePayments(filters: PaymentFilters = {}) {
       // Fallback: fetch bookings with payment info
       const { data } = await api.get("/bookings", { params: queryParams });
       const bookings = data.data ?? data;
-      if (!Array.isArray(bookings)) return [];
+      if (!Array.isArray(bookings)) return { data: [] };
 
-      return bookings
+      const payments = bookings
         .filter((b: any) => b.payment)
         .map((b: any) => normalizePayment({
           id: b.payment.id,
@@ -116,6 +149,8 @@ export function usePayments(filters: PaymentFilters = {}) {
           mpesaReceiptNumber: b.payment.mpesaReceiptNumber,
           createdAt: b.payment.createdAt,
         }));
+
+      return { data: payments };
     },
     staleTime: 30_000,
   });
