@@ -1,0 +1,83 @@
+/**
+ * Job payload types — the typed contract between API producers and worker consumers.
+ *
+ * These interfaces define the shape of data in each BullMQ job.
+ * Workers should validate incoming job.data against these types using Zod at runtime.
+ */
+
+// ─── Notification Job Payloads ────────────────────────────────
+
+
+export type WhatsAppTemplatePayload = {
+  type: "template";
+  to: string;
+  templateName: string;
+  languageCode: string;
+  params: string[];
+}
+
+export type OutboundMessage = {
+  to: string;
+  type: "text" | "interactive_list" | "interactive_button" | "template";
+  text?: string;
+  /** For interactive_list */
+  listTitle?: string;
+  listButtonText?: string;
+  listSections?: Array<{
+    title?: string;
+    rows: Array<{ id: string; title: string; description?: string }>;
+  }>;
+  /** For interactive_button */
+  buttonTitle?: string;
+  buttons?: Array<{ id: string; title: string }>;
+};
+
+
+export type WhatsAppNotificationPayload =
+  | OutboundMessage
+  | WhatsAppTemplatePayload;
+
+export type EmailNotificationPayload = {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+}
+
+// ─── Payment Job Payloads ─────────────────────────────────────
+
+export interface StkPushPayload {
+  bookingId: string;
+  paymentId: string;
+  phoneNumber: string;
+  amount: number;
+  accountReference: string;
+}
+
+export interface PaymentVerifyPayload {
+  bookingId: string;
+  paymentId: string;
+  checkoutRequestId: string;
+}
+
+// ─── Reminder Job Payloads ────────────────────────────────────
+
+export type Reminder1hPayload = {
+  reminderId: string;
+  bookingId: string;
+  customerPhone: string;
+  customerName: string;
+  serviceName: string;
+  appointmentAt: string; // ISO datetime
+}
+
+export type Reminder24hPayload = {
+  reminderId: string;
+  bookingId: string;
+  customerPhone: string;
+  customerName: string;
+  serviceName: string;
+  appointmentAt: string; // ISO datetime
+}
+
+
