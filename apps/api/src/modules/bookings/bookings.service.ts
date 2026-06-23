@@ -20,7 +20,9 @@ interface CreateBookingInput {
 
 function generateReference(): string {
   const year = new Date().getFullYear();
-  const seq = Math.floor(Math.random() * 99999).toString().padStart(5, "0");
+  const seq = Math.floor(Math.random() * 99999)
+    .toString()
+    .padStart(5, "0");
   return `WN-${year}-${seq}`;
 }
 
@@ -37,18 +39,35 @@ export const bookingsService = {
     to: string | undefined;
     sort: string | undefined;
   }) {
-    const { page, limit, status, paymentStatus, customerId, serviceId, date, from, to, sort } = filters;
+    const {
+      page,
+      limit,
+      status,
+      paymentStatus,
+      customerId,
+      serviceId,
+      date,
+      from,
+      to,
+      sort,
+    } = filters;
     const skip = (page - 1) * limit;
 
     const where: Record<string, unknown> = {};
 
     if (status) {
-      const statuses = status.split(",").map((s) => s.trim()).filter(Boolean);
+      const statuses = status
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
       where.status = { in: statuses };
     }
 
     if (paymentStatus) {
-      const pStatuses = paymentStatus.split(",").map((s) => s.trim()).filter(Boolean);
+      const pStatuses = paymentStatus
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
       where.paymentStatus = { in: pStatuses };
     }
 
@@ -73,7 +92,7 @@ export const bookingsService = {
       where.appointmentAt = appointmentFilter;
     }
 
-    const sortParts = (sort || "appointmentAt:asc").split(":");
+    const sortParts = (sort || "appointmentAt:desc").split(":");
     const sortField = (sortParts[0] || "appointmentAt") as string;
     const sortDirection = (sortParts[1] || "asc") as string;
     const orderBy: Record<string, "asc" | "desc"> = {};
@@ -86,6 +105,7 @@ export const bookingsService = {
           customer: { select: { id: true, name: true, phone: true } },
           service: { select: { id: true, name: true } },
           approvedBy: { select: { id: true, name: true } },
+          payment: true,
         },
         orderBy,
         skip,
@@ -104,6 +124,7 @@ export const bookingsService = {
         customer: { select: { id: true, name: true, phone: true } },
         service: { select: { id: true, name: true, durationMinutes: true } },
         approvedBy: { select: { id: true, name: true } },
+        payment: { include: { transactions: true } },
         statusHistory: {
           orderBy: { createdAt: "asc" },
         },
@@ -133,18 +154,109 @@ export const bookingsService = {
     return booking;
   },
 
+  // async create(input: CreateBookingInput) {
+  //   const service = await prisma.nailService.findUnique({
+  //     where: { id: input.serviceId },
+  //   });
+  //   if (!service || service.deletedAt) {
+  //     throw new ServiceInactiveError();
+  //   }
+  //   if (!service.isActive) {
+  //     throw new ServiceInactiveError();
+  //   }
+
+  //   // Check customer exists
+  //   const customer = await prisma.customer.findUnique({
+  //     where: { id: input.customerId },
+  //   });
+  //   if (!customer) {
+  //     throw new BookingNotFoundError(`Customer ${input.customerId}`);
+  //   }
+
+  //   const appointmentAt = new Date(input.appointmentAt);
+
+  //   // Validate future date
+  //   if (appointmentAt <= new Date()) {
+  //     throw new BookingConflictError();
+  //   }
+
+  //   // Check business hours
+  //   const dayOfWeek = appointmentAt.getDay();
+  //   const businessHours = await prisma.businessHours.findUnique({ where: { dayOfWeek } });
+  //   if (!businessHours || !businessHours.isActive) {
+  //     throw new OutsideBusinessHoursError(input.appointmentAt);
+  //   }
+
+  //   // Validate business hours
+  //   const openParts = businessHours.openTime.split(":");
+  //   const closeParts = businessHours.closeTime.split(":");
+  //   const openHour = Number(openParts[0]);
+  //   const closeHour = Number(closeParts[0]);
+  //   const appointmentHour = appointmentAt.getHours();
+  //   if (appointmentHour < openHour || appointmentHour >= closeHour) {
+  //     throw new OutsideBusinessHoursError(input.appointmentAt);
+  //   }
+
+  //   // Check slot alignment (service-duration boundaries)
+  //   const minute = appointmentAt.getMinutes();
+  //   const hour = appointmentAt.getHours();
+  //   const totalMinutesSinceMidnight = hour * 60 + minute;
+  //   if (totalMinutesSinceMidnight % service.durationMinutes !== 0) {
+  //     throw new BookingConflictError();
+  //   }
+
+  //   // Check for slot conflict
+  //   const conflictingBooking = await prisma.booking.findFirst({
+  //     where: {
+  //       appointmentAt: {
+  //         gt: new Date(appointmentAt.getTime() - service.durationMinutes * 60 * 1000).toISOString(),
+  //         lt: new Date(appointmentAt.getTime() + service.durationMinutes * 60 * 1000).toISOString(),
+  //       },
+  //       status: { notIn: ["CANCELLED", "NO_SHOW"] },
+  //     },
+  //   });
+
+  //   if (conflictingBooking) {
+  //     throw new BookingConflictError();
+  //   }
+
+  //   return prisma.booking.create({
+  //     data: {
+  //       reference: generateReference(),
+  //       customerId: input.customerId,
+  //       serviceId: input.serviceId,
+  //       appointmentAt,
+  //       durationMinutes: service.durationMinutes,
+  //       priceKes: service.priceKes,
+  //       notes: input.notes ?? null,
+  //       payment: {
+  //         create: {
+  //           amountKes: service.priceKes,
+  //         },
+  //       },
+  //       statusHistory: {
+  //         create: {
+  //           toStatus: "PENDING",
+  //           actorType: "CUSTOMER",
+  //         },
+  //       },
+  //     },
+  //     include: {
+  //       customer: { select: { id: true, name: true, phone: true } },
+  //       service: { select: { id: true, name: true } },
+  //       payment: true,
+  //     },
+  //   });
+  // },
+
   async create(input: CreateBookingInput) {
     const service = await prisma.nailService.findUnique({
       where: { id: input.serviceId },
     });
-    if (!service || service.deletedAt) {
-      throw new ServiceInactiveError();
-    }
-    if (!service.isActive) {
+    if (!service || service.deletedAt || !service.isActive) {
       throw new ServiceInactiveError();
     }
 
-    // Check customer exists
     const customer = await prisma.customer.findUnique({
       where: { id: input.customerId },
     });
@@ -152,82 +264,140 @@ export const bookingsService = {
       throw new BookingNotFoundError(`Customer ${input.customerId}`);
     }
 
-    const appointmentAt = new Date(input.appointmentAt);
+    const start = new Date(input.appointmentAt);
+    const end = new Date(start.getTime() + service.durationMinutes * 60 * 1000);
+    // if (isNaN(start.getTime())) {
+    //   throw new InvalidAppointmentTimeError(input.appointmentAt);
+    // }
+    // const end = new Date(start.getTime() + service.durationMinutes * 60 * 1000);
 
-    // Validate future date
-    if (appointmentAt <= new Date()) {
+    // // Validate future date
+    // if (start <= new Date()) {
+    //   throw new InvalidAppointmentTimeError(input.appointmentAt);
+    // }
+
+    // Slot alignment check — align to the salon's fixed booking grid
+    // (e.g. every 15 minutes), NOT to the service duration. Aligning to
+    // duration rejects valid times for any service whose length isn't a
+    // divisor of 60 (45-min services could only start on the hour or :45).
+    const SLOT_GRANULARITY_MINUTES = 15;
+    const totalMinutes = start.getHours() * 60 + start.getMinutes();
+    if (totalMinutes % SLOT_GRANULARITY_MINUTES !== 0) {
       throw new BookingConflictError();
     }
 
-    // Check business hours
-    const dayOfWeek = appointmentAt.getDay();
-    const businessHours = await prisma.businessHours.findUnique({ where: { dayOfWeek } });
+    // Check business hours — compare full start/end timestamps, not just
+    // the hour, so e.g. an 18:50 start with a 19:00 close is correctly
+    // rejected (the old code only checked appointmentHour < closeHour,
+    // which would wrongly allow a service that runs past closing).
+    const dayOfWeek = start.getDay();
+    const businessHours = await prisma.businessHours.findUnique({
+      where: { dayOfWeek },
+    });
     if (!businessHours || !businessHours.isActive) {
       throw new OutsideBusinessHoursError(input.appointmentAt);
     }
 
-    // Validate business hours
-    const openParts = businessHours.openTime.split(":");
-    const closeParts = businessHours.closeTime.split(":");
-    const openHour = Number(openParts[0]);
-    const closeHour = Number(closeParts[0]);
-    const appointmentHour = appointmentAt.getHours();
-    if (appointmentHour < openHour || appointmentHour >= closeHour) {
+    const [openHour, openMinute = 0] = businessHours.openTime
+      .split(":")
+      .map(Number);
+    const [closeHour, closeMinute = 0] = businessHours.closeTime
+      .split(":")
+      .map(Number);
+
+    const dayOpen = new Date(start);
+    dayOpen.setHours(openHour as number, openMinute, 0, 0);
+    const dayClose = new Date(start);
+    dayClose.setHours(closeHour as number, closeMinute, 0, 0);
+
+    if (start < dayOpen || end > dayClose) {
       throw new OutsideBusinessHoursError(input.appointmentAt);
     }
 
-    // Check slot alignment (service-duration boundaries)
-    const minute = appointmentAt.getMinutes();
-    const hour = appointmentAt.getHours();
-    const totalMinutesSinceMidnight = hour * 60 + minute;
-    if (totalMinutesSinceMidnight % service.durationMinutes !== 0) {
-      throw new BookingConflictError();
-    }
+    return prisma.$transaction(
+      async (tx) => {
+        // Narrow the conflict scan to a bounded window instead of fetching
+        // every non-cancelled booking ever made. We can't filter the exact
+        // overlap in SQL because `end` is computed (not stored), but we can
+        // let the DB cut the candidate set down to "anything that could
+        // possibly overlap this appointment" — i.e. bookings starting
+        // before `end` and after some reasonable lower bound (start minus
+        // the longest plausible service duration). Replace MAX_SERVICE_MINUTES
+        // with the actual max durationMinutes across active services if you
+        // want a tighter, schema-driven bound instead of a constant.
+        const MAX_SERVICE_MINUTES = 240; // adjust to your longest service
+        const lowerBound = new Date(
+          start.getTime() - MAX_SERVICE_MINUTES * 60 * 1000,
+        );
 
-    // Check for slot conflict
-    const conflictingBooking = await prisma.booking.findFirst({
-      where: {
-        appointmentAt: {
-          gte: new Date(appointmentAt.getTime() - service.durationMinutes * 60 * 1000),
-          lt: new Date(appointmentAt.getTime() + service.durationMinutes * 60 * 1000),
-        },
-        status: { notIn: ["CANCELLED", "NO_SHOW"] },
-      },
-    });
-
-    if (conflictingBooking) {
-      throw new BookingConflictError();
-    }
-
-    return prisma.booking.create({
-      data: {
-        reference: generateReference(),
-        customerId: input.customerId,
-        serviceId: input.serviceId,
-        appointmentAt,
-        durationMinutes: service.durationMinutes,
-        priceKes: service.priceKes,
-        notes: input.notes ?? null,
-        payment: {
-          create: {
-            amountKes: service.priceKes,
+        const candidates = await tx.booking.findMany({
+          where: {
+            status: { notIn: ["CANCELLED", "NO_SHOW"] },
+            appointmentAt: { lt: end, gte: lowerBound },
           },
-        },
-        statusHistory: {
-          create: {
-            toStatus: "PENDING",
-            actorType: "CUSTOMER",
+          select: { appointmentAt: true, durationMinutes: true },
+        });
+
+        const hasConflict = candidates.some((b) => {
+          const bStart = b.appointmentAt;
+          const bEnd = new Date(
+            bStart.getTime() + b.durationMinutes * 60 * 1000,
+          );
+          return bStart < end && bEnd > start;
+        });
+
+        if (hasConflict) {
+          throw new BookingConflictError();
+        }
+
+        // NOTE: even inside $transaction, Prisma's default isolation level
+        // is READ COMMITTED, which does NOT prevent two concurrent requests
+        // from both passing this check and both inserting overlapping rows.
+        // For correctness under concurrency you need one of:
+        //   (a) run this transaction with isolation: 'Serializable', e.g.
+        //       prisma.$transaction(fn, { isolationLevel: 'Serializable' })
+        //       and be ready to retry on serialization failures, or
+        //   (b) add a DB-level exclusion constraint (Postgres: EXCLUDE USING
+        //       gist on a tsrange computed from appointmentAt/duration) so
+        //       the database itself rejects overlapping inserts, with this
+        //       JS check kept only as a fast, friendly pre-check for UX.
+        // Pick (b) for production; (a) alone will retry-loop under load.
+
+        return tx.booking.create({
+          data: {
+            reference: generateReference(),
+            customerId: input.customerId,
+            serviceId: input.serviceId,
+            appointmentAt: start,
+            durationMinutes: service.durationMinutes,
+            priceKes: service.priceKes,
+            notes: input.notes ?? null,
+            payment: {
+              create: {
+                amountKes: service.priceKes,
+              },
+            },
+            statusHistory: {
+              create: {
+                toStatus: "PENDING",
+                actorType: "CUSTOMER",
+              },
+            },
           },
-        },
+          include: {
+            customer: {
+              select: { id: true, name: true, phone: true },
+            },
+            service: {
+              select: { id: true, name: true },
+            },
+            payment: true,
+          },
+        });
       },
-      include: {
-        customer: { select: { id: true, name: true, phone: true } },
-        service: { select: { id: true, name: true } },
-        payment: true,
-      },
-    });
+      { isolationLevel: "Serializable" }, // see NOTE above — pair with retry logic or a DB constraint
+    );
   },
-
   async approve(id: string, approvedById: string) {
     const booking = await this.getById(id);
     if (booking.status !== "PENDING") {
@@ -354,7 +524,11 @@ export const bookingsService = {
       // Don't fail the approval if reminder scheduling fails
       const err = error as { message?: string };
       log.error(
-        { event: "reminder.schedule_failed", bookingId: id, error: err.message },
+        {
+          event: "reminder.schedule_failed",
+          bookingId: id,
+          error: err.message,
+        },
         "Failed to schedule reminders — booking was still approved",
       );
     }
@@ -397,21 +571,51 @@ export const bookingsService = {
 
     const newDate = new Date(newAppointmentAt);
 
+    // Validate future date
+    if (newDate <= new Date()) {
+      throw new BookingConflictError();
+    }
+
     // Check business hours
     const dayOfWeek = newDate.getDay();
-    const businessHours = await prisma.businessHours.findUnique({ where: { dayOfWeek } });
+    const businessHours = await prisma.businessHours.findUnique({
+      where: { dayOfWeek },
+    });
     if (!businessHours || !businessHours.isActive) {
       throw new OutsideBusinessHoursError(newAppointmentAt);
     }
 
+    // Validate business hours
+    const openParts = businessHours.openTime.split(":");
+    const closeParts = businessHours.closeTime.split(":");
+    const openHour = Number(openParts[0]);
+    const closeHour = Number(closeParts[0]);
+    const appointmentHour = newDate.getHours();
+    if (appointmentHour < openHour || appointmentHour >= closeHour) {
+      throw new OutsideBusinessHoursError(newAppointmentAt);
+    }
+
     // Check slot availability
-    const service = await prisma.nailService.findUnique({ where: { id: booking.serviceId } });
-    const serviceDuration = service?.durationMinutes || 90;
+    const service = await prisma.nailService.findUnique({
+      where: { id: booking.serviceId },
+    });
+    if (!service) {
+      throw new Error("Service not found");
+    }
+    const serviceDuration = service.durationMinutes;
+
+    // Validate slot alignment (service-duration boundaries)
+    const minute = newDate.getMinutes();
+    const hour = newDate.getHours();
+    const totalMinutesSinceMidnight = hour * 60 + minute;
+    if (totalMinutesSinceMidnight % serviceDuration !== 0) {
+      throw new BookingConflictError();
+    }
     const conflicting = await prisma.booking.findFirst({
       where: {
         id: { not: id },
         appointmentAt: {
-          gte: new Date(newDate.getTime() - serviceDuration * 60 * 1000),
+          gt: new Date(newDate.getTime() - serviceDuration * 60 * 1000),
           lt: new Date(newDate.getTime() + serviceDuration * 60 * 1000),
         },
         status: { notIn: ["CANCELLED", "NO_SHOW"] },
@@ -510,7 +714,7 @@ export const bookingsService = {
         service: { select: { id: true, name: true } },
         payment: true,
       },
-      orderBy: { appointmentAt: "asc" },
+      orderBy: { appointmentAt: "desc" },
     });
   },
 

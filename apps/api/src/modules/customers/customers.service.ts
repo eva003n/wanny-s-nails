@@ -1,6 +1,14 @@
 import { prisma } from "../../shared/lib/prisma.js";
-import { CustomerNotFoundError, PhoneAlreadyExistsError, EmailAlreadyExistsError } from "../../shared/types/errors.js";
-import { parsePagination, parseSort, parseCsvFilter } from "../../shared/utils/pagination.js";
+import {
+  CustomerNotFoundError,
+  PhoneAlreadyExistsError,
+  EmailAlreadyExistsError,
+} from "../../shared/types/errors.js";
+import {
+  parsePagination,
+  parseSort,
+  parseCsvFilter,
+} from "../../shared/utils/pagination.js";
 
 export const customersService = {
   async list(params: {
@@ -20,7 +28,11 @@ export const customersService = {
       ];
     }
 
-    const sortOptions = parseSort(sort, ["name", "createdAt", "lastBookingAt"], "name:asc");
+    const sortOptions = parseSort(
+      sort,
+      ["name", "createdAt", "lastBookingAt"],
+      "createdAt:desc",
+    );
 
     // Map "lastBookingAt" to orderBy through a raw query or relation sort
     let orderBy: Record<string, unknown>;
@@ -50,25 +62,32 @@ export const customersService = {
     }
 
     // Compute stats
-    const [totalBookings, completedBookings, cancelledBookings, noShowCount, totalSpent, lastBooking] =
-      await Promise.all([
-        prisma.booking.count({ where: { customerId: id } }),
-        prisma.booking.count({ where: { customerId: id, status: "COMPLETED" } }),
-        prisma.booking.count({ where: { customerId: id, status: "CANCELLED" } }),
-        prisma.booking.count({ where: { customerId: id, status: "NO_SHOW" } }),
-        prisma.payment.aggregate({
-          where: { booking: { customerId: id }, status: "PAID" },
-          _sum: { amountKes: true },
-        }),
-        prisma.booking.findFirst({
-          where: { customerId: id },
-          orderBy: { appointmentAt: "desc" },
-          select: { appointmentAt: true },
-        }),
-      ]);
+    const [
+      totalBookings,
+      completedBookings,
+      cancelledBookings,
+      noShowCount,
+      totalSpent,
+      lastBooking,
+    ] = await Promise.all([
+      prisma.booking.count({ where: { customerId: id } }),
+      prisma.booking.count({ where: { customerId: id, status: "COMPLETED" } }),
+      prisma.booking.count({ where: { customerId: id, status: "CANCELLED" } }),
+      prisma.booking.count({ where: { customerId: id, status: "NO_SHOW" } }),
+      prisma.payment.aggregate({
+        where: { booking: { customerId: id }, status: "PAID" },
+        _sum: { amountKes: true },
+      }),
+      prisma.booking.findFirst({
+        where: { customerId: id },
+        orderBy: { appointmentAt: "desc" },
+        select: { appointmentAt: true },
+      }),
+    ]);
 
     const totalSpentKes = totalSpent._sum.amountKes ?? 0;
-    const averageBookingValueKes = totalBookings > 0 ? Math.round(totalSpentKes / totalBookings) : 0;
+    const averageBookingValueKes =
+      totalBookings > 0 ? Math.round(totalSpentKes / totalBookings) : 0;
 
     return {
       ...customer,
@@ -88,9 +107,15 @@ export const customersService = {
     return prisma.customer.findUnique({ where: { phone } });
   },
 
-  async create(data: { name: string; phone: string; email: string | undefined }) {
+  async create(data: {
+    name: string;
+    phone: string;
+    email: string | undefined;
+  }) {
     // Check phone uniqueness
-    const existingPhone = await prisma.customer.findUnique({ where: { phone: data.phone } });
+    const existingPhone = await prisma.customer.findUnique({
+      where: { phone: data.phone },
+    });
     if (existingPhone) {
       throw new PhoneAlreadyExistsError();
     }
@@ -126,7 +151,10 @@ export const customersService = {
     });
   },
 
-  async update(id: string, data: { name?: string | undefined; email?: string | undefined }) {
+  async update(
+    id: string,
+    data: { name?: string | undefined; email?: string | undefined },
+  ) {
     await this.getById(id);
     return prisma.customer.update({
       where: { id },
@@ -142,7 +170,10 @@ export const customersService = {
     });
   },
 
-  async getBookings(customerId: string, params: { page: number; limit: number; status: string | undefined }) {
+  async getBookings(
+    customerId: string,
+    params: { page: number; limit: number; status: string | undefined },
+  ) {
     const { page, limit, status } = params;
     const skip = (page - 1) * limit;
 
@@ -157,7 +188,7 @@ export const customersService = {
     const [bookings, total] = await Promise.all([
       prisma.booking.findMany({
         where,
-        include: { service: true, payment: true },
+        include: { service: true, payment: true, customer: true },
         orderBy: { appointmentAt: "desc" },
         skip,
         take: limit,
@@ -168,7 +199,10 @@ export const customersService = {
     return { bookings, total, page, limit };
   },
 
-  async getPayments(customerId: string, params: { page: number; limit: number; status: string | undefined }) {
+  async getPayments(
+    customerId: string,
+    params: { page: number; limit: number; status: string | undefined },
+  ) {
     const { page, limit, status } = params;
     const skip = (page - 1) * limit;
 
