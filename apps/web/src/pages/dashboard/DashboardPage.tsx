@@ -27,7 +27,14 @@ import {
 } from "@/pages/bookings/hooks/useBookings";
 import { useUiStore } from "@/store/ui.store";
 import { formatKes, formatDate } from "@/lib/format";
+import type { Booking } from "@/lib/schemas";
 import { useAuthStore } from "@/store/auth.store";
+
+function getTodaysBookings(tb: unknown): Booking[] {
+  if (Array.isArray(tb)) return tb;
+  if (tb && typeof tb === "object" && "data" in tb) return (tb as any).data;
+  return [];
+}
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -53,10 +60,12 @@ export default function DashboardPage() {
   const approveMutation = useApproveBooking();
   const cancelMutation = useCancelBooking();
 
-  const upcoming = (todayBookings ?? []).filter(
+  const todaysBookings = getTodaysBookings(todayBookings);
+
+  const upcoming = todaysBookings.filter(
     (b) => b.status === "APPROVED" || b.status === "RESCHEDULED",
   );
-  const pending = (todayBookings ?? []).filter((b) => b.status === "PENDING");
+  const pending = todaysBookings.filter((b) => b.status === "PENDING");
 
   const handleApprove = (id: string) => {
     approveMutation.mutate(id, {
@@ -98,6 +107,7 @@ export default function DashboardPage() {
           refetchStats();
           refetchBookings();
         }}
+        message= {(statsError?.message as string || bookingsError?.message as string)}
       />
     );
   }

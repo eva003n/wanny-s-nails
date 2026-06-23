@@ -16,16 +16,26 @@ import ErrorState from "@/components/ui/ErrorState";
 import { ListRowSkeleton } from "@/components/ui/Skeleton";
 import { useCustomers } from "@/pages/customers/hooks/useCustomers";
 import { formatKes, timeAgo } from "@/lib/format";
+import type { Customer } from "@/lib/schemas";
+import Pagination from "@/components/ui/Pagination";
 
 export default function CustomersListPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
-  const { data: customers, isLoading, error, refetch } = useCustomers(search || undefined);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+
+  const { data: result, isLoading, error, refetch } = useCustomers(
+    search || undefined,
+    page,
+    limit,
+  );
+  const customers: Customer[] = result?.data ?? [];
+  const meta = result?.meta;
 
   return (
     <div className="mx-auto max-w-2xl">
       <PageHeader title="Customers" />
-
       <div className="px-4 py-4">
         <div className="relative">
           <Search
@@ -51,29 +61,43 @@ export default function CustomersListPage() {
           <ListRowSkeleton />
           <ListRowSkeleton />
         </div>
-      ) : (customers ?? []).length === 0 ? (
-        <EmptyState icon={<Users size={48} />} heading="No customers found" />
+      ) : customers.length === 0 ? (
+        <EmptyState icon={Users} heading="No customers found" />
       ) : (
-        <div className="divide-y divide-[--color-divider] px-4">
-          {customers!.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => navigate(`/customers/${c.id}`)}
-              className="flex w-full min-h-11 items-center gap-3 py-3 text-left"
-            >
-              <Avatar name={c.name} />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-md font-semibold text-text-primary">{c.name}</p>
-                <p className="truncate text-sm text-text-secondary">{c.phone}</p>
-              </div>
-              <div className="shrink-0 text-right">
-                <p className="text-sm font-medium text-text-primary">{formatKes(c.totalSpentKes ?? 0)}</p>
-                <p className="text-xs text-text-secondary">
-                  {c.lastBookingAt ? timeAgo(c.lastBookingAt) : "No visits yet"}
-                </p>
-              </div>
-            </button>
-          ))}
+        <div>
+          <div className="divide-y divide-[--color-divider] px-4">
+            {customers.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => navigate(`/customers/${c.id}`)}
+                className="flex w-full min-h-11 items-center gap-3 py-3 text-left"
+              >
+                <Avatar name={c.name} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-md font-semibold text-text-primary">{c.name}</p>
+                  <p className="truncate text-sm text-text-secondary">{c.phone}</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-medium text-text-primary">{formatKes(c.totalSpentKes ?? 0)}</p>
+                  <p className="text-xs text-text-secondary">
+                    {c.lastBookingAt ? timeAgo(c.lastBookingAt) : "No visits yet"}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+          {meta && (
+            <Pagination
+              page={meta.page}
+              totalPages={meta.totalPages}
+              onPageChange={setPage}
+              limit={meta.limit}
+              onLimitChange={(l) => {
+                setLimit(l);
+                setPage(1);
+              }}
+            />
+          )}
         </div>
       )}
     </div>

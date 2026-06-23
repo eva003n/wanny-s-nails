@@ -110,10 +110,10 @@ export default function CreateBookingForm({ onSuccess, onRequestClose }: CreateB
               />
               {customerQuery && (
                 <div className="max-h-48 overflow-y-auto rounded-[--radius-md] border border-border">
-                  {(customerResults ?? []).length === 0 ? (
+                  {(customerResults?.data ?? []).length === 0 ? (
                     <p className="px-3 py-3 text-sm text-text-secondary">No matches found.</p>
                   ) : (
-                    customerResults!.map((c) => (
+                    customerResults?.data.map((c) => (
                       <button
                         key={c.id}
                         onClick={() => {
@@ -278,7 +278,7 @@ export default function CreateBookingForm({ onSuccess, onRequestClose }: CreateB
             <Button variant="secondary" fullWidth onClick={() => setStep(3)}>
               Back
             </Button>
-            <Button fullWidth onClick={handleConfirm} isLoading={createMutation.isPending}>
+            <Button fullWidth onClick={handleConfirm} loading={createMutation.isPending}>
               <Check className="h-4 w-4" aria-hidden="true" />
               Confirm Booking
             </Button>
