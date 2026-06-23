@@ -2,7 +2,7 @@ import { createServer } from "http";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-import cookieParser from "cookie-parser"
+import cookieParser from "cookie-parser";
 
 // Middlewares
 import { errorMiddleware } from "./shared/middleware/error.middleware.js";
@@ -16,6 +16,7 @@ import { customersRoutes } from "./modules/customers/customers.routes.js";
 import { slotsRoutes } from "./modules/slots/slots.routes.js";
 import { bookingsRoutes } from "./modules/bookings/bookings.routes.js";
 import { paymentsRoutes } from "./modules/payments/payments.routes.js";
+import { dashboardRoutes } from "./modules/dashboard/dashboard.routes.js";
 import { webhooksRoutes } from "./modules/webhooks/webhooks.routes.js";
 import { notificationsRoutes } from "./modules/notifications/notifications.routes.js";
 import { eventsRoutes } from "./modules/events/events.routes.js";
@@ -25,10 +26,11 @@ import { businessHoursRoutes } from "./modules/business-hours/business-hours.rou
 import { logMiddleware } from "./shared/middleware/log.middleware.js";
 import { config } from "./shared/lib/config.js";
 import { notFound } from "./shared/middleware/404.middleware.js";
+import { groupedBoard } from "@wannys-nails/packages";
 
 const app = express();
 // express app is behind a proxy(trust first proxy hoop)
-app.set("trust proxy", 1)
+app.set("trust proxy", 1);
 // Security headers
 app.use(helmet());
 
@@ -41,7 +43,7 @@ app.use(
 );
 
 // parse cookie
-app.use(cookieParser(config.COOKIE_SECRET.split(",")))
+app.use(cookieParser(config.COOKIE_SECRET.split(",")));
 
 // Raw body for webhook signature verification
 app.use(
@@ -63,6 +65,9 @@ app.use(globalRateLimit);
 // HTTP request logging
 app.use(logMiddleware);
 
+// Bull mq queues UI
+app.use("/api/v1/admin/queues", groupedBoard.getRouter())
+
 // Health check endpoint (public, no auth)
 app.use("/health", healthRoutes);
 app.use("/api/v1/health", healthRoutes);
@@ -80,11 +85,12 @@ app.use("/api/v1/customers", customersRoutes);
 app.use("/api/v1/slots", slotsRoutes);
 app.use("/api/v1/bookings", bookingsRoutes);
 app.use("/api/v1/payments", paymentsRoutes);
+app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/notifications", notificationsRoutes);
 app.use("/api/v1/users", usersRoutes);
 app.use("/api/v1/business-hours", businessHoursRoutes);
 
-app.use(notFound)
+app.use(notFound);
 // Global error handler (must be last)
 app.use(errorMiddleware);
 
