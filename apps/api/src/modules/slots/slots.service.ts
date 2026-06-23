@@ -103,7 +103,7 @@ export const slotsService = {
       });
 
       // Convert to EAT display time (UTC+3)
-      const eatHour = current.getUTCHours() + 3;
+      const eatHour = (current.getUTCHours() + 3) % 24;
       const eatMin = current.getUTCMinutes();
       const timeStr = `${String(eatHour).padStart(2, "0")}:${String(eatMin).padStart(2, "0")}`;
 
