@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { prisma } from "../../shared/lib/prisma.js";
+import { prisma } from "@wannys-nails/packages";
 import { redis } from "@wannys-nails/packages"
 import { config } from "../../shared/lib/config.js";
 import { UnauthorizedError, AccountLockedError } from "../../shared/types/errors.js";
@@ -163,4 +163,15 @@ export const authService = {
       },
     });
   },
+  async me(user: {id: string}) {
+   return  await prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+      },
+    });
+  }
 };

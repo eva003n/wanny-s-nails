@@ -26,6 +26,6 @@ router
   .post(authenticate, validate(authController.changePasswordSchema), authController.changePassword);
 
 // GET /auth/me
-router.route("/me").get(authenticate, authController.me);
+router.route("/me").get(authenticate,validate(authController.idSchema), authController.me);
 
 export { router as authRoutes };

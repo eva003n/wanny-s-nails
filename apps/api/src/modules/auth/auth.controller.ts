@@ -4,7 +4,7 @@ import { UnauthorizedError, AccountLockedError } from "../../shared/types/errors
 import { success, noContent } from "../../shared/utils/response.js";
 import { config } from "../../shared/lib/config.js";
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";
-import { prisma } from "../../shared/lib/prisma.js";
+import { prisma } from "@wannys-nails/packages";
 import { z } from "zod";
 
 // Shared (btw frontend and backend)
@@ -108,16 +108,10 @@ export const changePassword = asyncHandler(async (req: Request, res: Response, _
   noContent(res);
 });
 
+export const idSchema = z.object({id: z.string()})
+type Id = z.infer<typeof idSchema>
 export const me = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-  const user = await prisma.user.findUnique({
-    where: { id: req.user!.userId },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-    },
-  });
+  const user = await authService.me(req.validated?.body as Id)
 
   if (!user) {
     return next(new UnauthorizedError("User not found"));
