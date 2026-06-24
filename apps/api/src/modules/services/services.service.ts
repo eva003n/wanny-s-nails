@@ -1,4 +1,4 @@
-import { prisma } from "../../shared/lib/prisma.js";
+import { prisma } from "@wannys-nails/packages";
 import {
   ServiceNotFoundError,
   ServiceHasFutureBookingsError,

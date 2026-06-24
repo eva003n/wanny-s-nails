@@ -3,16 +3,21 @@ import { z } from "zod";
 
 import crypto from "crypto";
 import { config } from "../../shared/lib/config.js";
-import { logger } from "../../shared/lib/logger.js";
+import {
+  logger,
+  redisClient,
+  notificationQueue,
+  paymentQueue,
+} from "@wannys-nails/packages";
+
+import { paymentsService } from "../payments/payments.service.js";
+import {  } from "@wannys-nails/packages";
+import { asyncHandler } from "../../shared/utils/asyncHandler.js";
+import { DarajaCallbackSchema } from "./schemas.js";
+import { JOB_NAMES, type InboundMessage } from "@wannys-nails/packages";
 
 const log = logger.child({ module: "webhooks" });
-import { paymentsService } from "../payments/payments.service.js";
-import { paymentQueue } from "../../shared/lib/queue.js";
-import { redis } from "../../shared/lib/redis.js";
-import { asyncHandler } from "../../shared/utils/asyncHandler.js";
-import { processMessage } from "../../workflows/engine.js";
-import type { Message } from "../../workflows/types.js";
-import { DarajaCallbackSchema } from "./schemas.js";
+const redis = redisClient.cache;
 
 
 export const verifyWhatsApp = asyncHandler(
@@ -45,9 +50,11 @@ const MetadataSchema = z.object({
 });
 
 const ContactSchema = z.object({
-  profile: z.object({
-    name: z.string(),
-  }).optional(),
+  profile: z
+    .object({
+      name: z.string(),
+    })
+    .optional(),
   wa_id: z.string(),
 });
 
@@ -239,15 +246,15 @@ export const handleWhatsApp = asyncHandler(
           "WhatsApp webhook HMAC validation failed",
         );
         // even when Hmac validation failed send a success to avoid whatsapp webhook retries
-        res.status(200).json({ status: "ok" });
+        res.status(200).json({ status: "ok" });// but prevent further processing
         return;
       }
     }
 
     // Success  response is sent immediately
     res.status(200).json({ status: "ok" });
-  
 
+    // validate and extract data
     const parsed = WhatsAppWebhookSchema.safeParse(req.body);
     // Only supported message formats are allowed
     if (!parsed.success) {
@@ -266,11 +273,11 @@ export const handleWhatsApp = asyncHandler(
       for (const entry of body.entry ?? []) {
         for (const change of entry.changes ?? []) {
           if (change.field === "messages") {
-           
             const messages = change.value?.messages ?? [];
             for (const message of messages) {
               const wamid = message.id;
               if (wamid) {
+                // idempotency
                 const dedupKey = `whatsapp:dedup:${wamid}`;
                 const exists = await redis.exists(dedupKey);
                 if (exists) {
@@ -296,12 +303,22 @@ export const handleWhatsApp = asyncHandler(
               // Extract message body text based on message type(text, button, interactive)
               let messageBody = "";
               if (message.type === "text") {
-                messageBody = (message as unknown as { text: { body: string } }).text.body;
+                messageBody = (message as unknown as { text: { body: string } })
+                  .text.body;
               } else if (message.type === "button") {
-                messageBody = (message as unknown as { button: { text: string } }).button.text;
+                messageBody = (
+                  message as unknown as { button: { text: string } }
+                ).button.text;
               } else if (message.type === "interactive") {
-                const interactive = (message as unknown as { interactive: { button_reply?: { id: string }; list_reply?: { id: string; title: string } } }).interactive;
-              if (interactive.button_reply) {
+                const interactive = (
+                  message as unknown as {
+                    interactive: {
+                      button_reply?: { id: string };
+                      list_reply?: { id: string; title: string };
+                    };
+                  }
+                ).interactive;
+                if (interactive.button_reply) {
                   messageBody = interactive.button_reply.id;
                 } else if (interactive.list_reply) {
                   messageBody = interactive.list_reply.id;
@@ -310,22 +327,22 @@ export const handleWhatsApp = asyncHandler(
 
               // if no message body skip FSM engine
               if (!messageBody) {
-                log.debug({ event: "whatsapp.message.empty_body", wamid }, "Message has no text body, skipping FSM");
+                log.debug(
+                  { event: "whatsapp.message.empty_body", wamid },
+                  "Message has no text body, skipping FSM",
+                );
                 continue;
               }
 
-              const whatsappMessage: Message = {
-                type: "Incoming",
-                phone: message.from,
-                messageBody
-              } 
+              const whatsappMessage: InboundMessage = {
+                type: message.type,
+                from: message.from,
+                text: messageBody,
+              };
 
-              processMessage(whatsappMessage).catch((err) => {
-                log.error(
-                  { event: "webhook.fsm.error", from: message.from, error: err },
-                  "FSM processing failed",
-                );
-              });
+              // enqueue message for processing by fsm engine
+              notificationQueue.add(JOB_NAMES.FSM, whatsappMessage)
+         
             }
           }
         }
@@ -358,7 +375,10 @@ export const handleDaraja = asyncHandler(
     // 2. Persist DB updates (existing service — unchanged)
     await paymentsService.handleCallback(req.body);
 
-    // 3. Enqueue payment-callback job for asynchronous side effects (WhatsApp notifications)
+    // 3. Respond immediately to daraja
+    res.status(200).json({ ResultCode: 0, ResultDesc: "Accepted" });
+
+    // 4. Enqueue payment-callback job for asynchronous side effects (WhatsApp notifications)
     await paymentQueue.add(
       "payment-callback",
       {
@@ -376,7 +396,5 @@ export const handleDaraja = asyncHandler(
       { event: "payment.callback.enqueued", checkoutRequestId, resultCode },
       "Payment callback enqueued for processing",
     );
-
-    res.status(200).json({ ResultCode: 0, ResultDesc: "Accepted" });
   },
 );

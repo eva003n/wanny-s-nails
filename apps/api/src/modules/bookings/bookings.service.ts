@@ -1,6 +1,6 @@
-import { prisma } from "../../shared/lib/prisma.js";
-import { reminderQueue } from "../../shared/lib/queue.js";
-import { logger } from "../../shared/lib/logger.js";
+import { prisma } from "@wannys-nails/packages";
+import { reminderQueue } from "@wannys-nails/packages";
+import { logger } from "@wannys-nails/packages";
 import {
   BookingConflictError,
   BookingNotFoundError,

@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { config } from "../../shared/lib/config.js";
-import { logger } from "../../shared/lib/logger.js";
+import { logger } from "@wannys-nails/packages";
 
 const log = logger.child({ module: "events" });
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";

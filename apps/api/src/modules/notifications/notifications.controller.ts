@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import { prisma } from "../../shared/lib/prisma.js";
+import { prisma } from "@wannys-nails/packages";
 import { paginated } from "../../shared/utils/response.js";
 import { parsePagination } from "../../shared/utils/pagination.js";
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";

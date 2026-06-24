@@ -1,8 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { bookingsService } from "./bookings.service.js";
-import { notificationQueue } from "../../shared/lib/queue.js";
-import { logger } from "../../shared/lib/logger.js";
+import { notificationQueue, logger } from "@wannys-nails/packages";
 import {
   success,
   created,

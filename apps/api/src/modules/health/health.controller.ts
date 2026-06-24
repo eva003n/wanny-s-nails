@@ -1,12 +1,14 @@
 import type { Request, Response, NextFunction } from "express";
-import { prisma } from "../../shared/lib/prisma.js";
-import { redis } from "../../shared/lib/redis.js";
-import { logger } from "../../shared/lib/logger.js";
+import { prisma, logger, redisClient } from "@wannys-nails/packages";
+
 
 const log = logger.child({ module: "health" });
+const redis = redisClient.cache;
+
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";
 
 const startTime = Date.now();
+
 
 export const healthCheck = asyncHandler(async (_req: Request, res: Response, _next: NextFunction) => {
   const checks: { database: string; redis: string; queue: string } = {

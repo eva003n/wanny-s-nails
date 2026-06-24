@@ -1,7 +1,7 @@
-import type { Prisma } from "@prisma/client";
-import { prisma } from "../../shared/lib/prisma.js";
-import { paymentQueue } from "../../shared/lib/queue.js";
-import { logger } from "../../shared/lib/logger.js";
+import type { Prisma } from "@wannys-nails/packages";
+import { prisma } from "@wannys-nails/packages";
+import { paymentQueue } from "@wannys-nails/packages";
+import { logger } from "@wannys-nails/packages";
 
 const log = logger.child({ module: "payments" });
 import { PaymentFailedError, PaymentNotAllowedError, NotFoundError } from "../../shared/types/errors.js";
@@ -169,7 +169,7 @@ export const paymentsService = {
     const resultCode = stkCallback.ResultCode as number;
     const resultDesc = stkCallback.ResultDesc as string;
 
-    // find the payment 
+    // find related payment 
     const payment = await prisma.payment.findUnique({
       where: { checkoutRequestId },
     });
