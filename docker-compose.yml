@@ -1,6 +1,21 @@
 services:
   # ─── Infrastructure ────────────────────────────────────────
 
+  # ─── Database Migration (runs once on startup) ──────────
+
+  db-migrate:
+    build:
+      context: .
+      dockerfile: apps/packages/prisma/Dockerfile.migrate
+    container_name: wannys-db-migrate
+    env_file:
+      - ./apps/api/.env.development
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - wanny-net
+
   postgres:
     image: postgres:18-alpine
     container_name: wannys-postgres
@@ -45,6 +60,8 @@ services:
     env_file:
       - ./apps/api/.env.development
     depends_on:
+      db-migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -63,6 +80,8 @@ services:
     env_file:
       - ./apps/api/.env.development
     depends_on:
+      db-migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       postgres:
@@ -77,6 +96,8 @@ services:
     env_file:
       - ./apps/api/.env.development
     depends_on:
+      db-migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       postgres:
@@ -91,6 +112,8 @@ services:
     env_file:
       - ./apps/api/.env.development
     depends_on:
+      db-migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       postgres:
