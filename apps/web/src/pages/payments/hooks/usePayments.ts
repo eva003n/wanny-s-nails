@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { validateOrThrow } from "@/lib/guards";
 import {
-  PaymentListSchema,
   PaginatedPaymentsSchema,
   type PaymentTransaction,
 } from "@/lib/schemas";

@@ -1,27 +1,66 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { validateOrThrow } from "@/lib/guards";
-import { CustomerSchema, BookingListSchema } from "@/lib/schemas";
+import {
+  CustomerSchema,
+  BookingListSchema,
+  PaginatedCustomersSchema,
+} from "@/lib/schemas";
 import type { Customer } from "@/lib/schemas";
+
+export interface CustomerMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
+
+export interface CustomersResult {
+  data: Customer[];
+  meta?: CustomerMeta;
+}
 
 export const customerKeys = {
   all: ["customers"] as const,
-  list: (search?: string) => ["customers", "list", search] as const,
+  list: (search?: string, page?: number, limit?: number) =>
+    ["customers", "list", search, page, limit] as const,
   detail: (id: string) => ["customers", "detail", id] as const,
   bookings: (id: string) => ["customers", "bookings", id] as const,
 };
 
-export function useCustomers(search?: string) {
-  return useQuery<Customer[]>({
-    queryKey: customerKeys.list(search),
+export function useCustomers(
+  search?: string,
+  page = 1,
+  limit = 20,
+): UseQueryResult<CustomersResult, Error> {
+  return useQuery<CustomersResult>({
+    queryKey: customerKeys.list(search, page, limit),
     queryFn: async () => {
-      const params = search ? { search } : {};
+      const params: Record<string, string | number> = {};
+      if (search) params.search = search;
+      params.page = String(page);
+      params.limit = String(limit);
       const { data } = await api.get("/customers", { params });
-      return validateOrThrow(
-        CustomerSchema.array(),
-        data.data ?? data,
+      const validated = validateOrThrow(
+        PaginatedCustomersSchema,
+        data,
         "GET /customers",
       );
+      return {
+        data: validated.data,
+        meta: validated.meta
+          ? {
+              page: validated.meta.page,
+              limit: validated.meta.limit,
+              total: validated.meta.total,
+              totalPages: validated.meta.totalPages,
+              hasNextPage: validated.meta.hasNextPage,
+              hasPrevPage: validated.meta.hasPrevPage,
+            }
+          : undefined,
+      };
     },
     staleTime: 60_000,
   });

@@ -190,7 +190,7 @@ export default function ServicesSection() {
             </svg>
           }
           heading="No services configured"
-          body="Add your salon services to get started."
+          description="Add your salon services to get started."
           action={<Button onClick={openAddSheet}>Add Service</Button>}
         />
         <AddEditSheet

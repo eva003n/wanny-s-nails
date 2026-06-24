@@ -70,13 +70,13 @@ export default function CreateBookingForm({ onSuccess, onRequestClose }: CreateB
       },
       {
         onSuccess: (booking) => {
-          showToast("success", `Booking created! ${booking.reference}`);
+          showToast({type: "success", message:`Booking created! ${booking.reference}`});
           onSuccess();
         },
         onError: (err: unknown) => {
           const message =
             err instanceof Error ? err.message : "Couldn't create the booking. Please try again.";
-          showToast("error", message);
+          showToast({type: "error", message});
         },
       },
     );

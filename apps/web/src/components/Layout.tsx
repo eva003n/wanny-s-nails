@@ -58,7 +58,7 @@ export default function Layout() {
             <NavLink
               key={to}
               to={to}
-              className={({ isActive }) =>
+              className={({ isActive: _isActive }) =>
                 clsx(
                   "flex flex-1 flex-col items-center justify-center gap-[2px] py-2 transition-colors",
                 )

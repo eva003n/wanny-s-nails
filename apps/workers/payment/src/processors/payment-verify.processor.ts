@@ -136,7 +136,7 @@ export async function paymentVerifyProcessor(job: Job<PaymentVerifyJobData>): Pr
           paymentId,
           attemptNumber: attemptCount + 1,
           checkoutRequestId,
-          resultCode: Number(ResultCode]),
+          resultCode: Number(ResultCode),
           resultDesc: ResultDesc,
         },
       });

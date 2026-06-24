@@ -18,7 +18,7 @@ import {
   reminder1hProcessor,
   type Reminder1hJobData,
 } from "./processors/reminder-1h.processor.js";
-import { QueueNames } from "@wanny/shared";
+import { Queue_Names } from "@wannys-nails/packages";
 import type { Job } from "bullmq";
 
 // ─── Reminder Worker ─────────────────────────────────────────
@@ -28,7 +28,7 @@ interface ReminderJobData {
 }
 
 const worker = createWorker<ReminderJobData>(
-  { queueName: QueueNames.REMINDERS, workerName: "reminder", concurrency: 10 },
+  { queueName: Queue_Names.REMINDERS, workerName: "reminder", concurrency: 10 },
   async (job: Job<ReminderJobData>) => {
     switch (job.name) {
       case "reminder-24h":
@@ -39,7 +39,7 @@ const worker = createWorker<ReminderJobData>(
         console.warn(
           JSON.stringify({
             event: "worker.unknown_job",
-            queue: QueueNames.REMINDERS,
+            queue: Queue_Names.REMINDERS,
             jobName: job.name,
           }),
         );

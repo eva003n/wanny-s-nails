@@ -12,12 +12,13 @@ import { forwardRef, type ButtonHTMLAttributes } from "react";
 import { clsx } from "clsx";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "destructive";
+  variant?: "primary" | "secondary" | "ghost" | "destructive";
   loading?: boolean;
+  fullWidth?: boolean;
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = "primary", loading, className, children, disabled, ...props }, ref) => {
+  ({ variant = "primary", loading, fullWidth, className, children, disabled, ...props }, ref) => {
     return (
       <button
         ref={ref}
@@ -27,6 +28,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           "inline-flex items-center justify-center font-semibold text-[1.0625rem]",
           "min-h-11 px-6 rounded-[--radius-lg]",
           "transition-colors duration-150",
+          fullWidth && "w-full",
           variant === "primary" && [
             "w-full bg-primary text-white",
             "hover:bg-primary-dark active:scale-[0.98]",
@@ -35,9 +37,10 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             "bg-surface hover:bg-surface-raised",
             "border border-border text-primary",
           ],
-          variant === "destructive" && [
-            "w-full bg-error text-white",
-            "hover:bg-red-600 active:scale-[0.98]",
+
+          variant === "ghost" && [
+            "w-full bg-transparent text-text-primary",
+            "hover:bg-surface-raised active:scale-[0.98]",
           ],
           (disabled || loading) && "opacity-50 cursor-not-allowed",
           className,

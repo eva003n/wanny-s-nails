@@ -11,7 +11,7 @@
  * §10 Accessibility: role="status", aria-live="polite" (errors: role="alert", assertive)
  */
 import { useEffect, useState } from "react";
-import { useUiStore, type Toast } from "@/store/ui.store";
+import { useUiStore, type ToastItem } from "@/store/ui.store";
 import { CheckCircle2, XCircle, Info } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -39,18 +39,18 @@ export default function ToastContainer() {
 }
 
 interface ToastItemProps {
-  toast: Toast;
+  toast: ToastItem;
   onDismiss: () => void;
 }
 
-const toastConfig: Record<Toast["type"], string> = {
+const toastConfig: Record<ToastItem["type"], string> = {
   success: "bg-success-bg border-success text-success",
   error: "bg-error-bg border-error text-error",
   info: "bg-info-bg border-info text-info",
   warning: "bg-warning-bg border-warning text-warning",
 };
 
-const toastIcons: Record<Toast["type"], React.ComponentType<{ size?: number; className?: string }>> = {
+const toastIcons: Record<ToastItem["type"], React.ComponentType<{ size?: number; className?: string }>> = {
   success: CheckCircle2,
   error: XCircle,
   info: Info,

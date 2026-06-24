@@ -6,7 +6,7 @@ export { default as Select } from "./Select";
 export { default as ToastContainer } from "./Toast";
 export { default as Dialog } from "./Dialog";
 export { default as BottomSheet } from "./BottomSheet";
-export { Skeleton, StatCardSkeleton, BookingCardSkeleton, ListRowSkeleton } from "./Skeleton";
+export { default as Skeleton, StatCardSkeleton, BookingCardSkeleton, ListRowSkeleton } from "./Skeleton";
 export { default as EmptyState } from "./EmptyState";
 export { default as ErrorState } from "./ErrorState";
 export { default as Avatar } from "./Avatar";

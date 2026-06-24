@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
-  RefreshCw,
   BadgeCheck,
 } from "lucide-react";
 
@@ -19,10 +18,13 @@ type BadgeVariant = "success" | "warning" | "error" | "info";
 
 interface BadgeProps {
   variant?: BadgeVariant;
-  children: React.ReactNode;
+  children?: React.ReactNode;
   className?: string;
   ariaLabel?: string;
   icon?: boolean;
+  /** Shorthand: derive variant & label from a booking status */
+  kind?: "booking";
+  status?: string;
 }
 
 /* §4.2 exact token mappings */
@@ -107,7 +109,31 @@ export default function Badge({
   className,
   ariaLabel,
   icon = true,
+  kind,
+  status,
 }: BadgeProps) {
+  /* When used as a shorthand booking-status badge */
+  if (kind === "booking" && status) {
+    const { variant: v, label } = bookingStatusToBadge(status);
+    const styles = variantStyles[v];
+    const Icon = iconMap[v];
+    return (
+      <span
+        className={clsx(
+          "inline-flex items-center gap-1",
+          styles.bg,
+          styles.text,
+          "text-xs font-medium px-2 py-1 rounded-[--radius-sm]",
+          className,
+        )}
+        aria-label={ariaLabel || `Status: ${label}`}
+      >
+        <Icon size={12} />
+        {label}
+      </span>
+    );
+  }
+
   const styles = variantStyles[variant];
   const Icon = iconMap[variant];
 

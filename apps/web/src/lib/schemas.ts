@@ -228,6 +228,20 @@ export const PaymentTransactionSchema = z.object({
 });
 export type PaymentTransaction = z.infer<typeof PaymentTransactionSchema>;
 
+export const PaginatedPaymentsMetaSchema = z.object({
+  page: z.number(),
+  limit: z.number(),
+  total: z.number(),
+  totalPages: z.number(),
+  hasNextPage: z.boolean(),
+  hasPrevPage: z.boolean(),
+});
+
+export const PaginatedPaymentsSchema = z.object({
+  data: z.array(PaymentTransactionSchema),
+  meta: PaginatedPaymentsMetaSchema.optional(),
+});
+
 export const PaymentListSchema = z.array(PaymentTransactionSchema);
 
 export const DashboardStatsSchema = z.object({

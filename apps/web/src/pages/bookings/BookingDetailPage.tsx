@@ -83,11 +83,11 @@ export default function BookingDetailPage() {
   const handleApprove = () => {
     approveMutation.mutate(booking.id, {
       onSuccess: () => {
-        showToast("success", `Booking approved. ${booking.customer.name} has been notified.`);
+        showToast({type: "success", message:`Booking approved. ${booking.customer.name} has been notified.`});
         closeDialog();
       },
       onError: () => {
-        showToast("error", "Action failed — check your connection and try again");
+        showToast({type: "error", message: "Action failed — check your connection and try again"});
         closeDialog();
       },
     });
@@ -96,11 +96,11 @@ export default function BookingDetailPage() {
   const handleCancel = () => {
     cancelMutation.mutate({ bookingId: booking.id }, {
       onSuccess: () => {
-        showToast("success", `Booking cancelled. ${booking.customer.name} has been notified.`);
+        showToast({type: "success", message: `Booking cancelled. ${booking.customer.name} has been notified.`});
         closeDialog();
       },
       onError: () => {
-        showToast("error", "Action failed — check your connection and try again");
+        showToast({type: "error", message: "Action failed — check your connection and try again"});
         closeDialog();
       },
     });
@@ -109,11 +109,11 @@ export default function BookingDetailPage() {
   const handleComplete = () => {
     completeMutation.mutate(booking.id, {
       onSuccess: () => {
-        showToast("success", "Booking marked complete.");
+        showToast({type: "success", message:"Booking marked complete."});
         closeDialog();
       },
       onError: () => {
-        showToast("error", "Action failed — check your connection and try again");
+        showToast({type: "error", message: "Action failed — check your connection and try again"});
         closeDialog();
       },
     });
@@ -122,11 +122,11 @@ export default function BookingDetailPage() {
   const handleMarkPaid = () => {
     markPaidMutation.mutate(booking.id, {
       onSuccess: () => {
-        showToast("success", "Payment recorded as paid in cash.");
+        showToast({ type: "success", message: "Payment recorded as paid in cash."});
         closeDialog();
       },
       onError: () => {
-        showToast("error", "Action failed — check your connection and try again");
+        showToast({type: "error", message: "Action failed — check your connection and try again"});
         closeDialog();
       },
     });
@@ -136,8 +136,8 @@ export default function BookingDetailPage() {
     paymentRequestMutation.mutate(
       { bookingId: booking.id, phoneNumber: booking.customer.phone },
       {
-        onSuccess: () => showToast("success", "Payment request sent via M-Pesa."),
-        onError: () => showToast("error", "Payment request failed. Retry from the booking detail."),
+        onSuccess: () => showToast({type: "success", message:"Payment request sent via M-Pesa."}),
+        onError: () => showToast({ type: "error", message:"Payment request failed. Retry from the booking detail."}),
       },
     );
   };

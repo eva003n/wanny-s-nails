@@ -45,13 +45,13 @@ export default function RescheduleBookingPage() {
       { bookingId: id, newStartAt: selectedSlot },
       {
         onSuccess: () => {
-          showToast("success", `Rescheduled to ${formatTime(selectedSlot)}.`);
+          showToast({type: "success", message: `Rescheduled to ${formatTime(selectedSlot)}.`});
           handleClose();
         },
         onError: (err: unknown) => {
           const message =
             err instanceof Error ? err.message : "This slot was just taken — please choose another";
-          showToast("error", message);
+          showToast({type: "error", message});
           setConfirmOpen(false);
         },
       },

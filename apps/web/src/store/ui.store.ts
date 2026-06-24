@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type ToastType = "success" | "error" | "info";
+export type ToastType = "success" | "error" | "info" | "warning";
 
 export interface ToastItem {
   id: string;
@@ -10,7 +10,7 @@ export interface ToastItem {
 
 interface UiState {
   toasts: ToastItem[];
-  showToast: (type: ToastType, message: string) => void;
+  showToast: (opts: { type: ToastType; message: string }) => void;
   dismissToast: (id: string) => void;
 
   sseBannerVisible: boolean;
@@ -22,9 +22,9 @@ interface UiState {
 
 export const useUiStore = create<UiState>((set) => ({
   toasts: [],
-  showToast: (type, message) => {
+  showToast: (opts) => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    set((state) => ({ toasts: [...state.toasts, { id, type, message }] }));
+    set((state) => ({ toasts: [...state.toasts, { id, type: opts.type, message: opts.message }] }));
     setTimeout(() => {
       set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }));
     }, 3000);

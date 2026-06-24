@@ -6,8 +6,23 @@ import {
   BookingListSchema,
   BookingSchema,
   AvailableSlotsResponseSchema,
+  PaginatedBookingsSchema,
 } from "@/lib/schemas";
 import type { Booking, BookingFilters } from "@/lib/schemas";
+
+export interface BookingMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
+
+export interface BookingsResult {
+  data: Booking[];
+  meta?: BookingMeta;
+}
 
 export const bookingKeys = {
   all: ["bookings"] as const,
@@ -20,31 +35,52 @@ export const bookingKeys = {
 export function useBookings(filters: BookingFilters = {}) {
   // If tab is "today", use the dedicated /bookings/today endpoint
   if (filters.tab === "today") {
-    return useQuery<Booking[]>({
+    return useQuery<BookingsResult>({
       queryKey: bookingKeys.today(),
       queryFn: async () => {
         const { data } = await api.get("/bookings/today");
-        return validateOrThrow(
+        const bookings = validateOrThrow(
           BookingListSchema,
           data.data ?? data,
           "GET /bookings/today",
         );
+        return { data: bookings };
       },
       staleTime: 30_000,
     });
   }
 
+  const page = filters.page ?? 1;
+  const limit = filters.limit ?? 20;
+
   // Otherwise, use the general /bookings endpoint with filters
-  return useQuery<Booking[]>({
-    queryKey: bookingKeys.list(filters),
+  return useQuery<BookingsResult>({
+    queryKey: bookingKeys.list({ ...filters, page, limit }),
     queryFn: async () => {
       const params: Record<string, string> = {};
       if (filters.status) params.status = filters.status;
       if (filters.paymentStatus) params.paymentStatus = filters.paymentStatus;
-      if (filters.page) params.page = String(filters.page);
-      if (filters.limit) params.limit = String(filters.limit);
+      params.page = String(page);
+      params.limit = String(limit);
       const { data } = await api.get("/bookings", { params });
-      return validateOrThrow(BookingListSchema, data.data, "GET /bookings");
+      const validated = validateOrThrow(
+        PaginatedBookingsSchema,
+        data,
+        "GET /bookings",
+      );
+      return {
+        data: validated.data,
+        meta: validated.meta
+          ? {
+              page: validated.meta.page,
+              limit: validated.meta.limit,
+              total: validated.meta.total,
+              totalPages: validated.meta.totalPages,
+              hasNextPage: validated.meta.hasNextPage,
+              hasPrevPage: validated.meta.hasPrevPage,
+            }
+          : undefined,
+      };
     },
     staleTime: 30_000,
   });
@@ -103,8 +139,13 @@ export function useBookingHistory(id: string | undefined) {
 
 // Lightweight derived hook for nav badge — uses the "all" cache slice.
 export function usePendingCount(): number {
-  const { data } = useBookings({});
-  return data?.filter((b) => b.status === "PENDING").length ?? 0;
+  const result = useBookings({});
+  const bookings: Booking[] = Array.isArray(result.data)
+    ? result.data
+    : "data" in (result.data ?? {})
+      ? (result.data as any).data
+      : [];
+  return bookings.filter((b: any) => b.status === "PENDING").length;
 }
 
 function updateCaches(

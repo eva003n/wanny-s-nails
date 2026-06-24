@@ -85,7 +85,7 @@ export default function Dialog({
             variant={destructive ? "destructive" : "primary"}
             fullWidth
             onClick={onConfirm}
-            isLoading={isConfirming}
+            loading={isConfirming}
           >
             {confirmLabel}
           </Button>

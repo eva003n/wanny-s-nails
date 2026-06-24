@@ -70,15 +70,15 @@ export default function DashboardPage() {
   const handleApprove = (id: string) => {
     approveMutation.mutate(id, {
       onSuccess: (booking) =>
-        showToast(
-          "success",
-          `Booking approved. ${booking.customer.name} has been notified.`,
-        ),
+        showToast({
+         type:  "success",
+          message:`Booking approved. ${booking.customer.name} has been notified.`,
+    }),
       onError: () =>
-        showToast(
-          "error",
-          "Action failed — check your connection and try again",
-        ),
+        showToast({
+          type:"error",
+          message: "Action failed — check your connection and try again",
+    }),
     });
   };
 
@@ -87,15 +87,15 @@ export default function DashboardPage() {
       { bookingId: id },
       {
         onSuccess: (booking) =>
-          showToast(
-            "success",
-            `Booking cancelled. ${booking.customer.name} has been notified.`,
-          ),
+          showToast({
+            type:"success",
+           message: `Booking cancelled. ${booking.customer.name} has been notified.`,
+      }),
         onError: () =>
-          showToast(
-            "error",
-            "Action failed — check your connection and try again",
-          ),
+          showToast({
+            type: "error",
+            message: "Action failed — check your connection and try again",
+      }),
       },
     );
   };
