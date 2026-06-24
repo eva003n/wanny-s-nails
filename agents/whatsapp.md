@@ -10,25 +10,18 @@
 ## Invalid input escalation ladder
 ```
 Invalid input ×1–2  →  resend menu with hint
-Invalid input ×3    →  AI_FALLBACK
-AI cannot resolve   →  HUMAN_ESCALATION
+Invalid input ×3    →  HUMAN_ESCALATION
 ```
-Never jump from `invalidInputCount >= 3` straight to `HUMAN_ESCALATION`.
+After 3 invalid inputs the customer is connected directly to the team.
 
-## AI_FALLBACK (Gemini 2.0 Flash)
-- Use last 6 messages as context (`session.aiContext`), sliced to keep tokens low.
-- Hard cap: `maxOutputTokens: 150`.
-- Transition rules from AI reply:
-  - Contains `"MENU"` → `GREETING`
-  - Contains `"HUMAN"` → `HUMAN_ESCALATION`
-  - Anything else → stay in `AI_FALLBACK`
-- Gemini API error or timeout → fail safe to `HUMAN_ESCALATION` immediately.
-- `GEMINI_API_KEY` not set → skip AI, go straight to `HUMAN_ESCALATION`.
+> **Note:** An AI fallback (`AI_FALLBACK` / Gemini 2.0 Flash) was previously
+> used between the FSM and `HUMAN_ESCALATION`. That functionality is currently
+> disabled and may be re-introduced in a future version.
 
 ## HUMAN_ESCALATION
 Triggered only by:
 1. Customer sends "human" / "agent" / "help me" / "talk to someone" (any state)
-2. `AI_FALLBACK` cannot resolve
+2. Invalid input reaches the escalation threshold (3 unrecognized responses)
 
 Action: enqueue Web Push notification to owner's PWA. Fallback to WhatsApp message to owner's personal number if push permission not granted.
 

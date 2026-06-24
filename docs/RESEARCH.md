@@ -1,4 +1,8 @@
 ## FSM Engine
+- [XState Finite State Machines Guide](https://stately.ai/docs/machines)
+- [Conversation State Machines Explained](https://www.freecodecamp.org/news/how-to-build-chatbots-with-state-machines)
+- [Learn how WhatsApp conversations are structured](https://developers.facebook.com/docs/whatsapp/cloud-api)
+
 - [Whatsapp flow](https://whatsappbusiness.com/blog/whatsapp-flows-101/)
 - [Whats FSM](https://www.spiceworks.com/soft-tech/what-is-fsm/)
 - [AIOgram documentation](https://docs.aiogram.dev/en/v3.20.0/dispatcher/finite_state_machine/)
@@ -102,4 +106,22 @@ URL: [api.together.ai](https://api.together.ai/)
 These are not usable programmatically but worth knowing:
 PlatformModels Availablechat.deepseek.comDeepSeek V3, DeepSeek R1gemini.google.comGemini 2.0, 2.5 Procopilot.microsoft.comGPT-4ometa.aiLlama 3perplexity.aiMultiple modelspoe.comGPT-4o, Claude, Llama, many others
 
+## Whatsapp cloud API integration flow
+```
+Facebook Account
+   |
+   |__Meta App
+   |    |__Webhooks-------------------- Step 2
+   |
+   |__Business Portfolio
+        |_Test WhatsApp Business     --- Step 1
+        | account (WABA)
+        |_Your WhatsApp Business account (WABA)
+        |    |__Phone Number --------------- Step 2
+        |    |__Message Templates ---------- Step 2
+        |    |__Payment Method ------------- Step 2
+        |
+        |__System User --------------------- Step 2
+        |__Business Verification ----------- Step 3
+```
 ## Progressive web apps

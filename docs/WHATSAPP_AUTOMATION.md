@@ -9,6 +9,7 @@
 The WhatsApp chatbot uses a **hybrid FSM + AI** architecture. A deterministic Finite State Machine handles all structured booking flows. A free-tier LLM (Gemini 2.0 Flash) handles edge cases the FSM cannot — FAQs, complaints, open questions, and ambiguous intent. Human escalation is the last resort, only when AI also cannot resolve.
 
 ## WhatsApp Cloud API integration flow
+
 ```
 Facebook Account
    |
@@ -28,6 +29,7 @@ Facebook Account
 ```
 
 **Escalation ladder:**
+
 ```
 FSM handles it          (structured flow — free, instant, deterministic)
        │
@@ -41,12 +43,14 @@ HUMAN_ESCALATION        (owner notified via Web Push / WhatsApp)
 ```
 
 **Why FSM first:**
+
 - Deterministic: booking flows behave exactly the same every time
 - Zero cost per message for the structured majority
 - Easier to debug, test, and audit
 - No hallucination risk on booking data (prices, times, availability)
 
 **Why AI as fallback (not primary):**
+
 - Handles the ~5% of messages outside the FSM scope
 - Gemini 2.0 Flash free tier: 1,500 req/day — far exceeds expected fallback volume
 - Constrained by a tight system prompt — cannot go off-script
@@ -99,15 +103,16 @@ The bot uses WhatsApp interactive message types instead of plain text where appr
 
 ### Message Types Used
 
-| WhatsApp Type | Used For | When |
-|---|---|---|
-| `interactive` (list) | Main menu, service selection, date selection, time selection | Multi-option menus with 3+ choices |
-| `interactive` (buttons) | Confirmations (booking, cancel, reschedule), payment retry/cancel | Binary yes/no or 2-3 action choices |
-| `text` | Status messages, error messages, data collection (name/email, phone number) | Free-text input or informational-only messages |
+| WhatsApp Type           | Used For                                                                    | When                                           |
+| ----------------------- | --------------------------------------------------------------------------- | ---------------------------------------------- |
+| `interactive` (list)    | Main menu, service selection, date selection, time selection                | Multi-option menus with 3+ choices             |
+| `interactive` (buttons) | Confirmations (booking, cancel, reschedule), payment retry/cancel           | Binary yes/no or 2-3 action choices            |
+| `text`                  | Status messages, error messages, data collection (name/email, phone number) | Free-text input or informational-only messages |
 
 ### Interactive List Messages
 
 Lists present a scrollable menu with a button trigger. When the customer taps the button, they see a sheet with sections and rows. Each row has:
+
 - `id` — machine-readable identifier sent back to the FSM (e.g. `"1"`, `"2"`)
 - `title` — short label visible in the list (max 24 chars)
 - `description` — optional subtitle (max 72 chars)
@@ -115,6 +120,7 @@ Lists present a scrollable menu with a button trigger. When the customer taps th
 ### Interactive Button Messages
 
 Buttons present 1-3 tappable buttons below a body message. Each button has:
+
 - `id` — machine-readable identifier sent back to the FSM (e.g. `"yes"`, `"no"`)
 - `title` — button label (max 20 chars, text only — no emoji)
 
@@ -141,17 +147,18 @@ interface ConversationSession {
     durationMinutes: number;
     priceKes: number;
   };
-  selectedDate?: string;       // "2025-06-05" (EAT)
-  selectedTime?: string;       // "14:00" (EAT)
-  appointmentAt?: string;      // ISO UTC (computed after date+time selected)
+  selectedDate?: string; // "2025-06-05" (EAT)
+  selectedTime?: string; // "14:00" (EAT)
+  appointmentAt?: string; // ISO UTC (computed after date+time selected)
   bookingId?: string;
   bookingRef?: string;
   paymentPhone?: string;
-  invalidInputCount: number;   // Increments on bad input; escalate at 3
-  lastActivity: string;        // ISO UTC
-  flow?: 'BOOKING' | 'RESCHEDULE' | 'CANCEL' | 'LOOKUP';
-  aiContext?: Array<{          // Last 6 messages for Gemini conversation context
-    role: 'user' | 'model';
+  invalidInputCount: number; // Increments on bad input; escalate at 3
+  lastActivity: string; // ISO UTC
+  flow?: "BOOKING" | "RESCHEDULE" | "CANCEL" | "LOOKUP";
+  aiContext?: Array<{
+    // Last 6 messages for Gemini conversation context
+    role: "user" | "model";
     parts: [{ text: string }];
   }>;
 }
@@ -165,21 +172,21 @@ interface ConversationSession {
 
 ```typescript
 type ConversationState =
-  | 'IDLE'
-  | 'GREETING'
-  | 'DATA_COLLECTION'
-  | 'SERVICE_SELECTION'
-  | 'DATE_SELECTION'
-  | 'TIME_SELECTION'
-  | 'BOOKING_CONFIRMATION'
-  | 'AWAITING_PAYMENT_PHONE'
-  | 'AWAITING_PAYMENT'
-  | 'RESCHEDULE_DATE'
-  | 'RESCHEDULE_TIME'
-  | 'RESCHEDULE_CONFIRMATION'
-  | 'CANCEL_CONFIRMATION'
-  | 'AI_FALLBACK'
-  | 'HUMAN_ESCALATION';
+  | "IDLE"
+  | "GREETING"
+  | "DATA_COLLECTION"
+  | "SERVICE_SELECTION"
+  | "DATE_SELECTION"
+  | "TIME_SELECTION"
+  | "BOOKING_CONFIRMATION"
+  | "AWAITING_PAYMENT_PHONE"
+  | "AWAITING_PAYMENT"
+  | "RESCHEDULE_DATE"
+  | "RESCHEDULE_TIME"
+  | "RESCHEDULE_CONFIRMATION"
+  | "CANCEL_CONFIRMATION"
+  | "AI_FALLBACK"
+  | "HUMAN_ESCALATION";
 ```
 
 ### State Transition Diagram
@@ -244,6 +251,7 @@ stateDiagram-v2
 **Entry condition:** No existing session or TTL expired.
 
 **Behaviour:**
+
 - Check if customer exists in DB by phone number
 - **Returning customer (phone in DB):** Load customer, transition to GREETING and send the interactive list menu
 - **New customer (phone not in DB):** Do NOT create record yet — transition to DATA_COLLECTION to collect name & email
@@ -263,6 +271,7 @@ stateDiagram-v2
 #### Phase: NAME
 
 **Bot message (on entry):**
+
 ```
 Hi! Welcome to Wanny's Nails! 👋
 
@@ -272,14 +281,15 @@ What's your name?
 
 **Transitions:**
 
-| Input | Transition |
-|---|---|
-| Valid name (≥2 characters) | Save to `temporaryName`, set phase → EMAIL, ask for email |
-| Too short / empty | "Please enter your full name (at least 2 characters)." — stay in NAME |
+| Input                      | Transition                                                            |
+| -------------------------- | --------------------------------------------------------------------- |
+| Valid name (≥2 characters) | Save to `temporaryName`, set phase → EMAIL, ask for email             |
+| Too short / empty          | "Please enter your full name (at least 2 characters)." — stay in NAME |
 
 #### Phase: EMAIL
 
 **Bot message:**
+
 ```
 Nice to meet you, [Name]! 😊
 
@@ -288,11 +298,11 @@ Could you share your email address for your booking receipt? You can also type *
 
 **Transitions:**
 
-| Input | Transition |
-|---|---|
-| Valid email | Create customer in DB (name + email), set `customerId` + `customerName` → GREETING |
-| "skip" / "no" / "nah" / "none" / "n/a" | Create customer in DB (name only, email=null) → GREETING |
-| Invalid email format | "That doesn't look like a valid email address. Please enter a valid email, or type *skip* to continue." — stay in EMAIL |
+| Input                                  | Transition                                                                                                              |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Valid email                            | Create customer in DB (name + email), set `customerId` + `customerName` → GREETING                                      |
+| "skip" / "no" / "nah" / "none" / "n/a" | Create customer in DB (name only, email=null) → GREETING                                                                |
+| Invalid email format                   | "That doesn't look like a valid email address. Please enter a valid email, or type _skip_ to continue." — stay in EMAIL |
 
 **On DB creation failure:** Log error, proceed to GREETING with the collected name as fallback.
 
@@ -303,6 +313,7 @@ Could you share your email address for your booking receipt? You can also type *
 **Message type:** 📋 Interactive List
 
 **Bot message:**
+
 ```
 Header:
 Wanny's Nails 💅
@@ -335,13 +346,13 @@ Section: Appointments
 
 **Transitions:**
 
-| Input (list row id) | Transition | Notes |
-|---|---|---|
-| `"1"` | → SERVICE_SELECTION | |
-| `"2"` | → LOOKUP (inline, no new state) | Respond with booking details + action buttons |
-| `"3"` | → Check for active booking | If found → CANCEL_CONFIRMATION; if not → "No active booking found" |
-| `"4"` | → Check for active booking | If found → RESCHEDULE_DATE; if not → "No active booking" |
-| Anything else | Stay in GREETING, increment invalidInputCount | Show menu again |
+| Input (list row id) | Transition                                    | Notes                                                              |
+| ------------------- | --------------------------------------------- | ------------------------------------------------------------------ |
+| `"1"`               | → SERVICE_SELECTION                           |                                                                    |
+| `"2"`               | → LOOKUP (inline, no new state)               | Respond with booking details + action buttons                      |
+| `"3"`               | → Check for active booking                    | If found → CANCEL_CONFIRMATION; if not → "No active booking found" |
+| `"4"`               | → Check for active booking                    | If found → RESCHEDULE_DATE; if not → "No active booking"           |
+| Anything else       | Stay in GREETING, increment invalidInputCount | Show menu again                                                    |
 
 #### View Appointment Result
 
@@ -359,10 +370,10 @@ Button: Manage booking
 └─────────────┘ └─────────────┘
 ```
 
-| Button ID | Transition |
-|---|---|
-| `"3"` | → CANCEL_CONFIRMATION |
-| `"4"` | → RESCHEDULE_DATE |
+| Button ID | Transition            |
+| --------- | --------------------- |
+| `"3"`     | → CANCEL_CONFIRMATION |
+| `"4"`     | → RESCHEDULE_DATE     |
 
 ---
 
@@ -371,6 +382,7 @@ Button: Manage booking
 **Message type:** 📋 Interactive List
 
 **Bot message:**
+
 ```
 Header:
 Our Services
@@ -402,10 +414,10 @@ Services are fetched from DB (only `isActive=true`, ordered by `sortOrder`).
 
 **Transitions:**
 
-| Input (list row id) | Transition |
-|---|---|
-| Valid number (1–N) | Save service to session → DATE_SELECTION |
-| Invalid | Increment invalidInputCount, resend list |
+| Input (list row id) | Transition                               |
+| ------------------- | ---------------------------------------- |
+| Valid number (1–N)  | Save service to session → DATE_SELECTION |
+| Invalid             | Increment invalidInputCount, resend list |
 
 ---
 
@@ -414,6 +426,7 @@ Services are fetched from DB (only `isActive=true`, ordered by `sortOrder`).
 **Message type:** 📋 Interactive List
 
 **Bot message:**
+
 ```
 Header:
 Pick a Date
@@ -450,11 +463,11 @@ Presents the next 7 business days. Fully booked days appear without a descriptio
 
 **Transitions:**
 
-| Input (list row id) | Transition |
-|---|---|
-| Valid number for an available date | Save date to session → TIME_SELECTION |
-| Number for a full date | "That day is fully booked. Please choose another." |
-| Invalid | Increment invalidInputCount, resend list |
+| Input (list row id)                | Transition                                         |
+| ---------------------------------- | -------------------------------------------------- |
+| Valid number for an available date | Save date to session → TIME_SELECTION              |
+| Number for a full date             | "That day is fully booked. Please choose another." |
+| Invalid                            | Increment invalidInputCount, resend list           |
 
 ---
 
@@ -463,6 +476,7 @@ Presents the next 7 business days. Fully booked days appear without a descriptio
 **Message type:** 📋 Interactive List
 
 **Bot message:**
+
 ```
 Header:
 Pick a Time
@@ -488,10 +502,10 @@ Section: Available Times
 
 **Transitions:**
 
-| Input (list row id) | Transition |
-|---|---|
-| Valid number | Save time to session → BOOKING_CONFIRMATION |
-| Invalid | Increment invalidInputCount, resend list |
+| Input (list row id) | Transition                                  |
+| ------------------- | ------------------------------------------- |
+| Valid number        | Save time to session → BOOKING_CONFIRMATION |
+| Invalid             | Increment invalidInputCount, resend list    |
 
 ---
 
@@ -502,6 +516,7 @@ Section: Available Times
 **Bot messages:**
 
 Message 1 (text):
+
 ```
 Please confirm your booking:
 
@@ -512,6 +527,7 @@ Please confirm your booking:
 ```
 
 Message 2 (interactive button):
+
 ```
 Body: Does everything look good?
 Button: Confirm booking
@@ -523,10 +539,10 @@ Button: Confirm booking
 
 **Transitions:**
 
-| Input (button id) | Transition |
-|---|---|
-| `"yes"` / `"YES"` / `"Yes"` / `"y"` / `"1"` | Create PENDING booking in DB → AWAITING_PAYMENT_PHONE |
-| `"no"` / `"NO"` / `"n"` / `"2"` | Clear session context, "OK, let's start over." → GREETING |
+| Input (button id)                           | Transition                                                |
+| ------------------------------------------- | --------------------------------------------------------- |
+| `"yes"` / `"YES"` / `"Yes"` / `"y"` / `"1"` | Create PENDING booking in DB → AWAITING_PAYMENT_PHONE     |
+| `"no"` / `"NO"` / `"n"` / `"2"`             | Clear session context, "OK, let's start over." → GREETING |
 
 ---
 
@@ -535,6 +551,7 @@ Button: Confirm booking
 **Message type:** Text (free-text input for phone number)
 
 **Bot message:**
+
 ```
 Your booking has been received! 🎉
 Reference: NB-2025-00123
@@ -546,16 +563,17 @@ What M-Pesa number should we send the payment request to?
 
 **Transitions:**
 
-| Input | Transition |
-|---|---|
-| Valid Kenyan phone | Save paymentPhone → enqueue STK Push → AWAITING_PAYMENT |
-| Invalid | "That doesn't look like a valid number. Please try again (e.g., 0712 345 678)" |
+| Input              | Transition                                                                     |
+| ------------------ | ------------------------------------------------------------------------------ |
+| Valid Kenyan phone | Save paymentPhone → enqueue STK Push → AWAITING_PAYMENT                        |
+| Invalid            | "That doesn't look like a valid number. Please try again (e.g., 0712 345 678)" |
 
 ---
 
 ### State: AWAITING_PAYMENT
 
 **Bot message (on entry):**
+
 ```
 We've sent an M-Pesa payment request of KES 1,500 to 0712345678.
 Please check your phone and enter your M-Pesa PIN to confirm. 📲
@@ -566,6 +584,7 @@ This request will expire in 5 minutes.
 This state is **asynchronously exited** — the FSM does not block waiting. The Daraja callback triggers the next step via the payment callback processor.
 
 **When payment succeeds (triggered by Daraja callback):**
+
 ```
 Payment received! ✅
 
@@ -577,16 +596,19 @@ Payment received! ✅
 
 We'll send you a reminder 24 hours before. See you then! 💅
 ```
+
 Session cleared → IDLE
 
 **When payment fails (triggered by Daraja callback):**
 
 Message 1 (text):
+
 ```
 The payment wasn't completed.
 ```
 
 Message 2 (interactive button):
+
 ```
 Body: What would you like to do?
 Button: Choose an option
@@ -597,6 +619,7 @@ Button: Choose an option
 ```
 
 **If customer replies while in AWAITING_PAYMENT:**
+
 - Button `"1"` or "retry" → enqueue new STK Push, stay in AWAITING_PAYMENT
 - Button `"2"` or "cancel" → cancel the PENDING booking → IDLE
 
@@ -611,6 +634,7 @@ Button: Choose an option
 **Bot messages:**
 
 Message 1 (text):
+
 ```
 Are you sure you want to cancel your appointment?
 
@@ -619,6 +643,7 @@ Are you sure you want to cancel your appointment?
 ```
 
 Message 2 (interactive button):
+
 ```
 Body: Please confirm:
 Button: Cancel appointment
@@ -630,10 +655,10 @@ Button: Cancel appointment
 
 **Transitions:**
 
-| Input (button id) | Transition |
-|---|---|
-| `"1"` / `"yes"` | Cancel booking in DB → send confirmation → IDLE |
-| `"2"` / `"no"` | "Your appointment is still on! See you then. 💅" → IDLE |
+| Input (button id) | Transition                                              |
+| ----------------- | ------------------------------------------------------- |
+| `"1"` / `"yes"`   | Cancel booking in DB → send confirmation → IDLE         |
+| `"2"` / `"no"`    | "Your appointment is still on! See you then. 💅" → IDLE |
 
 ---
 
@@ -660,6 +685,7 @@ Presents available times for the selected reschedule date, with header "Pick a N
 **Bot messages:**
 
 Message 1 (text):
+
 ```
 Please confirm your new appointment time:
 
@@ -669,6 +695,7 @@ Please confirm your new appointment time:
 ```
 
 Message 2 (interactive button):
+
 ```
 Body: Does everything look good?
 Button: Confirm reschedule
@@ -680,29 +707,30 @@ Button: Confirm reschedule
 
 **Transitions:**
 
-| Input (button id) | Transition |
-|---|---|
-| `"yes"` / `"y"` / `"1"` | Reschedule booking in DB → send confirmation → IDLE |
-| `"no"` / `"n"` / `"2"` | "Reschedule cancelled. Your original appointment remains unchanged. 💅" → IDLE |
+| Input (button id)       | Transition                                                                     |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| `"yes"` / `"y"` / `"1"` | Reschedule booking in DB → send confirmation → IDLE                            |
+| `"no"` / `"n"` / `"2"`  | "Reschedule cancelled. Your original appointment remains unchanged. 💅" → IDLE |
 
 ---
 
 ### State: AI_FALLBACK
 
 **Triggered by:**
+
 - `invalidInputCount >= 3` in any FSM state
 - Message received outside any active FSM flow (no current state / IDLE with unrecognised input)
 
 **What AI handles:**
 
-| Scenario | Example |
-|---|---|
-| FAQ | "Do you do eyelashes?" |
-| Location / directions | "Where exactly are you located?" |
-| Pricing questions | "Is gel cheaper than acrylic?" |
-| Complaints | "I wasn't happy with my last visit" |
+| Scenario                 | Example                                   |
+| ------------------------ | ----------------------------------------- |
+| FAQ                      | "Do you do eyelashes?"                    |
+| Location / directions    | "Where exactly are you located?"          |
+| Pricing questions        | "Is gel cheaper than acrylic?"            |
+| Complaints               | "I wasn't happy with my last visit"       |
 | Ambiguous booking intent | "I want something for my nails next week" |
-| General chat | "What are your busiest hours?" |
+| General chat             | "What are your busiest hours?"            |
 
 **System prompt (sent with every Gemini request):**
 
@@ -735,27 +763,23 @@ Services: Gel Manicure KES 1,500 (60 min)
 ```typescript
 async function handleAiFallback(
   session: ConversationSession,
-  message: string
+  message: string,
 ): Promise<{ reply: string; nextState: ConversationState }> {
-
   // Keep last 6 messages as context (3 exchanges) — token efficient
   const history = session.aiContext?.slice(-6) ?? [];
 
   const response = await fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='
-    + process.env.GEMINI_API_KEY,
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" +
+      process.env.GEMINI_API_KEY,
     {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents: [
-          ...history,
-          { role: 'user', parts: [{ text: message }] }
-        ],
-        generationConfig: { maxOutputTokens: 150 }  // hard cap — keeps replies brief
-      })
-    }
+        contents: [...history, { role: "user", parts: [{ text: message }] }],
+        generationConfig: { maxOutputTokens: 150 }, // hard cap — keeps replies brief
+      }),
+    },
   );
 
   const data = await response.json();
@@ -763,20 +787,20 @@ async function handleAiFallback(
 
   // Detect handoff signals in AI reply
   const wantsHuman = /HUMAN|connect you with|our team/i.test(reply);
-  const wantsMenu  = /MENU|type menu/i.test(reply);
+  const wantsMenu = /MENU|type menu/i.test(reply);
 
   // Append to context window (capped at 6 messages)
   session.aiContext = [
     ...history,
-    { role: 'user',  parts: [{ text: message }] },
-    { role: 'model', parts: [{ text: reply }] },
+    { role: "user", parts: [{ text: message }] },
+    { role: "model", parts: [{ text: reply }] },
   ].slice(-6);
 
   const nextState: ConversationState = wantsHuman
-    ? 'HUMAN_ESCALATION'
+    ? "HUMAN_ESCALATION"
     : wantsMenu
-    ? 'GREETING'
-    : 'AI_FALLBACK';
+      ? "GREETING"
+      : "AI_FALLBACK";
 
   return { reply, nextState };
 }
@@ -784,12 +808,12 @@ async function handleAiFallback(
 
 **Transitions:**
 
-| Condition | Next State |
-|---|---|
-| AI reply contains "MENU" | → GREETING (customer re-enters booking flow) |
-| AI reply contains "HUMAN" / escalation signal | → HUMAN_ESCALATION |
-| Normal reply | → AI_FALLBACK (continues conversation) |
-| Gemini API error / timeout | → HUMAN_ESCALATION (fail safe) |
+| Condition                                     | Next State                                   |
+| --------------------------------------------- | -------------------------------------------- |
+| AI reply contains "MENU"                      | → GREETING (customer re-enters booking flow) |
+| AI reply contains "HUMAN" / escalation signal | → HUMAN_ESCALATION                           |
+| Normal reply                                  | → AI_FALLBACK (continues conversation)       |
+| Gemini API error / timeout                    | → HUMAN_ESCALATION (fail safe)               |
 
 **Error handling:** If the Gemini API call fails for any reason (network error, rate limit, invalid response), fall through to `HUMAN_ESCALATION` immediately. Never leave the customer with no response.
 
@@ -800,6 +824,7 @@ async function handleAiFallback(
 ### State: HUMAN_ESCALATION
 
 **Triggered by:**
+
 - Customer sends "human", "agent", "help me", or "talk to someone" from any state
 - AI_FALLBACK handler determines it cannot resolve the customer's issue
 - AI reply contains escalation signal (see AI_FALLBACK spec below)
@@ -807,6 +832,7 @@ async function handleAiFallback(
 Note: `invalidInputCount >= 3` now triggers `AI_FALLBACK`, not `HUMAN_ESCALATION` directly.
 
 **Bot message:**
+
 ```
 I'm going to connect you with our team right away.
 Please wait a moment — someone will be with you shortly.
@@ -815,6 +841,7 @@ You can also call us on +254 700 000 000.
 ```
 
 **System action:**
+
 1. Enqueue a notification job that sends a **Web Push notification** to the owner's installed PWA
 2. If Web Push permission not granted or PWA not installed: fall back to a WhatsApp message to the owner's personal number
 3. Notification payload:
@@ -838,26 +865,26 @@ You can also call us on +254 700 000 000.
 
 ## Interactive Message Summary by State
 
-| State | Message Type | Details |
-|---|---|---|
-| **IDLE → GREETING** | 📋 Interactive list | Main menu with 4 options |
-| **DATA_COLLECTION** | Text | Free-text input for name and email |
-| **GREETING** (menu) | 📋 Interactive list | Main menu re-displayed on invalid input |
-| **GREETING** (view) | Text + 🔘 Buttons | Booking details text, then Cancel/Reschedule buttons |
-| **SERVICE_SELECTION** | 📋 Interactive list | Service options with price and duration |
-| **DATE_SELECTION** | 📋 Interactive list | Available dates with slot info |
-| **TIME_SELECTION** | 📋 Interactive list | Available time slots |
-| **BOOKING_CONFIRMATION** | Text + 🔘 Buttons | Summary text, then Yes, Confirm / No, Start Over |
-| **AWAITING_PAYMENT_PHONE** | Text | Free-text input for phone number |
-| **AWAITING_PAYMENT** | Text + 🔘 Buttons | Payment status, then Resend Request / Cancel Booking |
-| **CANCEL_CONFIRMATION** | Text + 🔘 Buttons | Summary text, then Yes, Cancel / No, Keep It |
-| **RESCHEDULE_DATE** | 📋 Interactive list | Available dates for rescheduling |
-| **RESCHEDULE_TIME** | 📋 Interactive list | Available times for rescheduling |
-| **RESCHEDULE_CONFIRMATION** | Text + 🔘 Buttons | Summary text, then Yes, Reschedule / No, Cancel |
-| **AI_FALLBACK** | Text | AI-generated responses |
-| **HUMAN_ESCALATION** | Text | Escalation notice |
-| **Payment callback (success)** | Text | Confirmation details |
-| **Payment callback (fail)** | Text + 🔘 Buttons | Error text, then Try Again / Cancel Booking |
+| State                          | Message Type        | Details                                              |
+| ------------------------------ | ------------------- | ---------------------------------------------------- |
+| **IDLE → GREETING**            | 📋 Interactive list | Main menu with 4 options                             |
+| **DATA_COLLECTION**            | Text                | Free-text input for name and email                   |
+| **GREETING** (menu)            | 📋 Interactive list | Main menu re-displayed on invalid input              |
+| **GREETING** (view)            | Text + 🔘 Buttons   | Booking details text, then Cancel/Reschedule buttons |
+| **SERVICE_SELECTION**          | 📋 Interactive list | Service options with price and duration              |
+| **DATE_SELECTION**             | 📋 Interactive list | Available dates with slot info                       |
+| **TIME_SELECTION**             | 📋 Interactive list | Available time slots                                 |
+| **BOOKING_CONFIRMATION**       | Text + 🔘 Buttons   | Summary text, then Yes, Confirm / No, Start Over     |
+| **AWAITING_PAYMENT_PHONE**     | Text                | Free-text input for phone number                     |
+| **AWAITING_PAYMENT**           | Text + 🔘 Buttons   | Payment status, then Resend Request / Cancel Booking |
+| **CANCEL_CONFIRMATION**        | Text + 🔘 Buttons   | Summary text, then Yes, Cancel / No, Keep It         |
+| **RESCHEDULE_DATE**            | 📋 Interactive list | Available dates for rescheduling                     |
+| **RESCHEDULE_TIME**            | 📋 Interactive list | Available times for rescheduling                     |
+| **RESCHEDULE_CONFIRMATION**    | Text + 🔘 Buttons   | Summary text, then Yes, Reschedule / No, Cancel      |
+| **AI_FALLBACK**                | Text                | AI-generated responses                               |
+| **HUMAN_ESCALATION**           | Text                | Escalation notice                                    |
+| **Payment callback (success)** | Text                | Confirmation details                                 |
+| **Payment callback (fail)**    | Text + 🔘 Buttons   | Error text, then Try Again / Cancel Booking          |
 
 ---
 
@@ -866,6 +893,7 @@ You can also call us on +254 700 000 000.
 Redis TTL automatically expires sessions after 30 minutes of inactivity. When an expired customer sends a new message, the system detects the absence of a session and starts fresh.
 
 **On session expiry + new message:**
+
 ```
 Your previous session expired due to inactivity.
 Let's start fresh! 😊
@@ -890,12 +918,12 @@ The counter resets to 0 on any successful state transition.
 
 Before processing a message with the current state's handler, the FSM checks for global intents that override the current flow:
 
-| Keyword | Action |
-|---|---|
-| "stop", "STOP", "unsubscribe" | Opt out of all messaging. Log consent withdrawal. Send farewell message. |
-| "human", "agent", "help me", "talk to someone" | → HUMAN_ESCALATION (skip AI — customer explicitly wants a person) |
-| "menu", "start" (in non-IDLE states) | → GREETING (restart flow — sends interactive list) |
-| Unrecognised in any FSM state ×3 | → AI_FALLBACK |
+| Keyword                                        | Action                                                                   |
+| ---------------------------------------------- | ------------------------------------------------------------------------ |
+| "stop", "STOP", "unsubscribe"                  | Opt out of all messaging. Log consent withdrawal. Send farewell message. |
+| "human", "agent", "help me", "talk to someone" | → HUMAN_ESCALATION (skip AI — customer explicitly wants a person)        |
+| "menu", "start" (in non-IDLE states)           | → GREETING (restart flow — sends interactive list)                       |
+| Unrecognised in any FSM state ×3               | → AI_FALLBACK                                                            |
 
 Note: Global intent keywords also work when the customer types them instead of tapping interactive elements, providing a text-based escape hatch at any point.
 
@@ -966,27 +994,27 @@ The `OutboundMessage` type in `types.ts` supports three message formats:
 ```typescript
 interface OutboundMessage {
   type: "text" | "interactive_list" | "interactive_button";
-  
+
   // For "text" messages
   text?: string;
-  
+
   // For "interactive_list" messages
-  listTitle?: string;       // Header text (max 60 chars)
-  listButtonText?: string;  // Trigger button label (max 20 chars)
+  listTitle?: string; // Header text (max 60 chars)
+  listButtonText?: string; // Trigger button label (max 20 chars)
   listSections?: Array<{
-    title?: string;          // Section heading
+    title?: string; // Section heading
     rows: Array<{
-      id: string;            // Machine-readable ID sent back on tap
-      title: string;         // Row label (max 24 chars)
-      description?: string;  // Optional subtitle (max 72 chars)
+      id: string; // Machine-readable ID sent back on tap
+      title: string; // Row label (max 24 chars)
+      description?: string; // Optional subtitle (max 72 chars)
     }>;
   }>;
-  
+
   // For "interactive_button" messages
-  buttonTitle?: string;     // Hidden field for button group metadata
+  buttonTitle?: string; // Hidden field for button group metadata
   buttons?: Array<{
-    id: string;              // Machine-readable ID sent back on tap
-    title: string;           // Button label (max 20 chars, text only)
+    id: string; // Machine-readable ID sent back on tap
+    title: string; // Button label (max 20 chars, text only)
   }>;
 }
 ```

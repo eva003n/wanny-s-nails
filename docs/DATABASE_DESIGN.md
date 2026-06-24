@@ -52,10 +52,11 @@ erDiagram
         timestamp deletedAt
     }
 
-    SalonService {
+    NailService {
         uuid id PK
         string name
         string description
+        enum category
         integer durationMinutes
         integer priceKes
         boolean isActive
@@ -143,7 +144,7 @@ erDiagram
     }
 
     Customer ||--o{ Booking : "places"
-    SalonService ||--o{ Booking : "booked for"
+    NailService ||--o{ Booking : "booked for"
     User ||--o{ Booking : "approves"
     Booking ||--o{ BookingStatusHistory : "has"
     Booking ||--o| Payment : "has"
@@ -215,6 +216,7 @@ model NailService {
   id              String    @id @default(uuid())
   name            String
   description     String?
+  category        ServiceCategory
   durationMinutes Int       @map("duration_minutes")
   priceKes        Int       @map("price_kes")  // in whole KES, no decimals
   isActive        Boolean   @default(true) @map("is_active")
@@ -227,6 +229,13 @@ model NailService {
 
   @@map("salon_services")
 }
+
+enum ServiceCategory {
+  MANICURE
+  OVERLAY
+  PEDICURE
+  ACRYLIC
+}
 ```
 
 ### bookings
@@ -236,7 +245,7 @@ Core booking entity.
 ```prisma
 model Booking {
   id              String        @id @default(uuid())
-  reference       String        @unique  // NB-2025-00001
+  reference       String        @unique  // WN-2025-00001
   customerId      String        @map("customer_id")
   serviceId       String        @map("service_id")
   approvedById    String?       @map("approved_by_id")
@@ -251,7 +260,7 @@ model Booking {
   deletedAt       DateTime?     @map("deleted_at")
 
   customer    Customer     @relation(fields: [customerId], references: [id])
-  service     SalonService @relation(fields: [serviceId], references: [id])
+  service     NailService @relation(fields: [serviceId], references: [id])
   approvedBy  User?        @relation("ApprovedBy", fields: [approvedById], references: [id])
   statusHistory BookingStatusHistory[]
   payment     Payment?
@@ -372,7 +381,7 @@ model Reminder {
   id          String         @id @default(uuid())
   bookingId   String         @map("booking_id")
   type        ReminderType
-  channel     ReminderChannel
+  channel     ReminderChannel @default(EMAIL)
   status      ReminderStatus @default(SCHEDULED)
   scheduledAt DateTime       @map("scheduled_at")
   sentAt      DateTime?      @map("sent_at")
@@ -387,7 +396,7 @@ model Reminder {
 }
 
 enum ReminderType    { REMINDER_24H  REMINDER_1H }
-enum ReminderChannel { WHATSAPP  SMS  EMAIL }
+enum ReminderChannel { WHATSAPP   EMAIL }
 enum ReminderStatus  { SCHEDULED  SENT  FAILED  CANCELLED }
 ```
 
@@ -442,7 +451,7 @@ model AuditLog {
 | From | To | Cardinality | FK |
 |---|---|---|---|
 | Customer | Booking | 1:N | bookings.customer_id |
-| SalonService | Booking | 1:N | bookings.service_id |
+| NailService | Booking | 1:N | bookings.service_id |
 | User | Booking | 1:N (approved_by) | bookings.approved_by_id |
 | Booking | BookingStatusHistory | 1:N | booking_status_history.booking_id |
 | Booking | Payment | 1:1 | payments.booking_id |
@@ -531,7 +540,7 @@ Hard deletes are only performed by a scheduled cleanup job that runs monthly on 
 
 ```typescript
 // Global Prisma middleware — auto-filter soft-deleted records
-const softDeleteModels = ["Booking", "Customer", "SalonService", "User"];
+const softDeleteModels = ["Booking", "Customer", "NailService", "User"];
 
 prisma.$extends({
   query: {
