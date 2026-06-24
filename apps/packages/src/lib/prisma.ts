@@ -52,3 +52,5 @@ prisma.$extends({
     },
   },
 });
+
+export type { Prisma } from "../generated/prisma/client.js";

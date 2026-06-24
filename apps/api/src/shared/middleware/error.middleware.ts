@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { AppError } from "../types/errors.js";
-import { logger } from "../lib/logger.js";
+import { logger } from "@wannys-nails/packages";
 
 export const errorMiddleware = (
   err: Error,

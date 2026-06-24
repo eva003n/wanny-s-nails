@@ -5,13 +5,15 @@
   "main": "src/index.js",
   "type": "module",
   "scripts": {
+    "build": "tsc -b",
     "dev": "nodemon",
     "prisma:validate": "prisma validate",
     "prisma:generate": "prisma generate",
     "db:migrate": "prisma migrate dev --name init --config prisma/prisma.config.ts",
     "db:reset": "prisma migrate reset --config prisma/prisma.config.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "db:seed": "prisma db seed --config prisma/prisma.config.ts "
+    "db:seed": "prisma db seed --config prisma/prisma.config.ts ",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",
@@ -40,6 +42,7 @@
     "@logtail/pino": "^0.5.8",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "@wannys-nails/packages": "workspace:*",
     "axios": "^1.17.0",
     "bcryptjs": "^3.0.3",
     "bullmq": "^5.78.0",

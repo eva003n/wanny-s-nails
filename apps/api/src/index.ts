@@ -1,6 +1,6 @@
 import {config} from "./shared/lib/config.js"
 import {server} from "./app.js"
-import { logger } from "./shared/lib/logger.js";
+import { logger } from "@wannys-nails/packages";
 
 const port = config.PORT;
 

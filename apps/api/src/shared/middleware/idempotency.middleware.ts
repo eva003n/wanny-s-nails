@@ -1,8 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
-import { redis } from "../lib/redis.js";
+import { redisClient } from "@wannys-nails/packages";
 
 const IDEMPOTENCY_TTL = 24 * 60 * 60; // 24 hours in seconds
-
+const redis = redisClient.cache
 /**
  * Idempotency middleware.
  * Caches the response for a given Idempotency-Key for 24 hours.

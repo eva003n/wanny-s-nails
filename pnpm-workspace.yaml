@@ -2,4 +2,8 @@ packages:
   - "apps/api"
   - "apps/packages"
   - "apps/workers"
+  - "apps/workers/*"
   - "apps/web"
+allowBuilds:
+  msw: true
+  prisma: true

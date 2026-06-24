@@ -16,5 +16,6 @@ export const Queue_Names = {
 export const JOB_NAMES = {
   WHATSAPP: "whatsapp",
   EMAIL: "email",
+  FSM: "message", 
 } as const
 

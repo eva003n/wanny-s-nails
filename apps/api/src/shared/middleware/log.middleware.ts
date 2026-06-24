@@ -2,7 +2,7 @@
 
 import pinoHttp from "pino-http";
 import type { Request, Response, RequestHandler } from "express";
-import { logger } from "../lib/logger.js";
+import { logger } from "@wannys-nails/packages";
 
 export const logMiddleware: RequestHandler = (pinoHttp as unknown as any)({
   logger, // reuse your configured pino instance

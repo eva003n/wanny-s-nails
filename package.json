@@ -9,7 +9,7 @@
     "prisma:generate": "cd apps/api && pnpm dlx prisma generate",
     "prisma:migrate": "cd apps/api && pnpm  prisma migrate",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"No tests yet\""
+    "test": "cd apps/web && pnpm test"
   },
   "dependencies": {
     "pino-pretty": "^13.1.3"

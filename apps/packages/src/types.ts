@@ -15,9 +15,14 @@ export type WhatsAppTemplatePayload = {
   languageCode: string;
   params: string[];
 }
-
+// Message (Incoming)
+export type InboundMessage = {
+  type: "text" | "button" | "interactive";
+  from: string;
+  text: string;
+};
 export type OutboundMessage = {
-  to: string;
+  to?: string;
   type: "text" | "interactive_list" | "interactive_button" | "template";
   text?: string;
   /** For interactive_list */
