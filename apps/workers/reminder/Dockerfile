@@ -1,7 +1,7 @@
 ARG NODE_VERSION=22.21.1
 ARG PNPM_VERSION=10.32.1
-ARG WORKER_NAME=notification
-ARG WORKER_PACKAGE=@wanny/worker-notification
+ARG WORKER_NAME=reminder
+ARG WORKER_PACKAGE=@wanny/worker-reminder
 
 FROM node:${NODE_VERSION}-alpine AS base
 ARG PNPM_VERSION
@@ -49,6 +49,6 @@ COPY --from=builder --chown=nodejs:nodejs /app/apps/workers/${WORKER_NAME}/packa
 COPY --from=builder --chown=nodejs:nodejs /app/apps/workers/${WORKER_NAME}/dist ./apps/workers/${WORKER_NAME}/dist
 
 USER nodejs
-WORKDIR /app/apps/workers/notification
+WORKDIR /app/apps/workers/reminder
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 CMD node -e "process.exit(0)"
 CMD ["node", "dist/index.js"]

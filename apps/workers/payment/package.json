@@ -1,0 +1,20 @@
+{
+  "name": "@wanny/worker-payment",
+  "version": "1.0.0",
+  "description": "Payment worker — M-Pesa STK Push and payment verification",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/src/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@wannys-nails/packages": "workspace:*",
+    "axios": "^1.17.0",
+    "bullmq": "^5.78.0"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}

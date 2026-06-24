@@ -1,0 +1,21 @@
+{
+  "name": "@wanny/worker-notification",
+  "version": "1.0.0",
+  "description": "Notification worker — WhatsApp + email job processing",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/src/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@wannys-nails/packages": "workspace:*",
+    "axios": "^1.17.0",
+    "bullmq": "^5.78.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "typescript": "^6.0.3"
+  }
+}
