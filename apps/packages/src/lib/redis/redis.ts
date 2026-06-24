@@ -1,8 +1,8 @@
 import { Redis, type RedisOptions } from "ioredis";
-import {config} from "../config.js"
+import { config } from "../config.js";
 import { logger } from "../logger.js";
 
-const isProduction = config.NODE_ENV === "production";
+const isProduction = config.REDIS_URL.startsWith("rediss://");
 
 const redisConfig: RedisOptions = {
   maxRetriesPerRequest: null, // due to queues
@@ -43,31 +43,27 @@ export function createRedisClient(name: string) {
     connectionName: name,
   });
 
-  if(isProduction) {
-client.on("connect", () => {
-  logger.info(`[Redis:${name}] connecting...`);
-});
+  if (isProduction) {
+    client.on("connect", () => {
+      logger.info(`[Redis:${name}] connected`);
+    });
 
-client.on("ready", () => {
-  logger.info(`[Redis:${name}] ready`);
-});
+    // client.on("ready", () => {
+    //   logger.info(`[Redis:${name}] ready`);
+    // });
 
-  client.on("close", () => {
-    logger.warn(`[Redis:${name}] connection closed`);
-  });
+    // client.on("close", () => {
+    //   logger.warn(`[Redis:${name}] connection closed`);
+    // });
 
-  client.on("reconnecting", () => {
-    logger.warn(`[Redis:${name}] reconnecting`);
-  });
-
+    client.on("reconnecting", () => {
+      logger.warn(`[Redis:${name}] reconnecting`);
+    });
   }
-  
 
   client.on("error", (err) => {
     logger.error(`[Redis:${name}] error ${err}`);
   });
-
-
 
   return client;
 }

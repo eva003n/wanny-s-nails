@@ -11,13 +11,14 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
-
+    networks:
+      - wanny-net  
   redis:
     image: redis:7-alpine
     container_name: wannys-redis
@@ -30,7 +31,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-
+    networks:
+      - wanny-net  
   # ─── API Server ───────────────────────────────────────────
 
   api:
@@ -48,7 +50,8 @@ services:
       redis:
         condition: service_healthy
     command: ["node", "dist/index.js"]
-
+    networks:
+      - wanny-net  
   # ─── Workers (same image, different entry points) ─────────
 
 
@@ -64,7 +67,8 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
-
+    networks:
+      - wanny-net  
   worker-payment:
     build:
       context: .
@@ -77,7 +81,8 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
-
+    networks:
+      - wanny-net  
   worker-reminder:
     build:
       context: .
@@ -90,6 +95,8 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+    networks:
+      - wanny-net  
 
   # ─── Frontend (PWA) ──────────────────────────────────────
 
@@ -102,7 +109,12 @@ services:
       - "5173:80"
     depends_on:
       - api
+    networks:
+      - wanny-net  
 
 volumes:
   postgres_data:
   redis_data:
+networks:
+  wanny-net:
+    driver: bridge

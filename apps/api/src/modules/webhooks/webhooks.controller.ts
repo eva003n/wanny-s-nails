@@ -341,7 +341,7 @@ export const handleWhatsApp = asyncHandler(
               };
 
               // enqueue message for processing by fsm engine
-              notificationQueue.add(JOB_NAMES.FSM, whatsappMessage)
+              notificationQueue.add(JOB_NAMES.FSM, whatsappMessage, {jobId: message.from})
          
             }
           }

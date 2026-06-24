@@ -4,3 +4,6 @@
 /**/**/*.env.production
 /**/**/node_modules
 /**/**/generated
+/**/**/dist
+/**/**/coverage
+/**/**/*.d.ts

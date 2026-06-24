@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/.turbo
+**/.cache
+.git
+.history
+*.log
+.env
+.env.*
+**/coverage
+**/*.test.*
