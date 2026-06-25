@@ -22,15 +22,32 @@ COPY apps/workers/payment/package.json ./apps/workers/payment/package.json
 COPY apps/workers/reminder/package.json ./apps/workers/reminder/package.json
 RUN pnpm install --frozen-lockfile --filter ./apps/packages...
 
+# Generate the Prisma Client inside the build, rather than relying on
+# apps/packages/src/generated already existing on the host (it's typically
+# gitignored, so a host-side COPY can silently grab nothing or stale output).
+COPY apps/packages/prisma ./apps/packages/prisma
+WORKDIR /app/apps/packages
+# prisma.config.ts uses env("DATABASE_URL"), which throws if unset — even
+# for `prisma generate`, which never actually connects to a database. A
+# placeholder satisfies the check without needing the real value at build time.
+RUN DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder" \
+    pnpm exec prisma generate --config prisma/prisma.config.ts
+WORKDIR /app
 
 FROM base AS runtime
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/packages/node_modules ./apps/packages/node_modules
 COPY apps/packages/package.json ./apps/packages/package.json
 COPY apps/packages/prisma ./apps/packages/prisma
-# prisma.config.ts lives at the package root per your tree, not inside prisma/
-COPY apps/packages/prisma/prisma.config.ts ./apps/packages/prisma/prisma.config.ts
+
+# Generated client comes from the deps stage build, not the host filesystem —
+# guarantees it's always fresh and always present regardless of .gitignore
+# or whether anyone ran `prisma generate` locally before building.
+COPY --from=deps /app/apps/packages/src/generated ./apps/packages/src/generated
 
 WORKDIR /app/apps/packages
 
-ENTRYPOINT ["pnpm", "exec", "prisma", "migrate", "deploy", "--config", "prisma/prisma.config.ts"]
+# ENTRYPOINT fixed, CMD swappable — lets you override just the prisma
+# subcommand at `docker run` time instead of replacing the whole entrypoint.
+ENTRYPOINT ["pnpm", "exec", "prisma"]
+CMD ["migrate", "deploy", "--config", "prisma/prisma.config.ts"]
