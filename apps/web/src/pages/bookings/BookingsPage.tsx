@@ -38,7 +38,7 @@ function formatDateTime(isoString: string): string {
   });
 }
 
-const STATUS_FILTERS = ["", "PENDING", "APPROVED", "CANCELLED", "COMPLETED"] as const;
+const STATUS_FILTERS = ["", "PENDING", "APPROVED", "CANCELLED", "COMPLETED", "NO_SHOW"] as const;
 
 export default function BookingsPage() {
   const navigate = useNavigate();

@@ -51,7 +51,7 @@ export function useBookings(filters: BookingFilters = {}) {
   }
 
   const page = filters.page ?? 1;
-  const limit = filters.limit ?? 20;
+  const limit = filters.limit ?? 10;
 
   // Otherwise, use the general /bookings endpoint with filters
   return useQuery<BookingsResult>({

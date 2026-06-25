@@ -14,7 +14,7 @@ export default function EmptyState({
   description,
   action,
 }: EmptyStateProps) {
-  if (typeof icon === "function") {
+  // if (typeof icon === "function") {
     const Icon = icon as LucideIcon;
     return (
       <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
@@ -26,18 +26,18 @@ export default function EmptyState({
         {action}
       </div>
     );
-  }
+  // }
 
-  return (
-    <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
-      <div className="h-12 w-12 text-text-disabled" aria-hidden="true">
-        {icon}
-      </div>
-      <h3 className="text-lg font-semibold text-text-primary">{heading}</h3>
-      {description && (
-        <p className="max-w-xs text-base text-text-secondary">{description}</p>
-      )}
-      {action}
-    </div>
-  );
+  // return (
+  //   <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+  //     <div className="h-12 w-12 text-text-disabled" aria-hidden="true">
+  //       {icon}
+  //     </div>
+  //     <h3 className="text-lg font-semibold text-text-primary">{heading}</h3>
+  //     {description && (
+  //       <p className="max-w-xs text-base text-text-secondary">{description}</p>
+  //     )}
+  //     {action}
+  //   </div>
+  // );
 }
