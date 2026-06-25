@@ -1,17 +1,5 @@
+import { logger } from "@wannys-nails/packages";
 import { z } from "zod";
-import { config as loadDotenv } from "dotenv";
-
-const env = process.env.NODE_ENV || "development";
-
-const isProduction = env === "production";
-if (!isProduction) {
-  loadDotenv({
-    path: "./.env",
-  });
-  loadDotenv({
-    path: `./.env.${env || "development"}`,
-  });
-}
 
 const configSchema = z.object({
   BASE_URL: z.string().url(),
@@ -50,10 +38,13 @@ const configSchema = z.object({
 
 const parsed = configSchema.safeParse(process.env);
 
-if (!isProduction && !parsed.success) {
-  console.error(
-    "❌ Invalid environment variables:",
-    parsed.error.flatten().fieldErrors,
+if (!parsed.success) {
+  logger.error(
+    JSON.stringify({
+      event: "Env.error",
+      message: "❌ Invalid environment variables:",
+      error: parsed.error.flatten().fieldErrors,
+    }),
   );
   throw new Error("Invalid envigronment variables. Check server logs.");
 }
