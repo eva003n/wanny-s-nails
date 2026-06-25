@@ -1,5 +1,7 @@
 import type { Job } from "bullmq";
+import { logger } from "../logger.js";
 
+const log = logger.child({module: "dead_letter_processor"})
 // ─── Dead Letter Queue Listener ──────────────────────────────
 // BullMQ doesn't have a built-in DLQ. Instead, we monitor failed jobs
 // on each queue using the 'failed' event and log them for admin alerting.
@@ -22,7 +24,7 @@ export function handleDeadLetterJob(queueName: string, job: Job | undefined, err
   const key = queueName;
   deadLetterCounts[key] = (deadLetterCounts[key] ?? 0) + 1;
 
-  console.error(
+  log.error(
     JSON.stringify({
       event: "dead_letter.job",
       queue: queueName,
@@ -40,7 +42,7 @@ export function handleDeadLetterJob(queueName: string, job: Job | undefined, err
   // 2. Write to a dead_letter_jobs table in the database
   // 3. Push to a monitoring system
   if (deadLetterCounts[key] >= 10) {
-    console.error(
+    log.error(
       JSON.stringify({
         event: "dead_letter.alert",
         queue: queueName,
@@ -58,4 +60,4 @@ setInterval(() => {
   }
 }, RESET_INTERVAL_MS);
 
-console.info(JSON.stringify({ event: "dead_letter.monitor.started" }));
+log.info(JSON.stringify({ event: "dead_letter.monitor.started" }));

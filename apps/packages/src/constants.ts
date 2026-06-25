@@ -17,5 +17,7 @@ export const JOB_NAMES = {
   WHATSAPP: "whatsapp",
   EMAIL: "email",
   FSM: "message", 
+  STK_PUSH: "stkpush",
+  STK_CALLBACK: "stkcallback"
 } as const
 

@@ -1,6 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { PrismaClient } from "../../api/src/generated/prisma/client";
+import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
@@ -8,7 +8,7 @@ import dotenv from "dotenv";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config({ path: path.resolve(__dirname, "../.env.development") });
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const SALT_ROUNDS = 12;
 
@@ -272,31 +272,31 @@ async function main() {
   const prisma = new PrismaClient({ adapter });
 
   try {
-    for (const booking of bookings) {
-      const existing = await prisma.booking.findUnique({
-        where: { reference: booking.reference },
-      });
+    // for (const booking of bookings) {
+    //   const existing = await prisma.booking.findUnique({
+    //     where: { reference: booking.reference },
+    //   });
 
-      if (existing) {
-        console.log(
-          `⏭  Booking ${booking.reference} already exists, skipping.`,
-        );
-        continue;
-      }
+    //   if (existing) {
+    //     console.log(
+    //       `⏭  Booking ${booking.reference} already exists, skipping.`,
+    //     );
+    //     continue;
+    //   }
 
-      await prisma.booking.create({
-        data: {
-          customerId: booking.customerId,
-          reference: booking.reference,
-          serviceId: booking.serviceId,
-          appointmentAt: booking.appointmentAt,
-          durationMinutes: booking.durationMinutes,
-          priceKes: booking.priceKes,
-        },
-      });
+    //   await prisma.booking.create({
+    //     data: {
+    //       customerId: booking.customerId,
+    //       reference: booking.reference,
+    //       serviceId: booking.serviceId,
+    //       appointmentAt: booking.appointmentAt,
+    //       durationMinutes: booking.durationMinutes,
+    //       priceKes: booking.priceKes,
+    //     },
+    //   });
 
-      console.log(`✅ Created ${booking.reference}`);
-    }
+    //   console.log(`✅ Created ${booking.reference}`);
+    // }
 
     for (const user of users) {
       const passwordHash = await bcrypt.hash(user.password, SALT_ROUNDS);
