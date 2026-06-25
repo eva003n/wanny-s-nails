@@ -9,10 +9,31 @@ services:
       dockerfile: apps/packages/prisma/Dockerfile.migrate
     container_name: wannys-db-migrate
     env_file:
-      - ./apps/api/.env.development
+      - ./apps/packages/.env
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - wanny-net
+
+  # ─── Database Seed (runs once, after migrations succeed) ──
+
+  db-seed:
+    build:
+      context: .
+      dockerfile: apps/packages/prisma/Dockerfile.migrate
+    container_name: wannys-db-seed
+    env_file:
+      - ./apps/packages/.env
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    # Dockerfile's default ENTRYPOINT is `pnpm exec prisma` (for migrate
+    # deploy via CMD). Seeding uses a package.json script instead, so the
+    # entrypoint itself needs overriding here, not just the command.
+    entrypoint: ["pnpm", "db:seed"]
     networks:
       - wanny-net
 
@@ -128,6 +149,8 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
     container_name: wannys-web
+    env_file:
+      - ./apps/web/.env
     ports:
       - "5173:80"
     depends_on:

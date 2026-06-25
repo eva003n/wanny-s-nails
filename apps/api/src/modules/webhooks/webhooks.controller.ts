@@ -251,10 +251,10 @@ export const handleWhatsApp = asyncHandler(
       }
     }
 
-    // Success  response is sent immediately
+    // Success  response is sent immediately(Avoid whatsapp retries)
     res.status(200).json({ status: "ok" });
 
-    // validate and extract data
+    // validate and extract data before enqueuing to queue
     const parsed = WhatsAppWebhookSchema.safeParse(req.body);
     // Only supported message formats are allowed
     if (!parsed.success) {
@@ -341,7 +341,9 @@ export const handleWhatsApp = asyncHandler(
               };
 
               // enqueue message for processing by fsm engine
-              notificationQueue.add(JOB_NAMES.FSM, whatsappMessage, {jobId: message.from})
+              notificationQueue.add(JOB_NAMES.FSM, whatsappMessage, {
+                jobId: message.from // i message at a time per phone number
+              })
          
             }
           }

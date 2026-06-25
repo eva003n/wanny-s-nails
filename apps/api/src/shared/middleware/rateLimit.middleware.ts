@@ -59,9 +59,10 @@ export const stkPushRateLimit = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: true,
-  keyGenerator: (req) => {
-    return `${req.ip}-${req.body.bookingId}`;
-  },
+  // keyGenerator: (req) => {
+  //   // return `${req.ip}-${req.body.bookingId}`;
+  //   return `${req.body.bookingId}`;
+  // },
   message: {
     error: {
       code: "RATE_LIMITED",
