@@ -1,8 +1,13 @@
+/**
+ * Factory for redis instances
+ */
+
 import { Redis, type RedisOptions } from "ioredis";
 import { config } from "../config.js";
 import { logger } from "../logger.js";
 
 const isProduction = config.REDIS_URL.startsWith("rediss://");
+
 
 const redisConfig: RedisOptions = {
   maxRetriesPerRequest: null, // due to queues
@@ -45,34 +50,52 @@ export function createRedisClient(name: string) {
 
   if (isProduction) {
     client.on("connect", () => {
-      logger.info(`[Redis:${name}] connected`);
+      logger.info(
+        JSON.stringify({
+          event: "Redis.connected",
+          message: `[Redis:${name}] connected`,
+        }),
+      );
     });
 
     // client.on("ready", () => {
     //   logger.info(`[Redis:${name}] ready`);
     // });
 
-    // client.on("close", () => {
-    //   logger.warn(`[Redis:${name}] connection closed`);
-    // });
+    client.on("close", () => {
+      logger.warn(
+        JSON.stringify({
+          event: "Redis.disconnected",
+          message: `[Redis:${name}] connection closed`,
+        }),
+      );
+    });
 
     client.on("reconnecting", () => {
-      logger.warn(`[Redis:${name}] reconnecting`);
+      logger.warn(
+        JSON.stringify({
+          event: "Redis.disconnected",
+          message: `[Redis:${name}] reconnecting`,
+        }),
+      );
     });
   }
 
   client.on("error", (err) => {
-    logger.error(`[Redis:${name}] error ${err}`);
+    logger.error(
+      JSON.stringify({
+        event: "Redis.error",
+        connectionName: name,
+        error: err,
+      }),
+    );
   });
 
   return client;
 }
 
-const destroyRedisClient = async (client: Redis) => {
-  return client.quit();
+export const destroyRedisClient = async (client: Array<Redis>) => {
+  return Promise.all(client.map(c => c.quit()));
 };
 
-const redisFactory = {
-  create: createRedisClient,
-  destruy: destroyRedisClient,
-};
+

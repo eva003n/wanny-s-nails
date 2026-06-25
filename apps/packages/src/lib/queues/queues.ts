@@ -7,13 +7,13 @@
  */
 
 import { Queue, type ConnectionOptions, type QueueOptions } from "bullmq";
-import { config } from "../config.js";
 import { redisClient } from "../redis/index.js";
+import { Queue_Names } from "../../constants.js";
 
 
 // ─── Queue Definitions ─────────────────────────────────────────
 
-export const notificationQueue = new Queue("notifications", {
+export const notificationQueue = new Queue(Queue_Names.NOTIFICATIONS, {
   connection: redisClient.messageQueue() as ConnectionOptions,
   defaultJobOptions: {
     attempts: 3,
@@ -21,11 +21,11 @@ export const notificationQueue = new Queue("notifications", {
   },
 });
 
-export const paymentQueue = new Queue("payments", {
+export const paymentQueue = new Queue(Queue_Names.PAYMENTS, {
   connection: redisClient.messageQueue() as ConnectionOptions,
   defaultJobOptions: {
     attempts: 2,
-    backoff: { type: "fixed", delay: 30000 },
+    backoff: { type: "fixed", delay: 30000 },// after 30s 
   },
 });
 

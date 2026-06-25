@@ -10,13 +10,14 @@
 import { Worker, type Job } from "bullmq";
 import { handleDeadLetterJob } from "./dead-letter.processor.js";
 import { logger } from "../logger.js";
+
 const log = logger.child({module: "Worker"})
 
 
 // ─── Redis Connection (reads from env directly) ─────────────
 
 export function createWorkerConnection() {
-  const url = new URL(process.env.REDIS_URL || "redis://localhost:6379");
+  const url = new URL(process.env.REDIS_URL as string);
   return {
     host: url.hostname,
     port: Number(url.port) || 6379,
@@ -48,6 +49,7 @@ export function createWorker<T = any>(
     {
       connection,
       concurrency: opts.concurrency ?? 1,
+      name: opts.workerName
     },
   );
 
