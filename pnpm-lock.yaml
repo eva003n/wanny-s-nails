@@ -326,6 +326,9 @@ importers:
       bullmq:
         specifier: ^5.78.0
         version: 5.79.1
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@types/node':
         specifier: ^26.0.0
@@ -345,6 +348,9 @@ importers:
       bullmq:
         specifier: ^5.78.0
         version: 5.79.1
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       typescript:
         specifier: ^6.0.3
@@ -361,6 +367,9 @@ importers:
       bullmq:
         specifier: ^5.78.0
         version: 5.79.1
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       typescript:
         specifier: ^6.0.3

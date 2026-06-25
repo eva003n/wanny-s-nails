@@ -1,5 +1,5 @@
 import { type Job } from "bullmq";
-import { config } from "@wannys-nails/packages";
+import { config } from "../config.js";
 import { logger } from "@wannys-nails/packages";
 
 const log = logger.child({ module: "job:email" });

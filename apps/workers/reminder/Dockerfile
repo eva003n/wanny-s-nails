@@ -14,7 +14,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json ./apps/api/package.json
 COPY apps/packages/package.json ./apps/packages/package.json
 COPY apps/workers/${WORKER_NAME}/package.json ./apps/workers/${WORKER_NAME}/package.json
-RUN pnpm install --frozen-lockfile --prefer-offline
+RUN pnpm install --frozen-lockfile 
 
 FROM base AS builder
 ARG WORKER_NAME

@@ -1,3 +1,4 @@
+
 {
   "name": "@wanny/worker-reminder",
   "version": "1.0.0",
@@ -12,7 +13,8 @@
   "dependencies": {
     "@wannys-nails/packages": "workspace:*",
     "axios": "^1.17.0",
-    "bullmq": "^5.78.0"
+    "bullmq": "^5.78.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "typescript": "^6.0.3"

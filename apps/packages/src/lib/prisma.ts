@@ -1,6 +1,8 @@
 import { PrismaClient } from "../generated/prisma/client.js";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { config } from "./config.js";
+
+// read from process.env directly — Docker injects these at container start
+const { DATABASE_URL, NODE_ENV } = process.env;
 
 //  cache prisma client to avoid mutiple clients being created in development hot reload
 const globalForPrisma = globalThis as unknown as {
@@ -9,16 +11,16 @@ const globalForPrisma = globalThis as unknown as {
 
 // factory faction to generate prisma client
 const  createPrismaClient = (): PrismaClient => {
-  const adapter = new PrismaPg(config.DATABASE_URL);
+  const adapter = new PrismaPg(DATABASE_URL as string);
   return new PrismaClient({
     adapter,
-    log: config.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"], // determine what prisma logs based on env
+    log: NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"], // determine what prisma logs based on env
   });
 }
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
-if (config.NODE_ENV !== "production") {
+if (NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
 

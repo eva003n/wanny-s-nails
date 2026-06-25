@@ -1,8 +1,6 @@
 import pino from "pino";
 import { config } from "./config.js";
 
-
-
 const isProduction = config.NODE_ENV === "production";
 
 // Build transport targets

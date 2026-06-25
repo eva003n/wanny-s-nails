@@ -12,7 +12,8 @@
   "dependencies": {
     "@wannys-nails/packages": "workspace:*",
     "axios": "^1.17.0",
-    "bullmq": "^5.78.0"
+    "bullmq": "^5.78.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^26.0.0",

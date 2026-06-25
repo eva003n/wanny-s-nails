@@ -1,5 +1,5 @@
 import type { StateHandlerContext, StateTransitionResult } from "../types.js";
-import { config, logger } from "@wannys-nails/packages";
+import { logger } from "@wannys-nails/packages";
 
 const log = logger.child({ module: "fsm-ai-fallback" });
 

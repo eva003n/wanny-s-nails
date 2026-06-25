@@ -1,12 +1,17 @@
 /**
  * Factory for redis instances
+ *
+ * Reads REDIS_URL and APP_NAME from process.env directly — Docker injects these
+ * at container start so no dotenv or zod validation is needed here.
  */
 
 import { Redis, type RedisOptions } from "ioredis";
-import { config } from "../config.js";
 import { logger } from "../logger.js";
 
-const isProduction = config.REDIS_URL.startsWith("rediss://");
+const REDIS_URL = process.env.REDIS_URL!;
+const APP_NAME = process.env.APP_NAME || "Wanny's Nails";
+
+const isProduction = REDIS_URL.startsWith("rediss://");
 
 
 const redisConfig: RedisOptions = {
@@ -36,14 +41,14 @@ const redisConfig: RedisOptions = {
       }
     : {}),
 
-  connectionName: `${config.APP_NAME}-${process.pid}`,
+  connectionName: `${APP_NAME}-${process.pid}`,
   keepAlive: 30000,
   enableOfflineQueue: true,
 };
 
 // factory function to generate redis clients per workload
 export function createRedisClient(name: string) {
-  const client = new Redis(config.REDIS_URL as string, {
+  const client = new Redis(REDIS_URL, {
     ...redisConfig,
     connectionName: name,
   });

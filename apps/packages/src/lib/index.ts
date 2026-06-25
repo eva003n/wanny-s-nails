@@ -1,4 +1,3 @@
-export * from "./config.js";
 export * from "./logger.js";
 export * from "./prisma.js";
 export * from "./redis/index.js";
