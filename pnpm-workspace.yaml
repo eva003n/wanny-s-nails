@@ -4,5 +4,9 @@ packages:
   - "apps/workers/*"
   - "apps/web"
 allowBuilds:
+  '@prisma/engines': true
+  esbuild: true
+  msgpackr-extract: true
   msw: true
   prisma: true
+  sharp: true
