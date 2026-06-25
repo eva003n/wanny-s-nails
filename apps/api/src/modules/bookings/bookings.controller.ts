@@ -40,9 +40,27 @@ export const patchNotesSchema = z.object({
   notes: z.string().max(500).nullable().optional(),
 });
 
+export const uuidParamSchema = z.object({
+  id: z.string().uuid(),
+});
+
+export const listBookingsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  status: z.string().optional(),
+  paymentStatus: z.string().optional(),
+  customerId: z.string().uuid().optional(),
+  serviceId: z.string().uuid().optional(),
+  date: z.string().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+  sort: z.string().optional(),
+});
+
 // --- Handlers ---
 
 export const listBookings = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+  const query = req.validated?.query as z.infer<typeof listBookingsQuerySchema> | undefined;
   const { page, limit, sort } = parsePagination(
     req.query as Record<string, unknown>,
     { sort: "appointmentAt:asc" },
@@ -51,13 +69,13 @@ export const listBookings = asyncHandler(async (req: Request, res: Response, _ne
   const result = await bookingsService.list({
     page,
     limit,
-    status: req.query.status as string | undefined,
-    paymentStatus: req.query.paymentStatus as string | undefined,
-    customerId: req.query.customerId as string | undefined,
-    serviceId: req.query.serviceId as string | undefined,
-    date: req.query.date as string | undefined,
-    from: req.query.from as string | undefined,
-    to: req.query.to as string | undefined,
+    status: query?.status ?? (req.query.status as string | undefined),
+    paymentStatus: query?.paymentStatus ?? (req.query.paymentStatus as string | undefined),
+    customerId: query?.customerId ?? (req.query.customerId as string | undefined),
+    serviceId: query?.serviceId ?? (req.query.serviceId as string | undefined),
+    date: query?.date ?? (req.query.date as string | undefined),
+    from: query?.from ?? (req.query.from as string | undefined),
+    to: query?.to ?? (req.query.to as string | undefined),
     sort,
   });
 
@@ -65,7 +83,8 @@ export const listBookings = asyncHandler(async (req: Request, res: Response, _ne
 });
 
 export const getBookingById = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-  const booking = await bookingsService.getById(req.params.id as string);
+  const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
+  const booking = await bookingsService.getById(params.id);
   success(res, booking);
 });
 
@@ -76,8 +95,9 @@ export const createBooking = asyncHandler(async (req: Request, res: Response, _n
 });
 
 export const approveBooking = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+  const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
   const booking = await bookingsService.approve(
-    req.params.id as string,
+    params.id,
     req.user!.userId,
   );
 
@@ -131,9 +151,10 @@ export const approveBooking = asyncHandler(async (req: Request, res: Response, _
 });
 
 export const cancelBooking = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+  const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
   const input = req.validated!.body as z.infer<typeof cancelSchema>;
   const booking = await bookingsService.cancel(
-    req.params.id as string,
+    params.id,
     req.user ? "USER" : "CUSTOMER",
     input.reason,
   );
@@ -141,9 +162,10 @@ export const cancelBooking = asyncHandler(async (req: Request, res: Response, _n
 });
 
 export const rescheduleBooking = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+  const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
   const input = req.validated!.body as z.infer<typeof rescheduleSchema>;
   const booking = await bookingsService.reschedule(
-    req.params.id as string,
+    params.id,
     input.appointmentAt,
     input.reason,
   );
@@ -151,18 +173,20 @@ export const rescheduleBooking = asyncHandler(async (req: Request, res: Response
 });
 
 export const updateBookingNotes = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+  const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
   const input = req.validated!.body as z.infer<typeof patchNotesSchema>;
   const booking = await bookingsService.updateNotes(
-    req.params.id as string,
+    params.id,
     input.notes ?? null,
   );
   success(res, booking);
 });
 
 export const markBookingPaid = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+  const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
   const input = req.validated!.body as z.infer<typeof markPaidSchema>;
   const booking = await bookingsService.markPaid(
-    req.params.id as string,
+    params.id,
     input.method,
     input.notes,
   );
@@ -175,6 +199,7 @@ export const getTodayBookings = asyncHandler(async (_req: Request, res: Response
 });
 
 export const softDeleteBooking = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-  await bookingsService.softDelete(req.params.id as string);
+  const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
+  await bookingsService.softDelete(params.id);
   noContent(res);
 });

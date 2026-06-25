@@ -32,7 +32,7 @@ export const paymentQuerySchema = z.object({
   status: z.string().optional(),
   from: z.string().optional(),
   to: z.string().optional(),
-  custmerId: z.string().optional(),
+  customerId: z.string().optional(),
 })
 export const listPayments = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
@@ -58,11 +58,12 @@ export const listPayments = asyncHandler(
 );
 
 export const paymentParamSchema = z.object({
-  id: z.string()
+  id: z.string().uuid(),
 })
 export const getPaymentById = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
-    const payment = await paymentsService.getById(req.params.id as string);
+    const params = req.validated?.params as z.infer<typeof paymentParamSchema>;
+    const payment = await paymentsService.getById(params.id);
     const isOwner = req.user?.role === "OWNER";
     const result = isOwner ? payment : { ...payment, amountKes: null };
     success(res, result);

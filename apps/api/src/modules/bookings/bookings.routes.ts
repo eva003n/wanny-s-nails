@@ -12,18 +12,20 @@ import {
   rescheduleSchema,
   markPaidSchema,
   patchNotesSchema,
+  uuidParamSchema,
+  listBookingsQuerySchema,
 } from "./bookings.controller.js";
 
 const router: ReturnType<typeof Router> = Router();
 
 // GET /api/v1/bookings — paginated, filterable list
-router.get("/", authenticate, bookingsController.listBookings);
+router.get("/", authenticate, validate({ query: listBookingsQuerySchema }), bookingsController.listBookings);
 
 // GET /api/v1/bookings/today
 router.get("/today", authenticate, bookingsController.getTodayBookings);
 
 // GET /api/v1/bookings/:id
-router.get("/:id", authenticate, bookingsController.getBookingById);
+router.get("/:id", authenticate, validate({ params: uuidParamSchema }), bookingsController.getBookingById);
 
 // POST /api/v1/bookings — create booking
 router.post("/", authenticate, validate(createBookingSchema), bookingsController.createBooking);
@@ -33,6 +35,7 @@ router.post(
   "/:id/approve",
   authenticate,
   requireRole("OWNER", "STAFF"),
+  validate({ params: uuidParamSchema }),
   idempotencyMiddleware,
   bookingsController.approveBooking,
 );
@@ -41,7 +44,7 @@ router.post(
 router.post(
   "/:id/cancel",
   authenticate,
-  validate(cancelSchema),
+  validate({ params: uuidParamSchema, body: cancelSchema }),
   idempotencyMiddleware,
   bookingsController.cancelBooking,
 );
@@ -50,24 +53,24 @@ router.post(
 router.post(
   "/:id/reschedule",
   authenticate,
-  validate(rescheduleSchema),
+  validate({ params: uuidParamSchema, body: rescheduleSchema }),
   idempotencyMiddleware,
   bookingsController.rescheduleBooking,
 );
 
 // PATCH /api/v1/bookings/:id — update notes only
-router.patch("/:id", authenticate, validate(patchNotesSchema), bookingsController.updateBookingNotes);
+router.patch("/:id", authenticate, validate({ params: uuidParamSchema, body: patchNotesSchema }), bookingsController.updateBookingNotes);
 
 // POST /api/v1/bookings/:id/mark-paid
 router.post(
   "/:id/mark-paid",
   authenticate,
   requireRole("OWNER"),
-  validate(markPaidSchema),
+  validate({ params: uuidParamSchema, body: markPaidSchema }),
   bookingsController.markBookingPaid,
 );
 
 // DELETE /api/v1/bookings/:id — soft delete (OWNER only)
-router.delete("/:id", authenticate, requireRole("OWNER"), bookingsController.softDeleteBooking);
+router.delete("/:id", authenticate, requireRole("OWNER"), validate({ params: uuidParamSchema }), bookingsController.softDeleteBooking);
 
 export { router as bookingsRoutes };

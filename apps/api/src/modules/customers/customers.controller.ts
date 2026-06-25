@@ -20,11 +20,34 @@ export const createCustomerSchema = z.object({
 
 export const updateCustomerSchema = z.object({
   name: z.string().min(2).max(100).optional(),
-  email: z.email().optional(),
+  email: z.string().email().optional(),
   phone: z
     .string()
     .regex(/^\+254[17]\d{8}$/, "Invalid Kenyan phone number")
     .optional(),
+});
+
+export const uuidParamSchema = z.object({
+  id: z.string().uuid(),
+});
+
+export const listCustomersQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  sort: z.string().optional(),
+  search: z.string().optional(),
+});
+
+export const customerBookingsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  status: z.string().optional(),
+});
+
+export const customerPaymentsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  status: z.string().optional(),
 });
 
 // --- Handlers ---
@@ -58,16 +81,18 @@ export const createCustomer = asyncHandler(
 
 export const getCustomerById = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
-    const customer = await customersService.getById(req.params.id as string);
+    const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
+    const customer = await customersService.getById(params.id);
     success(res, customer);
   },
 );
 
 export const updateCustomer = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
+    const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
     const input = req.validated!.body as z.infer<typeof updateCustomerSchema>;
     const customer = await customersService.update(
-      req.params.id as string,
+      params.id,
       input,
     );
     success(res, customer);
@@ -76,18 +101,21 @@ export const updateCustomer = asyncHandler(
 
 export const deleteCustomer = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
-    await customersService.softDelete(req.params.id as string);
+    const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
+    await customersService.softDelete(params.id);
     noContent(res);
   },
 );
 
 export const getCustomerBookings = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
+    const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
+    const query = req.validated?.query as z.infer<typeof customerBookingsQuerySchema> | undefined;
     const { page, limit } = parsePagination(
       req.query as Record<string, unknown>,
     );
-    const status = req.query.status as string | undefined;
-    const result = await customersService.getBookings(req.params.id as string, {
+    const status = query?.status ?? (req.query.status as string | undefined);
+    const result = await customersService.getBookings(params.id, {
       page,
       limit,
       status,
@@ -98,11 +126,13 @@ export const getCustomerBookings = asyncHandler(
 
 export const getCustomerPayments = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
+    const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
+    const query = req.validated?.query as z.infer<typeof customerPaymentsQuerySchema> | undefined;
     const { page, limit } = parsePagination(
       req.query as Record<string, unknown>,
     );
-    const status = req.query.status as string | undefined;
-    const result = await customersService.getPayments(req.params.id as string, {
+    const status = query?.status ?? (req.query.status as string | undefined);
+    const result = await customersService.getPayments(params.id, {
       page,
       limit,
       status,

@@ -24,6 +24,14 @@ export const updateServiceSchema = z.object({
   sortOrder: z.number().int().optional(),
 });
 
+export const uuidParamSchema = z.object({
+  id: z.string().uuid(),
+});
+
+export const listServicesQuerySchema = z.object({
+  includeInactive: z.string().optional(),
+});
+
 // --- Handlers ---
 
 export const listServices = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
@@ -34,7 +42,8 @@ export const listServices = asyncHandler(async (req: Request, res: Response, _ne
 });
 
 export const getService = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-  const service = await servicesService.getById(req.params.id as string);
+  const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
+  const service = await servicesService.getById(params.id);
   success(res, service);
 });
 
@@ -45,12 +54,14 @@ export const createService = asyncHandler(async (req: Request, res: Response, _n
 });
 
 export const updateService = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+  const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
   const input = req.validated!.body as z.infer<typeof updateServiceSchema>;
-  const service = await servicesService.update(req.params.id as string, input);
+  const service = await servicesService.update(params.id, input);
   success(res, service);
 });
 
 export const softDeleteService = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-  await servicesService.softDelete(req.params.id as string);
+  const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
+  await servicesService.softDelete(params.id);
   noContent(res);
 });
