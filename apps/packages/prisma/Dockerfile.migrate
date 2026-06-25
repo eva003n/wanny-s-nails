@@ -4,18 +4,33 @@ ARG PNPM_VERSION=10.32.1
 FROM node:${NODE_VERSION}-alpine AS base
 ARG PNPM_VERSION
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+# Required for Prisma's query/migration engine on Alpine (musl)
+RUN apk add --no-cache openssl libc6-compat
 WORKDIR /app
 
 FROM base AS deps
-COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# pnpm needs every workspace member's package.json present to resolve the
+# workspace graph, even though --filter below only installs deps for one
+# of them. Your workspace has 6 members — list them all explicitly so the
+# build doesn't depend on glob support varying across BuildKit versions.
+COPY apps/api/package.json ./apps/api/package.json
 COPY apps/packages/package.json ./apps/packages/package.json
-RUN pnpm install --frozen-lockfile 
+COPY apps/web/package.json ./apps/web/package.json
+COPY apps/workers/notification/package.json ./apps/workers/notification/package.json
+COPY apps/workers/payment/package.json ./apps/workers/payment/package.json
+COPY apps/workers/reminder/package.json ./apps/workers/reminder/package.json
+RUN pnpm install --frozen-lockfile --filter ./apps/packages...
+
 
 FROM base AS runtime
 COPY --from=deps /app/node_modules ./node_modules
-COPY pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/packages/prisma ./apps/packages/prisma
+COPY --from=deps /app/apps/packages/node_modules ./apps/packages/node_modules
 COPY apps/packages/package.json ./apps/packages/package.json
+COPY apps/packages/prisma ./apps/packages/prisma
+# prisma.config.ts lives at the package root per your tree, not inside prisma/
+COPY apps/packages/prisma/prisma.config.ts ./apps/packages/prisma/prisma.config.ts
 
 WORKDIR /app/apps/packages
-ENTRYPOINT ["npx", "prisma", "migrate", "deploy", "--config", "prisma/prisma.config.ts"]
+
+ENTRYPOINT ["pnpm", "exec", "prisma", "migrate", "deploy", "--config", "prisma/prisma.config.ts"]
