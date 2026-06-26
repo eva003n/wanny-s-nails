@@ -342,7 +342,7 @@ export const handleWhatsApp = asyncHandler(
 
               // enqueue message for processing by fsm engine
               notificationQueue.add(JOB_NAMES.FSM, whatsappMessage, {
-                jobId: message.from // i message at a time per phone number
+                jobId: `${wamid}` // job deduplication
               })
          
             }
