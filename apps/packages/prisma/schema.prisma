@@ -36,22 +36,58 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum NotificationType {
+  BOOKING_CREATED
+  BOOKING_PENDING_CONFIRMATION
+  BOOKING_CONFIRMED
+  BOOKING_REJECTED
+  BOOKING_CANCELLED
+  BOOKING_RESCHEDULED
+  BOOKING_COMPLETED
+  BOOKING_NO_SHOW
+
+  APPOINTMENT_REMINDER // 24h or 1h
+
+  PAYMENT_REQUEST
+  PAYMENT_RECEIVED
+  PAYMENT_REFUNDED
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  PAYMENT_EXPIRED
+  REVIEW_RECEIPT
+  
+  THANK_YOU
+  FEEDBACK_REQUEST
+  REVIEW_REQUEST
+}
+
+enum NotificationChannel {
+  WHATSAPP // client
+  EMAIL // client admin or staff
+  PUSH // admin or staff
+}
+
+enum NotificationStatus {
+  SCHEDULED // time based notification
+  PROCESSING // worker processing it
+  SENT // provider accepted it
+  DELIVERED // whatsapp only
+  READ  // whatsapp only
+  FAILED // failed or retries
+  CANCELLED // cancelled before sending
+}
+
+enum NotificationRecipient {
+  OWNER
+  STAFF
+  CLIENT
+}
+
 enum ReminderType {
   REMINDER_24H
   REMINDER_1H
 }
 
-enum ReminderChannel {
-  WHATSAPP
-  EMAIL
-}
-
-enum ReminderStatus {
-  SCHEDULED
-  SENT
-  FAILED
-  CANCELLED
-}
 
 enum ServiceCategory {
   MANICURE
@@ -71,6 +107,8 @@ model User {
   name         String
   role         UserRole  @default(STAFF)
   isActive     Boolean   @default(true) @map("is_active")
+  metadata    Json?          @default("{}")    
+
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
@@ -88,6 +126,8 @@ model Customer {
   email        String?
   consentGiven Boolean   @default(false) @map("consent_given")
   consentAt    DateTime? @map("consent_at")
+  metadata    Json?          @default("{}")    
+
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
@@ -105,6 +145,7 @@ model NailService {
   durationMinutes Int       @map("duration_minutes")
   priceKes        Int       @map("price_kes")
   category        ServiceCategory
+  metadata    Json?          @default("{}")    
   isActive        Boolean   @default(true) @map("is_active")
   sortOrder       Int       @default(0) @map("sort_order")
   createdAt       DateTime  @default(now()) @map("created_at")
@@ -128,6 +169,7 @@ model Booking {
   status          BookingStatus @default(PENDING)
   paymentStatus   PaymentStatus @default(UNPAID) @map("payment_status")
   notes           String?
+  metadata        Json?          @default("{}")    
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
   deletedAt       DateTime?     @map("deleted_at")
@@ -137,7 +179,8 @@ model Booking {
   approvedBy    User?                 @relation("ApprovedBy", fields: [approvedById], references: [id])
   statusHistory BookingStatusHistory[]
   payment       Payment?
-  reminders     Reminder[]
+
+  notifications Notification[]
 
   @@index([customerId])
   @@index([serviceId])
@@ -156,6 +199,8 @@ model BookingStatusHistory {
   actorType  String         @map("actor_type")
   actorId    String?        @map("actor_id")
   reason     String?
+  metadata    Json?          @default("{}")    
+
   createdAt  DateTime       @default(now()) @map("created_at")
 
   booking Booking @relation(fields: [bookingId], references: [id])
@@ -174,6 +219,8 @@ model Payment {
   phoneNumber        String?       @map("phone_number")
   completedAt        DateTime?     @map("completed_at")
   failureReason      String?       @map("failure_reason")
+  metadata           Json?          @default("{}")    
+
   createdAt          DateTime      @default(now()) @map("created_at")
   updatedAt          DateTime      @updatedAt @map("updated_at")
 
@@ -194,6 +241,8 @@ model PaymentTransaction {
   mpesaReceiptNumber String?  @map("mpesa_receipt_number")
   rawRequest         Json?    @map("raw_request")
   rawCallback        Json?    @map("raw_callback")
+  metadata           Json?    @default("{}")    
+  
   createdAt          DateTime @default(now()) @map("created_at")
 
   payment Payment @relation(fields: [paymentId], references: [id])
@@ -203,22 +252,62 @@ model PaymentTransaction {
   @@map("payment_transactions")
 }
 
-model Reminder {
+
+// notifications
+model Notification {
   id          String         @id @default(uuid())
   bookingId   String         @map("booking_id")
-  type        ReminderType
-  channel     ReminderChannel @default(EMAIL)
-  status      ReminderStatus @default(SCHEDULED)
-  scheduledAt DateTime       @map("scheduled_at")
-  sentAt      DateTime?      @map("sent_at")
-  jobId       String?        @map("job_id")
+  recipientId String         @map("recipient_id")
+  recipientType NotificationRecipient         @map("recipient_type")
+  type        NotificationType
+  channel     NotificationChannel @default(EMAIL)
+  payload     Json
+  metadata    Json?          @default("{}")                 
+  status      NotificationStatus @default(SCHEDULED)
+  scheduledAt DateTime       @map("scheduled_at") // reminders
+  sentAt      DateTime       @map("sent_at")
+  deliveredAt DateTime?      @map("delivered_at")
+  idempotencyKey String        @map(" idempotency_key")
   createdAt   DateTime       @default(now()) @map("created_at")
 
   booking Booking @relation(fields: [bookingId], references: [id])
 
   @@index([bookingId])
   @@index([scheduledAt, status])
-  @@map("reminders")
+  @@map("notifications")
+}
+
+model NotificationSubscription {
+  id          String         @id @default(uuid())
+  recipientId String         @map("recipient_id")
+  recipientType NotificationRecipient         @map("recipient_type")
+  channel     NotificationChannel
+  endpoint    String  // phone number (E.164) | push endpoint URL | email address  
+  metadata    Json?          @default("{}")    
+  isActive    Boolean        @map("is_active") @default(false)
+
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([recipientId, channel, endpoint])
+  @@index([recipientType, recipientId, channel])
+  @@map("notification_subscriptions")
+
+}
+
+// web push
+model PushSubscription {
+  id           String   @id @default(uuid())
+  userId       String
+  endpoint     String   @unique
+  p256dh       String
+  auth         String
+  userAgent    String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 model ConversationSession {
@@ -261,6 +350,8 @@ model BusinessHours {
   openTime   String   @map("open_time") // "07:00"
   closeTime  String   @map("close_time") // "19:00"
   isActive   Boolean  @default(true) @map("is_active")
+  metadata    Json?          @default("{}")    
+
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
