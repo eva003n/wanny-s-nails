@@ -13,7 +13,6 @@ import {
 import { sendMessage } from "./whatsapp.js";
 import { logger, prisma } from "@wannys-nails/packages";
 
-
 // State handlers
 import { handleIdle } from "./states/idle.js";
 import { handleGreeting, buildMainMenuMessage } from "./states/greeting.js";
@@ -111,7 +110,6 @@ export async function processMessage(message: InboundMessage): Promise<void> {
     log.info({ event: "fsm.global.stop", phone }, "Customer opted out");
     await deleteSession(phone);
 
-    // TODO: Remove this function(only for testing purposes)
     await sendMessage({
       to: phone,
       type: "text",
@@ -120,8 +118,6 @@ export async function processMessage(message: InboundMessage): Promise<void> {
 
     // Log consent withdrawal
     try {
-  
-
       const customer = await getByPhone(phone);
       if (customer) {
         await prisma.customer.update({
@@ -136,6 +132,7 @@ export async function processMessage(message: InboundMessage): Promise<void> {
       );
     }
 
+    return;
   }
 
   // HUMAN — explicit request for human (skip AI, go directly to escalation)
@@ -208,7 +205,7 @@ export async function processMessage(message: InboundMessage): Promise<void> {
           };
           const entryResult = await entryHandler(entryCtx);
           for (const msg of entryResult.messages) {
-            await sendMessage(msg);
+            await sendMessage({ ...msg, to: phone });
           }
         } catch (error) {
           log.error(
@@ -230,7 +227,7 @@ export async function processMessage(message: InboundMessage): Promise<void> {
     session.state = "GREETING";
 
     const name = session.customerName || "there";
-    await sendMessage(buildMainMenuMessage(name));
+    await sendMessage({ ...buildMainMenuMessage(name), to: phone });
 
     await saveSession(phone, session);
     return;
