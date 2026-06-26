@@ -15,7 +15,7 @@ Wanny's Nails is a three-tier system:
 
 The system is event-driven at its edges: WhatsApp sends webhooks, Daraja sends payment callbacks, and BullMQ drives all async work (reminders, retries, notifications).
 
----
+---]
 
 ## Design Principles
 
