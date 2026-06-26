@@ -19,9 +19,9 @@ import {
   evaluateCondition,
   type NotificationContext,
   type NotificationEventType,
+  type RecipientConfig,
 } from "./notification-triggers.js";
 import { renderTemplateForChannel } from "./templates/registry.js";
-import { JOB_NAMES } from "@wannys-nails/packages";
 
 const log = logger.child({ module: "notifications.service" });
 
@@ -69,9 +69,10 @@ export async function dispatch(
   for (const recipientConfig of trigger.recipients) {
     try {
       // 1. Evaluate condition
-      if (recipientConfig.condition && !evaluateCondition(recipientConfig.condition, context)) {
+      const rc = recipientConfig as RecipientConfig & { condition?: string };
+      if (rc.condition && !evaluateCondition(rc.condition, context)) {
         log.debug(
-          { event: "dispatch.condition_skipped", condition: recipientConfig.condition, recipientType: recipientConfig.type },
+          { event: "dispatch.condition_skipped", condition: rc.condition, recipientType: rc.type },
           "Condition not met — skipping recipient",
         );
         continue;
@@ -158,20 +159,6 @@ export async function dispatch(
         "Notification enqueued",
       );
 
-      // 9. Write InAppNotification for admin push events
-      if (recipientConfig.channel === "PUSH" && context.adminUserIds?.length) {
-        for (const userId of context.adminUserIds) {
-          await prisma.inAppNotification.create({
-            data: {
-              userId,
-              title: getPushTitle(recipientConfig.template, context),
-              body: getPushBody(recipientConfig.template, context),
-              url: getPushUrl(eventType, context),
-              metadata: { notificationId: notification.id } as any,
-            },
-          });
-        }
-      }
     } catch (error) {
       log.error(
         {

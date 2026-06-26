@@ -78,12 +78,12 @@ function buildNotificationContext(booking: {
     customerId: booking.customerId,
     customerName: booking.customer.name,
     customerPhone: booking.customer.phone,
-    customerEmail: booking.customer.email ?? undefined,
+    ...(booking.customer.email ? { customerEmail: booking.customer.email } : {}),
     serviceName: booking.service.name,
     appointmentAt: booking.appointmentAt.toISOString(),
-    amountKes: booking.priceKes,
+    ...(booking.priceKes != null ? { amountKes: booking.priceKes } : {}),
     adminUserIds: [], // Resolved by the endpoint resolution in dispatch
-  };
+  } satisfies NotificationContext;
 }
 
 // --- Handlers ---
