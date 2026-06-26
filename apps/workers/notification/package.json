@@ -13,10 +13,12 @@
     "@wannys-nails/packages": "workspace:*",
     "axios": "^1.17.0",
     "bullmq": "^5.78.0",
+    "web-push": "^3.6.7",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^26.0.0",
+    "@types/web-push": "^3.6.4",
     "typescript": "^6.0.3"
   }
 }
