@@ -157,7 +157,7 @@ model NailService {
 
   bookings Booking[]
 
-  @@map("salon_services")
+  @@map("nail_services")
 }
 
 model Booking {
