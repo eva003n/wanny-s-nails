@@ -18,6 +18,8 @@ export const notificationQueue = new Queue(Queue_Names.NOTIFICATIONS, {
   defaultJobOptions: {
     attempts: 3,
     backoff: { type: "exponential", delay: 1000 },
+    removeOnComplete: {age: 86400, count: 100},
+    removeOnFail: {age: 86400, count: 100}
   },
 });
 

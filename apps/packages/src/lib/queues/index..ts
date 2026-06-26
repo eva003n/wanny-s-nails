@@ -41,7 +41,7 @@ class GroupedBullBoard {
 
   constructor(groups: QueueGroup[]) {
     this.serverAdapter = new ExpressAdapter();
-    this.serverAdapter.setBasePath("/queues");
+    this.serverAdapter.setBasePath("/api/v1/admin/queues");
 
     // flattenand prefiz queue names for grouping
     const adapters = groups.flatMap((group) =>
