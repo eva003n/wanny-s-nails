@@ -23,6 +23,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import ErrorState from "@/components/ui/ErrorState";
 import Skeleton from "@/components/ui/Skeleton";
 import type { Service, ServiceCategory } from "@/lib/schemas";
+import { CirclePlus } from "lucide-react";
 
 // ─── Schema ─────────────────────────────────────────────────────────────────
 
@@ -182,13 +183,7 @@ export default function ServicesSection() {
     return (
       <>
         <EmptyState
-          icon={
-            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="24" cy="24" r="20" />
-              <line x1="24" y1="16" x2="24" y2="32" />
-              <line x1="16" y1="24" x2="32" y2="24" />
-            </svg>
-          }
+          icon={CirclePlus}
           heading="No services configured"
           description="Add your salon services to get started."
           action={<Button onClick={openAddSheet}>Add Service</Button>}
