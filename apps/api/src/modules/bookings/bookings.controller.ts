@@ -1,7 +1,9 @@
 import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { bookingsService } from "./bookings.service.js";
-import { notificationQueue, logger } from "@wannys-nails/packages";
+import { logger, prisma } from "@wannys-nails/packages";
+import { dispatch } from "../notifications/notifications.service.js";
+import type { NotificationContext } from "../notifications/notification-triggers.js";
 import {
   success,
   created,
@@ -57,6 +59,33 @@ export const listBookingsQuerySchema = z.object({
   sort: z.string().optional(),
 });
 
+// --- Helpers ---
+
+/**
+ * Build a NotificationContext from a loaded booking with customer and service included.
+ */
+function buildNotificationContext(booking: {
+  id: string;
+  customerId: string;
+  customer: { name: string; phone: string; email?: string | null };
+  service: { name: string };
+  appointmentAt: Date;
+  priceKes?: number;
+  reference?: string;
+}): NotificationContext {
+  return {
+    bookingId: booking.id,
+    customerId: booking.customerId,
+    customerName: booking.customer.name,
+    customerPhone: booking.customer.phone,
+    customerEmail: booking.customer.email ?? undefined,
+    serviceName: booking.service.name,
+    appointmentAt: booking.appointmentAt.toISOString(),
+    amountKes: booking.priceKes,
+    adminUserIds: [], // Resolved by the endpoint resolution in dispatch
+  };
+}
+
 // --- Handlers ---
 
 export const listBookings = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
@@ -101,50 +130,22 @@ export const approveBooking = asyncHandler(async (req: Request, res: Response, _
     req.user!.userId,
   );
 
-  // ── Enqueue WhatsApp confirmation to customer (async) ─────────
+  // Dispatch BOOKING_CONFIRMED notification
   try {
-    const EAT_OFFSET_MS = 3 * 60 * 60 * 1000;
-    const eatDate = new Date(booking.appointmentAt.getTime() + EAT_OFFSET_MS);
-    const dateDisplay = eatDate.toLocaleDateString("en-KE", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
+    const ctx = buildNotificationContext(booking);
+    ctx.adminUserIds = req.user?.userId ? [req.user.userId] : [];
+    await dispatch("BOOKING_CONFIRMED", ctx).catch((err) => {
+      log.error(
+        { event: "booking.approve.dispatch_failed", bookingId: booking.id, error: err instanceof Error ? err.message : String(err) },
+        "Failed to dispatch booking confirmed notification",
+      );
     });
-    const hours = eatDate.getUTCHours();
-    const minutes = eatDate.getUTCMinutes();
-    const period = hours >= 12 ? "PM" : "AM";
-    const hours12 = hours % 12 || 12;
-    const timeDisplay = `${hours12}:${String(minutes).padStart(2, "0")} ${period}`;
-
-    const confirmationText = [
-      "Your booking has been approved! ✅",
-      "",
-      `📋 Booking: ${booking.reference}`,
-      `✂️ Service: ${booking.service.name}`,
-      `📅 ${dateDisplay}`,
-      `⏰ ${timeDisplay}`,
-      "📍 Wanny's Nails, Nairobi",
-      "",
-      "Please complete payment when prompted. Thank you! 💅",
-    ].join("\n");
-
-    await notificationQueue.add(
-      "whatsapp-booking-approved",
-      {
-        type: "text",
-        to: booking.customer.phone,
-        text: confirmationText,
-      },
-      { attempts: 3, backoff: { type: "exponential", delay: 1000 } },
-    );
   } catch (error: unknown) {
     const err = error as { message?: string };
     log.error(
       { event: "booking.approve.notify_failed", bookingId: booking.id, error: err.message },
-      "Failed to enqueue WhatsApp notification for approved booking",
+      "Failed to dispatch notification for approved booking",
     );
-    // Don't fail the response — the booking was approved successfully
   }
 
   success(res, booking);
@@ -158,6 +159,41 @@ export const cancelBooking = asyncHandler(async (req: Request, res: Response, _n
     req.user ? "USER" : "CUSTOMER",
     input.reason,
   );
+
+  // Cancel reminder jobs
+  try {
+    const bookingFull = await bookingsService.getById(params.id);
+    if (bookingFull.notifications?.length) {
+      const { reminderQueue } = await import("@wannys-nails/packages");
+      for (const reminder of bookingFull.notifications) {
+        if (reminder.idempotencyKey) {
+          await reminderQueue.remove(reminder.idempotencyKey).catch(() => {});
+        }
+        await prisma.notification.update({
+          where: { id: reminder.id },
+          data: { status: "CANCELLED" },
+        }).catch(() => {});
+      }
+    }
+  } catch (err) {
+    log.error(
+      { event: "booking.cancel.reminder_cleanup_failed", bookingId: params.id, error: String(err) },
+      "Failed to cancel reminder jobs",
+    );
+  }
+
+  // Dispatch BOOKING_CANCELLED notification
+  try {
+    const ctx = buildNotificationContext(booking);
+    ctx.adminUserIds = req.user?.userId ? [req.user.userId] : [];
+    await dispatch("BOOKING_CANCELLED", ctx);
+  } catch (error) {
+    log.error(
+      { event: "booking.cancel.notify_failed", bookingId: booking.id, error: String(error) },
+      "Failed to dispatch cancellation notification",
+    );
+  }
+
   success(res, booking);
 });
 
@@ -169,6 +205,29 @@ export const rescheduleBooking = asyncHandler(async (req: Request, res: Response
     input.appointmentAt,
     input.reason,
   );
+
+  // Cancel old reminder jobs
+  try {
+    const bookingFull = await bookingsService.getById(params.id);
+    if (bookingFull.notifications?.length) {
+      const { reminderQueue } = await import("@wannys-nails/packages");
+      for (const reminder of bookingFull.notifications) {
+        if (reminder.idempotencyKey) {
+          await reminderQueue.remove(reminder.idempotencyKey).catch(() => {});
+        }
+        await prisma.notification.update({
+          where: { id: reminder.id },
+          data: { status: "CANCELLED" },
+        }).catch(() => {});
+      }
+    }
+  } catch (err) {
+    log.error(
+      { event: "booking.reschedule.reminder_cleanup_failed", bookingId: params.id, error: String(err) },
+      "Failed to cancel old reminder jobs on reschedule",
+    );
+  }
+
   success(res, booking);
 });
 
@@ -190,6 +249,19 @@ export const markBookingPaid = asyncHandler(async (req: Request, res: Response, 
     input.method,
     input.notes,
   );
+
+  // Dispatch PAYMENT_RECEIVED notification
+  try {
+    const ctx = buildNotificationContext(booking);
+    ctx.adminUserIds = req.user?.userId ? [req.user.userId] : [];
+    await dispatch("PAYMENT_RECEIVED", ctx);
+  } catch (error) {
+    log.error(
+      { event: "booking.mark_paid.notify_failed", bookingId: booking.id, error: String(error) },
+      "Failed to dispatch payment received notification",
+    );
+  }
+
   success(res, booking);
 });
 

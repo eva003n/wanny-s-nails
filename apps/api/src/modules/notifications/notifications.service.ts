@@ -13,6 +13,7 @@
  */
 
 import { prisma, notificationQueue, logger } from "@wannys-nails/packages";
+import { normalizeKenyanPhone } from "@wannys-nails/packages";
 import {
   NOTIFICATION_TRIGGERS,
   evaluateCondition,
@@ -201,7 +202,8 @@ async function resolveEndpoint(
   context: NotificationContext,
 ): Promise<ResolvedEndpoint | null> {
   if (channel === "WHATSAPP") {
-    return { address: context.customerPhone, type: "phone" };
+    const raw = context.customerPhone ?? "";
+    return { address: normalizeKenyanPhone(raw), type: "phone" };
   }
 
   if (channel === "EMAIL") {
