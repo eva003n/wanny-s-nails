@@ -128,7 +128,7 @@ export const bookingsService = {
         statusHistory: {
           orderBy: { createdAt: "asc" },
         },
-        reminders: {
+        notifications: {
           orderBy: { scheduledAt: "asc" },
         },
       },
@@ -430,19 +430,31 @@ export const bookingsService = {
       const appointmentMs = booking.appointmentAt.getTime();
       const nowMs = Date.now();
       const EAT_OFFSET_MS = 3 * 60 * 60 * 1000;
+      const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
       // 24h reminder: schedule for 24 hours before appointment (in EAT)
-      const reminder24hAt = new Date(appointmentMs - 24 * 60 * 60 * 1000);
+      const reminder24hAt = new Date(appointmentMs - ONE_DAY_MS - Date.now());
       const delay24h = reminder24hAt.getTime() - nowMs;
+      // 3. Generate idempotency key
+      const eventType = "APPOINTMENT_REMINDER";
+      const channel = "WHATAPP"
+      const recipientType = "CLIENT"
 
+      const idempotencyKey = `${booking.id}:${eventType}:${channel}:${recipientType}`;
+
+      // 4. Render template
       if (delay24h > 0) {
-        const reminder24h = await prisma.reminder.create({
+        const reminder24h = await prisma.notification.create({
           data: {
             bookingId: id,
-            type: "REMINDER_24H",
+            recipientId: booking.customerId,
+            recipientType: "CLIENT",
+            type: "APPOINTMENT_REMINDER",
             channel: "WHATSAPP",
             status: "SCHEDULED",
+            payload: {},
             scheduledAt: reminder24hAt,
+            idempotencyKey: idempotencyKey
           },
         });
 
@@ -464,9 +476,9 @@ export const bookingsService = {
         );
 
         if (job24h.id) {
-          await prisma.reminder.update({
+          await prisma.notification.update({
             where: { id: reminder24h.id },
-            data: { jobId: job24h.id },
+            data: { idempotencyKey: job24h.id },
           });
         }
 
@@ -481,13 +493,17 @@ export const bookingsService = {
       const delay1h = reminder1hAt.getTime() - nowMs;
 
       if (delay1h > 0) {
-        const reminder1h = await prisma.reminder.create({
+        const reminder1h = await prisma.notification.create({
           data: {
             bookingId: id,
-            type: "REMINDER_1H",
+            recipientId: booking.customerId,
+            recipientType: "CLIENT",
+            type: "APPOINTMENT_REMINDER",
             channel: "WHATSAPP",
+            payload: {},
             status: "SCHEDULED",
             scheduledAt: reminder1hAt,
+            idempotencyKey: idempotencyKey,
           },
         });
 
@@ -509,9 +525,9 @@ export const bookingsService = {
         );
 
         if (job1h.id) {
-          await prisma.reminder.update({
+          await prisma.notification.update({
             where: { id: reminder1h.id },
-            data: { jobId: job1h.id },
+            data: { idempotencyKey: job1h.id },
           });
         }
 

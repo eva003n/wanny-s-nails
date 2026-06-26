@@ -7,6 +7,21 @@
 
 // ─── Notification Job Payloads ────────────────────────────────
 
+export interface NotificationJobData {
+  notificationId: string;
+  recipientId: string;
+  recipientType: string;
+  channel: string;
+  template: string;
+  payload: Record<string, unknown>;
+  endpoint: {
+    /** Phone number (E.164), email address, or push subscription ID */
+    address: string;
+    type: "phone" | "email" | "push_subscription";
+  };
+  eventType: string;
+  bookingId: string;
+}
 
 export type WhatsAppTemplatePayload = {
   type: "template";
@@ -15,12 +30,14 @@ export type WhatsAppTemplatePayload = {
   languageCode: string;
   params: string[];
 }
+
 // Message (Incoming)
 export type InboundMessage = {
   type: "text" | "button" | "interactive";
   from: string;
   text: string;
 };
+
 export type OutboundMessage = {
   to?: string;
   type: "text" | "interactive_list" | "interactive_button" | "template";
@@ -84,5 +101,3 @@ export type Reminder24hPayload = {
   serviceName: string;
   appointmentAt: string; // ISO datetime
 }
-
-

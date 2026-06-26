@@ -42,7 +42,7 @@ async function sendText(message: OutboundMessage): Promise<void> {
         event: "whatsapp.send.failed",
         to: message.to,
         status: axiosError.response?.status,
-        error: axiosError.message,
+        error: axiosError.response?.data,
       },
       "Failed to send WhatsApp text message",
     );

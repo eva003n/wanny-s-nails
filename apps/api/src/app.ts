@@ -20,6 +20,7 @@ import { dashboardRoutes } from "./modules/dashboard/dashboard.routes.js";
 import { webhooksRoutes } from "./modules/webhooks/webhooks.routes.js";
 import { notificationsRoutes } from "./modules/notifications/notifications.routes.js";
 import { eventsRoutes } from "./modules/events/events.routes.js";
+import { pushSubscriptionsRoutes } from "./modules/push-subscriptions/push-subscriptions.routes.js";
 import { healthRoutes } from "./modules/health/health.routes.js";
 import { businessHoursRoutes } from "./modules/business-hours/business-hours.routes.js";
 import { logMiddleware } from "./shared/middleware/log.middleware.js";
@@ -86,6 +87,7 @@ app.use("/api/v1/bookings", bookingsRoutes);
 app.use("/api/v1/payments", paymentsRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/notifications", notificationsRoutes);
+app.use("/api/v1/push-subscriptions", pushSubscriptionsRoutes);
 app.use("/api/v1/business-hours", businessHoursRoutes);
 
 app.use(notFound);
