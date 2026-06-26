@@ -81,7 +81,7 @@ const STATE_HANDLERS: Record<ConversationState, StateHandler> = {
  *  6. Outbound message sending
  */
 
-export async function processMessage(message: InboundMessage): Promise<void> {
+export async function processMessage(message: InboundMessage, messageId: string): Promise<void> {
   const { from: phone, text: messageText } = message;
 
   log.info(
@@ -114,7 +114,7 @@ export async function processMessage(message: InboundMessage): Promise<void> {
       to: phone,
       type: "text",
       text: "You've been unsubscribed from messages. If you'd like to re-subscribe, just send us a message. Take care! 👋",
-    });
+    }, messageId);
 
     // Log consent withdrawal
     try {
@@ -185,7 +185,7 @@ export async function processMessage(message: InboundMessage): Promise<void> {
 
     // If the IDLE handler returned messages, send them
     for (const msg of result.messages) {
-      await sendMessage({ ...msg, to: phone });
+      await sendMessage({ ...msg, to: phone }, messageId);
     }
 
     // Reload session after IDLE handler
@@ -205,7 +205,7 @@ export async function processMessage(message: InboundMessage): Promise<void> {
           };
           const entryResult = await entryHandler(entryCtx);
           for (const msg of entryResult.messages) {
-            await sendMessage({ ...msg, to: phone });
+            await sendMessage({ ...msg, to: phone }, messageId);
           }
         } catch (error) {
           log.error(
@@ -227,7 +227,7 @@ export async function processMessage(message: InboundMessage): Promise<void> {
     session.state = "GREETING";
 
     const name = session.customerName || "there";
-    await sendMessage({ ...buildMainMenuMessage(name), to: phone });
+    await sendMessage({ ...buildMainMenuMessage(name), to: phone }, messageId);
 
     await saveSession(phone, session);
     return;
@@ -279,7 +279,7 @@ export async function processMessage(message: InboundMessage): Promise<void> {
   // ── 7. Send outbound messages ──
 
   for (const msg of result.messages) {
-    await sendMessage({ ...msg, to: phone });
+    await sendMessage({ ...msg, to: phone }, messageId);
   }
 
   // ── 8b. Send initial prompt if transitioning to a new state with no messages ──
@@ -301,7 +301,7 @@ export async function processMessage(message: InboundMessage): Promise<void> {
         };
         const entryResult = await nextHandler(entryCtx);
         for (const msg of entryResult.messages) {
-          await sendMessage({ ...msg, to: phone });
+          await sendMessage({ ...msg, to: phone }, messageId);
         }
       } catch (error) {
         log.error(

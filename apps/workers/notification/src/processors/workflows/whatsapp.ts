@@ -36,6 +36,7 @@ async function checkRateLimit(phone: string): Promise<boolean> {
  */
 export async function sendMessage(
   message:  OutboundMessage,
+  messageId: string
 ) {
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
 
@@ -59,5 +60,5 @@ export async function sendMessage(
     }
   }
 
-  notificationQueue.add(JOB_NAMES.WHATSAPP, message);
+  notificationQueue.add(JOB_NAMES.WHATSAPP, message, {jobId: messageId, delay: 0});
 }
