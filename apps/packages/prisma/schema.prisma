@@ -69,11 +69,13 @@ enum NotificationChannel {
 
 enum NotificationStatus {
   SCHEDULED // time based notification
+  PENDING
+  QUEUED
   PROCESSING // worker processing it
   SENT // provider accepted it
   DELIVERED // whatsapp only
   READ  // whatsapp only
-  FAILED // failed or retries
+  FAILED // // exhausted retries
   CANCELLED // cancelled before sending
 }
 
@@ -87,7 +89,6 @@ enum ReminderType {
   REMINDER_24H
   REMINDER_1H
 }
-
 
 enum ServiceCategory {
   MANICURE
@@ -115,6 +116,8 @@ model User {
 
   approvedBookings Booking[]  @relation("ApprovedBy")
   auditLogs        AuditLog[] @relation("Actor")
+  pushSubscriptions PushSubscription[]
+
 
   @@map("users")
 }
@@ -181,6 +184,7 @@ model Booking {
   payment       Payment?
 
   notifications Notification[]
+
 
   @@index([customerId])
   @@index([serviceId])
@@ -255,36 +259,42 @@ model PaymentTransaction {
 
 // notifications
 model Notification {
-  id          String         @id @default(uuid())
-  bookingId   String         @map("booking_id")
-  recipientId String         @map("recipient_id")
-  recipientType NotificationRecipient         @map("recipient_type")
-  type        NotificationType
-  channel     NotificationChannel @default(EMAIL)
-  payload     Json
-  metadata    Json?          @default("{}")                 
-  status      NotificationStatus @default(SCHEDULED)
-  scheduledAt DateTime       @map("scheduled_at") // reminders
-  sentAt      DateTime       @map("sent_at")
-  deliveredAt DateTime?      @map("delivered_at")
-  idempotencyKey String        @map(" idempotency_key")
-  createdAt   DateTime       @default(now()) @map("created_at")
+  id              String               @id @default(uuid())
+  bookingId       String               @map("booking_id")
+  recipientId     String               @map("recipient_id")
+  recipientType   NotificationRecipient @map("recipient_type")
+  type            NotificationType
+  channel         NotificationChannel  @default(EMAIL)
+  payload         Json
+  metadata        Json?                @default("{}")                 
+  status          NotificationStatus   @default(PENDING)
+  scheduledAt     DateTime?            @map("scheduled_at")
+  sentAt          DateTime?            @map("sent_at")
+  deliveredAt     DateTime?            @map("delivered_at")
+  readAt          DateTime?            @map("read_at")
+  failedAt        DateTime?            @map("failed_at")
+  lastError       String?              @map("last_error")
+  correlationId   String?              @map("correlation_id")
+  idempotencyKey  String               @unique @map("idempotency_key")
+  createdAt       DateTime             @default(now()) @map("created_at")
 
-  booking Booking @relation(fields: [bookingId], references: [id])
+  booking   Booking  @relation(fields: [bookingId], references: [id])
 
   @@index([bookingId])
   @@index([scheduledAt, status])
+  @@index([recipientType, recipientId])
+  @@index([idempotencyKey])
   @@map("notifications")
 }
 
 model NotificationSubscription {
-  id          String         @id @default(uuid())
-  recipientId String         @map("recipient_id")
-  recipientType NotificationRecipient         @map("recipient_type")
-  channel     NotificationChannel
-  endpoint    String  // phone number (E.164) | push endpoint URL | email address  
-  metadata    Json?          @default("{}")    
-  isActive    Boolean        @map("is_active") @default(false)
+  id            String                @id @default(uuid())
+  recipientId   String                @map("recipient_id")
+  recipientType NotificationRecipient @map("recipient_type")
+  channel       NotificationChannel
+  endpoint      String  // phone number (E.164) | push endpoint URL | email address  
+  metadata      Json?                 @default("{}")    
+  isActive      Boolean               @map("is_active") @default(false)
 
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
@@ -292,19 +302,20 @@ model NotificationSubscription {
   @@unique([recipientId, channel, endpoint])
   @@index([recipientType, recipientId, channel])
   @@map("notification_subscriptions")
-
 }
 
 // web push
 model PushSubscription {
-  id           String   @id @default(uuid())
-  userId       String
-  endpoint     String   @unique
-  p256dh       String
-  auth         String
-  userAgent    String?
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
+  id        String   @id @default(uuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@map("push_subscriptions")
