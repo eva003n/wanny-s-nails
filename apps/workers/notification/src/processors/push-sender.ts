@@ -12,13 +12,10 @@
 import { type Job } from "bullmq";
 import { prisma, logger } from "@wannys-nails/packages";
 import type { NotificationJobData } from "@wannys-nails/packages";
+import { config } from "../config.js";
 
 const log = logger.child({ module: "job:push" });
 
-// VAPID keys are loaded from environment
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:admin@wannysnails.com";
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
 
 interface PushPayload {
   title: string;
@@ -132,7 +129,7 @@ async function sendPushToSubscription(
   // Dynamic import of web-push to avoid requiring it at startup
   const webpush = await import("web-push");
 
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+  webpush.setVapidDetails(config.VAPID_SUBJECT, config.VAPID_PUBLIC_KEY, config.VAPID_PRIVATE_KEY);
 
   try {
     await webpush.default.sendNotification(

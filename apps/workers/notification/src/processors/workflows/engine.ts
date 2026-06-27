@@ -86,7 +86,7 @@ export async function processMessage(message: InboundMessage, messageId: string)
 
   log.info(
     { event: "fsm.process.start", phone },
-    "Processing WhatsApp message",
+    "Processing WhatsApp message(inbound)",
   );
 
   // ── 1. Load or create session ──

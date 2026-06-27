@@ -3,23 +3,20 @@ import axios from "axios"
 
 import { logger } from "@wannys-nails/packages";
 import type { OutboundMessage, WhatsAppNotificationPayload, WhatsAppTemplatePayload } from "@wannys-nails/packages";
+import { config } from "../config.js";
 
 const log = logger.child({ module: "job:whatsapp" });
 
 const GRAPH_API_VERSION = "v23.0";
 const MAX_LIST_ROWS = 10; // WhatsApp Cloud API limit for interactive list messages
 
-
-const config = {
-  WHATSAPP_PHONE_NUMBER_ID: process.env.WHATSAPP_PHONE_NUMBER_ID,
-  WHATSAPP_ACCESS_TOKEN: process.env.WHATSAPP_ACCESS_TOKEN,
-};
 /**
  * Send a single outbound WhatsApp message via the Cloud API.
  */
 
 async function sendText(message: OutboundMessage): Promise<void> {
    try {
+    console.log(message)
     await axios.post(
       `https://graph.facebook.com/${GRAPH_API_VERSION}/${config.WHATSAPP_PHONE_NUMBER_ID}/messages`,
       {
@@ -47,7 +44,7 @@ async function sendText(message: OutboundMessage): Promise<void> {
       "Failed to send WhatsApp text message",
     );
 
-    throw axiosError // trigger retry logic
+    throw axiosError.response?.data // trigger retry logic
 
     // If rate limited (429), we could re-enqueue, but for simplicity log and drop
     

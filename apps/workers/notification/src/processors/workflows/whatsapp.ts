@@ -6,6 +6,7 @@ import type {
 } from "@wannys-nails/packages";
 
 import { JOB_NAMES, notificationQueue } from "@wannys-nails/packages";
+import { config } from "../../config.js";
 
 const log = logger.child({ module: "whatsapp-api" });
 const redis = redisClient.cache
@@ -38,7 +39,7 @@ export async function sendMessage(
   message:  OutboundMessage,
   messageId: string
 ) {
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const phoneNumberId = config.WHATSAPP_PHONE_NUMBER_ID;
 
   // Rate limiting
   const allowed = await checkRateLimit(message.to as string);
