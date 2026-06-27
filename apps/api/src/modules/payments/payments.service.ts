@@ -1,5 +1,6 @@
 import type { Prisma } from "@wannys-nails/packages";
-import { prisma } from "@wannys-nails/packages";
+import { prisma } from "../../shared/lib/prisma.js";
+
 import { paymentQueue } from "@wannys-nails/packages";
 import { logger } from "@wannys-nails/packages";
 

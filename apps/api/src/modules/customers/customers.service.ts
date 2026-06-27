@@ -1,4 +1,6 @@
-import { prisma } from "@wannys-nails/packages";
+
+import {prisma} from "../../shared/lib/prisma.js"
+
 import {
   CustomerNotFoundError,
   PhoneAlreadyExistsError,

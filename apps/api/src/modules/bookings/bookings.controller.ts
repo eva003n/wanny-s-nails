@@ -1,7 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { bookingsService } from "./bookings.service.js";
-import { logger, prisma } from "@wannys-nails/packages";
+import { logger, } from "@wannys-nails/packages";
+import {prisma} from "../../shared/lib/prisma.js"
 import { dispatch } from "../notifications/notifications.service.js";
 import type { NotificationContext } from "../notifications/notification-triggers.js";
 import {
@@ -164,10 +165,10 @@ export const cancelBooking = asyncHandler(async (req: Request, res: Response, _n
   try {
     const bookingFull = await bookingsService.getById(params.id);
     if (bookingFull.notifications?.length) {
-      const { reminderQueue } = await import("@wannys-nails/packages");
+      const { notificationQueue } = await import("@wannys-nails/packages");
       for (const reminder of bookingFull.notifications) {
         if (reminder.idempotencyKey) {
-          await reminderQueue.remove(reminder.idempotencyKey).catch(() => {});
+          await notificationQueue.remove(reminder.idempotencyKey).catch(() => {});
         }
         await prisma.notification.update({
           where: { id: reminder.id },
@@ -210,10 +211,10 @@ export const rescheduleBooking = asyncHandler(async (req: Request, res: Response
   try {
     const bookingFull = await bookingsService.getById(params.id);
     if (bookingFull.notifications?.length) {
-      const { reminderQueue } = await import("@wannys-nails/packages");
+      const { notificationQueue } = await import("@wannys-nails/packages");
       for (const reminder of bookingFull.notifications) {
         if (reminder.idempotencyKey) {
-          await reminderQueue.remove(reminder.idempotencyKey).catch(() => {});
+          await notificationQueue.remove(reminder.idempotencyKey).catch(() => {});
         }
         await prisma.notification.update({
           where: { id: reminder.id },

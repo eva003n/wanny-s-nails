@@ -4,10 +4,11 @@
  * Admin-facing endpoints for notification history and management.
  */
 import type { Request, Response, NextFunction } from "express";
-import { prisma, logger } from "@wannys-nails/packages";
+import { logger } from "@wannys-nails/packages";
 import { success, paginated, noContent } from "../../shared/utils/response.js";
 import { parsePagination } from "../../shared/utils/pagination.js";
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";
+import {prisma} from "../../shared/lib/prisma.js"
 
 const log = logger.child({ module: "notifications.controller" });
 

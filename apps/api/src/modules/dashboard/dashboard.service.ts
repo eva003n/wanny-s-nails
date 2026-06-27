@@ -1,4 +1,5 @@
-import { prisma } from "@wannys-nails/packages";
+import { prisma } from "../../shared/lib/prisma.js";
+
 import { logger } from "@wannys-nails/packages";
 
 const log = logger.child({ module: "dashboard" });

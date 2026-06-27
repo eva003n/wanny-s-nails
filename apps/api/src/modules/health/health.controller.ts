@@ -1,9 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
-import { prisma, logger, redisClient } from "@wannys-nails/packages";
-
-
+import { logger } from "@wannys-nails/packages";
+import {prisma} from "../../shared/lib/prisma.js"
+import { redis } from "../../shared/lib/cache.js";
 const log = logger.child({ module: "health" });
-const redis = redisClient.cache;
 
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";
 

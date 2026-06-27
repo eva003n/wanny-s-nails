@@ -1,5 +1,6 @@
-import { prisma } from "@wannys-nails/packages";
-import { reminderQueue } from "@wannys-nails/packages";
+import { prisma } from "../../shared/lib/prisma.js";
+
+import { JOB_NAMES, notificationQueue } from "@wannys-nails/packages";
 import { logger } from "@wannys-nails/packages";
 import {
   BookingConflictError,
@@ -437,8 +438,8 @@ export const bookingsService = {
       const delay24h = reminder24hAt.getTime() - nowMs;
       // 3. Generate idempotency key
       const eventType = "APPOINTMENT_REMINDER";
-      const channel = "WHATAPP"
-      const recipientType = "CLIENT"
+      const channel = "WHATAPP";
+      const recipientType = "CLIENT";
 
       const idempotencyKey = `${booking.id}:${eventType}:${channel}:${recipientType}`;
 
@@ -454,12 +455,12 @@ export const bookingsService = {
             status: "SCHEDULED",
             payload: {},
             scheduledAt: reminder24hAt,
-            idempotencyKey: idempotencyKey
+            idempotencyKey: idempotencyKey,
           },
         });
 
-        const job24h = await reminderQueue.add(
-          "reminder-24h",
+        const job24h = await notificationQueue.add(
+          JOB_NAMES.WHATSAPP,
           {
             reminderId: reminder24h.id,
             bookingId: id,
@@ -507,8 +508,8 @@ export const bookingsService = {
           },
         });
 
-        const job1h = await reminderQueue.add(
-          "reminder-1h",
+        const job1h = await notificationQueue.add(
+          JOB_NAMES.WHATSAPP,
           {
             reminderId: reminder1h.id,
             bookingId: id,

@@ -5,10 +5,11 @@
  * unsubscribing push notification subscriptions.
  */
 import type { Request, Response, NextFunction } from "express";
-import { prisma, logger } from "@wannys-nails/packages";
+import { logger } from "@wannys-nails/packages";
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";
 import { success, noContent } from "../../shared/utils/response.js";
 import { z } from "zod";
+import {prisma} from "../../shared/lib/prisma.js"
 
 const log = logger.child({ module: "push-subscriptions.controller" });
 
