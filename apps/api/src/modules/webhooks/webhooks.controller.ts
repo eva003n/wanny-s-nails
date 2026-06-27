@@ -5,11 +5,11 @@ import crypto from "crypto";
 import { config } from "../../shared/lib/config.js";
 import {
   logger,
-  redisClient,
   notificationQueue,
   paymentQueue,
 } from "@wannys-nails/packages";
 
+import { redis } from "../../shared/lib/cache.js";
 import { paymentsService } from "../payments/payments.service.js";
 import {  } from "@wannys-nails/packages";
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";
@@ -17,7 +17,6 @@ import { DarajaCallbackSchema } from "./schemas.js";
 import { JOB_NAMES, type InboundMessage } from "@wannys-nails/packages";
 
 const log = logger.child({ module: "webhooks" });
-const redis = redisClient.cache;
 
 
 export const verifyWhatsApp = asyncHandler(
@@ -340,9 +339,10 @@ export const handleWhatsApp = asyncHandler(
                 text: messageBody,
               };
 
-              // enqueue message for processing by fsm engine
+         try {
+               // enqueue message for processing by fsm engine
               const job = await notificationQueue.add(
-                JOB_NAMES.FSM,
+                JOB_NAMES.FSM_IN,
                 whatsappMessage,
                 {
                   jobId: wamid, // job deduplication
@@ -355,6 +355,12 @@ export const handleWhatsApp = asyncHandler(
                 jobId: job.id,
                 message: "Wnatsapp callback enqueued for processing",
               });
+         }catch(error) {
+          log.error({
+            event: "whatsapp.callback.error",
+            error: error
+          });
+         }
          
             }
           }
