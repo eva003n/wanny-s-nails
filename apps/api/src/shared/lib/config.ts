@@ -1,6 +1,4 @@
-
 import { z } from "zod";
-import { log } from "./logger.js";
 
 if (process.env.NODE_ENV || "development" === "development") {
   const { config } = await import("dotenv");
@@ -51,7 +49,7 @@ export type Config = z.infer<typeof configSchema>;
 const parsed = configSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  log.error(
+  console.error(
     JSON.stringify({
       event: "Env.error",
       message: "❌ Invalid environment variables:",

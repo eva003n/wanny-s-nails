@@ -6,7 +6,7 @@
  * environment variables *before* importing from @wannys-nails/packages.
  */
 import { z } from "zod";
-import { logger } from "./logger.js";
+
 
 export const configSchema = z.object({
   BASE_URL: z.string().url().optional(),
@@ -48,7 +48,7 @@ export type Config = z.infer<typeof configSchema>;
 const parsed = configSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  logger.error(
+  console.error(
     JSON.stringify({
       event: "Env.error",
       message: "❌ Invalid environment variables:",
