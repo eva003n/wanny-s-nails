@@ -1,5 +1,5 @@
 import { type Job } from "bullmq";
-import { config } from "../config.js";
+import { config } from "../lib/config.js";
 import { logger } from "@wannys-nails/packages";
 import { prisma } from "@wannys-nails/packages";
 
@@ -56,23 +56,37 @@ function generatePassword(timestamp: string): string {
 
 // ─── Processor ─────────────────────────────────────────────────
 
-export async function paymentVerifyProcessor(job: Job<PaymentVerifyJobData>): Promise<void> {
+export async function paymentVerifyProcessor(
+  job: Job<PaymentVerifyJobData>,
+): Promise<void> {
   const { paymentId, checkoutRequestId } = job.data;
 
   log.info(
-    { event: "payment_verify.job.start", jobId: job.id, paymentId, checkoutRequestId },
+    {
+      event: "payment_verify.job.start",
+      jobId: job.id,
+      paymentId,
+      checkoutRequestId,
+    },
     "Processing payment verification job",
   );
 
   // Check if already resolved (idempotency)
   const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
   if (!payment) {
-    log.warn({ event: "payment_verify.job.payment_not_found", paymentId }, "Payment not found");
+    log.warn(
+      { event: "payment_verify.job.payment_not_found", paymentId },
+      "Payment not found",
+    );
     return;
   }
   if (payment.status === "PAID" || payment.status === "REFUNDED") {
     log.info(
-      { event: "payment_verify.job.already_resolved", paymentId, status: payment.status },
+      {
+        event: "payment_verify.job.already_resolved",
+        paymentId,
+        status: payment.status,
+      },
       "Payment already resolved",
     );
     return;
@@ -149,7 +163,10 @@ export async function paymentVerifyProcessor(job: Job<PaymentVerifyJobData>): Pr
       throw new Error(`Payment not yet confirmed: ${ResultDesc}`);
     }
   } catch (error: unknown) {
-    const err = error as { response?: { status?: number; data?: unknown }; message?: string };
+    const err = error as {
+      response?: { status?: number; data?: unknown };
+      message?: string;
+    };
     log.error(
       {
         event: "payment_verify.job.failed",

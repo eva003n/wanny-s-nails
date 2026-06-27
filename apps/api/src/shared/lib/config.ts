@@ -1,8 +1,18 @@
-import { logger } from "@wannys-nails/packages";
-import { z } from "zod";
 
-const configSchema = z.object({
-  BASE_URL: z.string().url(),
+import { z } from "zod";
+import { log } from "./logger.js";
+
+if (process.env.NODE_ENV || "development" === "development") {
+  const { config } = await import("dotenv");
+  config({
+    path: ".env.development",
+  });
+}
+
+
+
+export const configSchema = z.object({
+  BASE_URL: z.string().url().optional(),
   DATABASE_URL: z.string().url(),
   API_DOC_URL: z.string().url(),
   REDIS_URL: z.string().url(),
@@ -36,10 +46,12 @@ const configSchema = z.object({
   PORT: z.coerce.number().default(8000),
 });
 
+export type Config = z.infer<typeof configSchema>;
+
 const parsed = configSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  logger.error(
+  log.error(
     JSON.stringify({
       event: "Env.error",
       message: "❌ Invalid environment variables:",
@@ -52,4 +64,6 @@ if (!parsed.success) {
 export const config: Config = parsed.success
   ? parsed.data
   : configSchema.parse(process.env);
-export type Config = z.infer<typeof configSchema>;
+
+// export {config} from "@wannys-nails/packages"
+

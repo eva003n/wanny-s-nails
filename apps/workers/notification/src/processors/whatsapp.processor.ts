@@ -1,9 +1,13 @@
 import { type Job } from "bullmq";
-import axios from "axios"
+import axios from "axios";
 
 import { logger } from "@wannys-nails/packages";
-import type { OutboundMessage, WhatsAppNotificationPayload, WhatsAppTemplatePayload } from "@wannys-nails/packages";
-import { config } from "../config.js";
+import type {
+  OutboundMessage,
+  WhatsAppMessagePayload,
+  WhatsAppTemplatePayload,
+} from "@wannys-nails/packages";
+import { config } from "../lib/config.js";
 
 const log = logger.child({ module: "job:whatsapp" });
 
@@ -15,8 +19,8 @@ const MAX_LIST_ROWS = 10; // WhatsApp Cloud API limit for interactive list messa
  */
 
 async function sendText(message: OutboundMessage): Promise<void> {
-   try {
-    console.log(message)
+  try {
+    console.log(message);
     await axios.post(
       `https://graph.facebook.com/${GRAPH_API_VERSION}/${config.WHATSAPP_PHONE_NUMBER_ID}/messages`,
       {
@@ -33,7 +37,10 @@ async function sendText(message: OutboundMessage): Promise<void> {
       },
     );
   } catch (error: unknown) {
-    const axiosError = error as { response?: { status?: number; data?: unknown }; message?: string };
+    const axiosError = error as {
+      response?: { status?: number; data?: unknown };
+      message?: string;
+    };
     log.error(
       {
         event: "whatsapp.send.failed",
@@ -44,10 +51,9 @@ async function sendText(message: OutboundMessage): Promise<void> {
       "Failed to send WhatsApp text message",
     );
 
-    throw axiosError.response?.data // trigger retry logic
+    throw axiosError.response?.data; // trigger retry logic
 
     // If rate limited (429), we could re-enqueue, but for simplicity log and drop
-    
   }
 }
 
@@ -77,18 +83,22 @@ function truncateListSections(
 /**
  * Send an interactive list message via WhatsApp Cloud API.
  */
-async function sendInteractiveListMessage(
- message: OutboundMessage
-) {
-   let sections: NonNullable<OutboundMessage["listSections"]> = message.listSections || []
+async function sendInteractiveListMessage(message: OutboundMessage) {
+  let sections: NonNullable<OutboundMessage["listSections"]> =
+    message.listSections || [];
 
-   const phoneNumberId = config.WHATSAPP_PHONE_NUMBER_ID
+  const phoneNumberId = config.WHATSAPP_PHONE_NUMBER_ID;
 
   // Enforce WhatsApp's 10-row limit across all sections
   const totalRows = sections.reduce((sum, s) => sum + s.rows.length, 0);
   if (totalRows > MAX_LIST_ROWS) {
     log.warn(
-      { event: "whatsapp.list.rows_truncated", to: message.to, totalRows, maxRows: MAX_LIST_ROWS },
+      {
+        event: "whatsapp.list.rows_truncated",
+        to: message.to,
+        totalRows,
+        maxRows: MAX_LIST_ROWS,
+      },
       "Interactive list rows exceed limit — truncating",
     );
     sections = truncateListSections(sections);
@@ -123,7 +133,10 @@ async function sendInteractiveListMessage(
       },
     );
   } catch (error: unknown) {
-    const axiosError = error as { response?: { status?: number; data?: unknown }; message?: string };
+    const axiosError = error as {
+      response?: { status?: number; data?: unknown };
+      message?: string;
+    };
     log.error(
       {
         event: "whatsapp.send.list.failed",
@@ -133,20 +146,18 @@ async function sendInteractiveListMessage(
       },
       "Failed to send WhatsApp interactive list message",
     );
-     throw error
+    throw error;
   }
 }
 
 /**
  * Send an interactive button message via WhatsApp Cloud API.
  */
-async function sendInteractiveButtonMessage(
-message: OutboundMessage
-) {
+async function sendInteractiveButtonMessage(message: OutboundMessage) {
+  const buttons: NonNullable<OutboundMessage["buttons"]> =
+    message.buttons || [];
 
-  const buttons: NonNullable<OutboundMessage["buttons"]> = message.buttons || []
-
-     const phoneNumberId = config.WHATSAPP_PHONE_NUMBER_ID;
+  const phoneNumberId = config.WHATSAPP_PHONE_NUMBER_ID;
 
   try {
     await axios.post(
@@ -157,7 +168,7 @@ message: OutboundMessage
         type: "interactive",
         interactive: {
           type: "button",
-          body: { text: message.text},
+          body: { text: message.text },
           action: {
             buttons: buttons.map((btn) => ({
               type: "reply",
@@ -174,7 +185,10 @@ message: OutboundMessage
       },
     );
   } catch (error: unknown) {
-    const axiosError = error as { response?: { status?: number; data?: unknown }; message?: string };
+    const axiosError = error as {
+      response?: { status?: number; data?: unknown };
+      message?: string;
+    };
     log.error(
       {
         event: "whatsapp.send.button.failed",
@@ -191,67 +205,65 @@ message: OutboundMessage
  * Send a WhatsApp template message (for pre-approved templates outside the 24h window).
  */
 
-async function sendTemplate(
-  template: WhatsAppTemplatePayload
-): Promise<void> {
-
-     const phoneNumberId = config.WHATSAPP_PHONE_NUMBER_ID;
+async function sendTemplate(template: WhatsAppTemplatePayload): Promise<void> {
+  const phoneNumberId = config.WHATSAPP_PHONE_NUMBER_ID;
   const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`;
   // const { default: axios } = await import("axios");
- try {
-   await axios.post(
-     url,
-     {
-       messaging_product: "whatsapp",
-       to: template.to,
-       type: "template",
-       template: {
-         name: template.templateName,
-         language: { code: template.languageCode },
-         components:
-           template.params.length > 0
-             ? [
-                 {
-                   type: "body",
-                   parameters: template.params.map((p) => ({
-                     type: "text",
-                     text: p,
-                   })),
-                 },
-               ]
-             : [],
-       },
-     },
-     {
-       headers: {
-         Authorization: `Bearer ${config.WHATSAPP_ACCESS_TOKEN}`,
-         "Content-Type": "application/json",
-       },
-     },
-   );
- } catch (error: unknown) {
-      const axiosError = error as {
-        response?: { status?: number; data?: unknown };
-        message?: string;
-      };
-      log.error(
-        {
-          event: "whatsapp.send.template.failed",
-          to: template.to,
-          templateName: template.templateName,
-          status: axiosError.response?.status,
-          error: axiosError.response?.data,
+  try {
+    await axios.post(
+      url,
+      {
+        messaging_product: "whatsapp",
+        to: template.to,
+        type: "template",
+        template: {
+          name: template.templateName,
+          language: { code: template.languageCode },
+          components:
+            template.params.length > 0
+              ? [
+                  {
+                    type: "body",
+                    parameters: template.params.map((p) => ({
+                      type: "text",
+                      text: p,
+                    })),
+                  },
+                ]
+              : [],
         },
-        "Failed to send WhatsApp template message",
-      );
-      throw error
-
- }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${config.WHATSAPP_ACCESS_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+  } catch (error: unknown) {
+    const axiosError = error as {
+      response?: { status?: number; data?: unknown };
+      message?: string;
+    };
+    log.error(
+      {
+        event: "whatsapp.send.template.failed",
+        to: template.to,
+        templateName: template.templateName,
+        status: axiosError.response?.status,
+        error: axiosError.response?.data,
+      },
+      "Failed to send WhatsApp template message",
+    );
+    throw error;
+  }
 }
 
 // ─── Processor ─────────────────────────────────────────────────
 
-export async function whatsappProcessor(job: Job<WhatsAppNotificationPayload>): Promise<void> {
+export async function whatsappProcessor(
+  job: Job<WhatsAppMessagePayload>,
+): Promise<void> {
   const { type, to } = job.data;
 
   log.info(
@@ -260,33 +272,35 @@ export async function whatsappProcessor(job: Job<WhatsAppNotificationPayload>): 
   );
 
   try {
-      switch (type) {
-        case "text":
-          return sendText(job.data);
+    switch (type) {
+      case "text":
+        return sendText(job.data);
 
-        case "interactive_list":
-        
-          return sendInteractiveListMessage(job.data);
+      case "interactive_list":
+        return sendInteractiveListMessage(job.data);
 
-        case "interactive_button":
-          return sendInteractiveButtonMessage(job.data);
+      case "interactive_button":
+        return sendInteractiveButtonMessage(job.data);
 
-        case "template":
-          return sendTemplate(job.data as WhatsAppTemplatePayload)
+      case "template":
+        return sendTemplate(job.data as WhatsAppTemplatePayload);
 
-        default:
-          log.warn(
-            { event: "whatsapp.send.unknown_type", to },
-            "Unknown message type",
-          );
-      }
+      default:
+        log.warn(
+          { event: "whatsapp.send.unknown_type", to },
+          "Unknown message type",
+        );
+    }
 
     log.info(
       { event: "whatsapp.job.success", jobId: job.id, to },
       "WhatsApp message sent successfully",
     );
   } catch (error: unknown) {
-    const err = error as { response?: { status?: number; data?: unknown }; message?: string };
+    const err = error as {
+      response?: { status?: number; data?: unknown };
+      message?: string;
+    };
     log.error(
       {
         event: "whatsapp.job.failed",
@@ -301,4 +315,3 @@ export async function whatsappProcessor(job: Job<WhatsAppNotificationPayload>): 
     throw error; // BullMQ will retry
   }
 }
-

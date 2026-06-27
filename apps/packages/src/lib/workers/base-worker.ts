@@ -7,25 +7,27 @@
  *  - Dead letter wiring
  */
 
-import { Worker, type Job } from "bullmq";
+import { Worker, type ConnectionOptions, type Job } from "bullmq";
 import { handleDeadLetterJob } from "./dead-letter.processor.js";
 import { logger } from "../logger.js";
+import { createRedisClient } from "../redis.js";
+import { config } from "../config.js";
 
 const log = logger.child({module: "Worker"})
 
 
 // ─── Redis Connection (reads from env directly) ─────────────
 
-export function createWorkerConnection() {
-  const url = new URL(process.env.REDIS_URL as string);
-  return {
-    host: url.hostname,
-    port: Number(url.port) || 6379,
-    password: url.password || undefined,
-    maxRetriesPerRequest: null,
-    enableReadyCheck: false,
-  };
-}
+// export function createWorkerConnection() {
+//   const url = new URL(process.env.REDIS_URL as string);
+//   return {
+//     host: url.hostname,
+//     port: Number(url.port) || 6379,
+//     password: url.password || undefined,
+//     maxRetriesPerRequest: null,
+//     enableReadyCheck: false,
+//   };
+// }
 
 // ─── Worker Factory ─────────────────────────────────────────
 
@@ -33,14 +35,18 @@ export interface WorkerOptions {
   queueName: string;
   workerName: string;
   concurrency?: number;
+  limiter?: {
+    max?: number
+    duration?: number
+  }
 }
 
 export function createWorker<T = any>(
   opts: WorkerOptions,
   processor: (job: Job<T>) => Promise<void>,
+  connection: ConnectionOptions
 ): Worker<T> {
-  const connection = createWorkerConnection();
-
+  
   const worker = new Worker<T>(
     opts.queueName,
     async (job) => {

@@ -1,13 +1,12 @@
 // Whatsapp conversations are stateless
 // This is the storage engine that remembers where we are in the conversation
 
-import { redisClient } from "@wannys-nails/packages";
 
+import { redis } from "../../lib/redis.js";
 import type { ConversationSession } from "./types.js";
 
 const SESSION_TTL = 1800; // 30 minutes in seconds
 const SESSION_PREFIX = "session:";
-const redis = redisClient.cache;
 
 
 /**

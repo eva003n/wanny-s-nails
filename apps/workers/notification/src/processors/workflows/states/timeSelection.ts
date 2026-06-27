@@ -1,6 +1,6 @@
 import type { StateHandlerContext, StateTransitionResult } from "../types.js";
 import { resetInvalidCount, incrementInvalidCount } from "../session.js";
-import { prisma } from "@wannys-nails/packages";
+import { prisma } from "../../../lib/prisma.js";
 import { formatTime12h } from "../helpers.js";
 
 /** WhatsApp interactive list max rows */

@@ -56,6 +56,8 @@ app.use(
 );
 app.use(express.urlencoded({ extended: true }));
 
+// serve static assets
+app.use(express.static("public"))
 // X-Request-ID middleware (runs on every request)
 app.use(requestIdMiddleware);
 

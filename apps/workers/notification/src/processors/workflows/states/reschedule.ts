@@ -1,7 +1,8 @@
 import type { StateHandlerContext, StateTransitionResult } from "../types.js";
 import { resetInvalidCount, incrementInvalidCount } from "../session.js";
 import { buildDateOptions, formatDateEAT, formatTime12h } from "../helpers.js";
-import { prisma, logger } from "@wannys-nails/packages";
+import {logger } from "@wannys-nails/packages";
+import { prisma } from "../../../lib/prisma.js";
 
 const log = logger.child({ module: "fsm-reschedule" });
 

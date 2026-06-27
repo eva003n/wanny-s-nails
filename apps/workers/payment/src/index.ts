@@ -5,12 +5,11 @@
  * Run: node dist/workers/payment/src/index.js
  */
 
+import { log } from "./lib/logger.js";
 import "./worker.js";
 
-console.info(
-  JSON.stringify({
+log.info({
     event: "worker.process.started",
     worker: "payment",
     pid: process.pid,
-  }),
-);
+  });

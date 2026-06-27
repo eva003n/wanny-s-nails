@@ -1,15 +1,13 @@
 import { logger } from "@wannys-nails/packages";
-import { redisClient } from "@wannys-nails/packages";
 import type {
   OutboundMessage,
-  WhatsAppNotificationPayload,
 } from "@wannys-nails/packages";
 
 import { JOB_NAMES, notificationQueue } from "@wannys-nails/packages";
-import { config } from "../../config.js";
+import { config } from "../../lib/config.js";
+import { redis } from "../../lib/redis.js";
 
 const log = logger.child({ module: "whatsapp-api" });
-const redis = redisClient.cache
 
 const RATE_LIMIT_RETRY_DELAY = 2000; // ms to re-enqueue if rate limited
 const RATE_LIMIT_TTL = 2; // seconds between messages per recipient
@@ -35,10 +33,7 @@ async function checkRateLimit(phone: string): Promise<boolean> {
  * If rate limited, the message is silently dropped. In production, you'd
  * re-enqueue to BullMQ with a delay.
  */
-export async function sendMessage(
-  message:  OutboundMessage,
-  messageId: string
-) {
+export async function sendMessage(message: OutboundMessage, messageId: string) {
   const phoneNumberId = config.WHATSAPP_PHONE_NUMBER_ID;
 
   // Rate limiting
@@ -50,7 +45,9 @@ export async function sendMessage(
     );
     // Re-enqueue after delay (we'll integrate BullMQ for this in Phase 5)
     // For now, add a small delay and retry once
-    await new Promise((resolve) => setTimeout(resolve, RATE_LIMIT_RETRY_DELAY));
+   
+    notificationQueue.add(JOB_NAMES.FSM_OUT, message, {jobId: messageId, delay: RATE_LIMIT_RETRY_DELAY})
+    
     const retryAllowed = await checkRateLimit(message.to as string);
     if (!retryAllowed) {
       log.warn(
@@ -61,5 +58,12 @@ export async function sendMessage(
     }
   }
 
-  notificationQueue.add(JOB_NAMES.WHATSAPP, message, {jobId: messageId, delay: 0});
+  const job = await notificationQueue.add(JOB_NAMES.FSM_OUT, message, {
+    jobId: messageId,
+  });
+
+  log.info({
+    event: "fsm.message.enqueued",
+    jobId: job?.id
+  }, "Outbound message enqueued")
 }

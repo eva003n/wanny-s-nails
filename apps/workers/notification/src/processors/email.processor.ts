@@ -1,5 +1,5 @@
 import { type Job } from "bullmq";
-import { config } from "../config.js";
+import { config } from "../lib/config.js";
 import { logger } from "@wannys-nails/packages";
 
 const log = logger.child({ module: "job:email" });
@@ -60,7 +60,10 @@ export async function emailProcessor(job: Job<EmailJobData>): Promise<void> {
       "Email sent successfully",
     );
   } catch (error: unknown) {
-    const err = error as { response?: { status?: number; data?: unknown }; message?: string };
+    const err = error as {
+      response?: { status?: number; data?: unknown };
+      message?: string;
+    };
     log.error(
       {
         event: "email.job.failed",

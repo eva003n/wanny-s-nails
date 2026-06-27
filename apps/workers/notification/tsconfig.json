@@ -8,8 +8,6 @@
     "skipLibCheck": true,
     "outDir": "dist",
     "rootDir": "src",
-    "declaration": true,
-    "sourceMap": true
   },
-  "include": ["src/**/*", "src/processors/workflows"]
+  "include": ["src/**/*"]
 }

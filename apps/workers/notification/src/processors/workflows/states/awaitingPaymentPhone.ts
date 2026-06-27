@@ -1,7 +1,8 @@
 import type { StateHandlerContext, StateTransitionResult } from "../types.js";
 import { resetInvalidCount, incrementInvalidCount } from "../session.js";
 import { parsePhoneToE164, formatTime12h, formatDateEAT } from "../helpers.js";
-import { prisma, paymentQueue, logger } from "@wannys-nails/packages";
+import {  paymentQueue, logger } from "@wannys-nails/packages";
+import { prisma } from "../../../lib/prisma.js";
 
 const log = logger.child({ module: "fsm-payment-phone" });
 

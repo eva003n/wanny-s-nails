@@ -3,32 +3,12 @@ import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
 import { ExpressAdapter } from "@bull-board/express";
 import { config } from "../config.js";
 import type { Queue } from "bullmq";
-import { bookingQueue, notificationQueue, reminderQueue, paymentQueue } from "./queues.js";
+import { notificationQueue, paymentQueue } from "./queues.js";
 
 // Website: https://oneuptime.com/blog/post/2026-01-21-bullmq-bull-board/view#installing-bull-board
 
 // create express adapter
 export const serverAdapter = new ExpressAdapter();
-// serverAdapter.setBasePath("/queues");
-
-// import created queues
-
-//  create dashboard
-/* createBullBoard({
-
-  serverAdapter,
-  options: {
-    uiConfig: {
-        boardTitle: APP_NAME,
-        miscLinks: [
-            {
-                text: "Documentation",
-                url: API_DOC_URI as string
-            }
-        ]
-    }
-  }
-}); */
 
 type QueueGroup = {
   name: string;
@@ -61,6 +41,10 @@ class GroupedBullBoard {
       options: {
         uiConfig: {
           boardTitle: config.APP_NAME as string,
+          favIcon: {
+            default: "/512.png",
+            alternative: "/192.png"
+          },
           miscLinks: [
             {
               text: "Documentation",
@@ -86,14 +70,10 @@ const groups: QueueGroup[] = [
     name: "Notifications",
     queues: [notificationQueue],
   },
-  {
-    name: "Remainders",
-    queues: [reminderQueue],
-  },
-  {
-    name: "Bookings",
-    queues: [bookingQueue],
-  },
+  // {
+  //   name: "Bookings",
+  //   queues: [bookingQueue],
+  // },
 ];
 
 export const groupedBoard = new GroupedBullBoard(groups);

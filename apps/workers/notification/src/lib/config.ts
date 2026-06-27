@@ -15,6 +15,9 @@ import { z } from "zod";
 
 const schema = z.object({
   // Redis (required for BullMQ, sessions, rate limiting)
+  NODE_ENV: z
+    .enum(["development", "staging", "production"])
+    .default("development"),
   REDIS_URL: z.string().min(1, "REDIS_URL is required"),
   // Database (required for Prisma)
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),

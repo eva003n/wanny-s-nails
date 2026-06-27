@@ -55,7 +55,7 @@ export type OutboundMessage = {
 };
 
 
-export type WhatsAppNotificationPayload =
+export type WhatsAppMessagePayload =
   | OutboundMessage
   | WhatsAppTemplatePayload;
 

@@ -8,13 +8,19 @@
 import { z } from "zod";
 
 const schema = z.object({
+  APP_NAME: z.string().default("WannysNails"),
+  NODE_ENV: z
+    .enum(["development", "staging", "production"])
+    .default("development"),
   // Redis (required for BullMQ)
   REDIS_URL: z.string().min(1, "REDIS_URL is required"),
   // Database (required for Prisma)
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   // Daraja / M-Pesa (required for STK push + verification)
   DARAJA_CONSUMER_KEY: z.string().min(1, "DARAJA_CONSUMER_KEY is required"),
-  DARAJA_CONSUMER_SECRET: z.string().min(1, "DARAJA_CONSUMER_SECRET is required"),
+  DARAJA_CONSUMER_SECRET: z
+    .string()
+    .min(1, "DARAJA_CONSUMER_SECRET is required"),
   DARAJA_SHORTCODE: z.string().min(1, "DARAJA_SHORTCODE is required"),
   DARAJA_PASSKEY: z.string().min(1, "DARAJA_PASSKEY is required"),
   DARAJA_STK_PUSH_URL: z.string().min(1, "DARAJA_STK_PUSH_URL is required"),

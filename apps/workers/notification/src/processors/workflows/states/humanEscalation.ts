@@ -1,7 +1,8 @@
 import type { StateHandlerContext, StateTransitionResult } from "../types.js";
 import { resetInvalidCount } from "../session.js";
-import { redisClient, logger } from "@wannys-nails/packages";
-import { config } from "../../../config.js";
+import { createRedisClient, logger } from "@wannys-nails/packages";
+import { config } from "../../../lib/config.js";
+import { redis } from "../../../lib/redis.js";
 
 const log = logger.child({ module: "fsm-human-escalation" });
 
@@ -41,7 +42,10 @@ export async function handleHumanEscalation(
     });
 
     // Publish to Redis channel for SSE to pick up
-    await redisClient.cache.publish("notification:human-escalation", notificationPayload);
+    await redis.publish(
+      "notification:human-escalation",
+      notificationPayload,
+    );
     log.info(
       { event: "human_escalation.notification_sent", phone, customerName },
       "Human escalation notification sent",

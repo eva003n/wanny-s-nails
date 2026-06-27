@@ -1,5 +1,5 @@
 import { type Job } from "bullmq";
-import { config } from "../config.js";
+import { config } from "../lib/config.js";
 import { logger } from "@wannys-nails/packages";
 import { prisma } from "@wannys-nails/packages";
 
@@ -57,8 +57,11 @@ function generatePassword(timestamp: string): string {
 
 // ─── Processor ─────────────────────────────────────────────────
 
-export async function stkPushProcessor(job: Job<StkPushJobData>): Promise<void> {
-  const { bookingId, paymentId, phoneNumber, amount, accountReference } = job.data;
+export async function stkPushProcessor(
+  job: Job<StkPushJobData>,
+): Promise<void> {
+  const { bookingId, paymentId, phoneNumber, amount, accountReference } =
+    job.data;
 
   log.info(
     { event: "stk_push.job.start", jobId: job.id, bookingId, phoneNumber },
@@ -68,12 +71,19 @@ export async function stkPushProcessor(job: Job<StkPushJobData>): Promise<void> 
   // Verify payment is still in PENDING state (idempotency)
   const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
   if (!payment) {
-    log.warn({ event: "stk_push.job.payment_not_found", paymentId }, "Payment not found, skipping");
+    log.warn(
+      { event: "stk_push.job.payment_not_found", paymentId },
+      "Payment not found, skipping",
+    );
     return;
   }
   if (payment.status === "PAID" || payment.status === "REFUNDED") {
     log.info(
-      { event: "stk_push.job.already_resolved", paymentId, status: payment.status },
+      {
+        event: "stk_push.job.already_resolved",
+        paymentId,
+        status: payment.status,
+      },
       "Payment already resolved, skipping STK Push",
     );
     return;
@@ -112,10 +122,16 @@ export async function stkPushProcessor(job: Job<StkPushJobData>): Promise<void> 
 
     if (ResponseCode !== "0") {
       log.error(
-        { event: "stk_push.job.rejected", checkoutRequestId: CheckoutRequestID, responseCode: ResponseCode },
+        {
+          event: "stk_push.job.rejected",
+          checkoutRequestId: CheckoutRequestID,
+          responseCode: ResponseCode,
+        },
         "STK Push rejected by Daraja",
       );
-      throw new Error(`Daraja rejected STK Push: ${response.data.ResponseDescription}`);
+      throw new Error(
+        `Daraja rejected STK Push: ${response.data.ResponseDescription}`,
+      );
     }
 
     // Update payment record with the checkout request ID
@@ -155,7 +171,10 @@ export async function stkPushProcessor(job: Job<StkPushJobData>): Promise<void> 
       "STK Push initiated successfully",
     );
   } catch (error: unknown) {
-    const err = error as { response?: { status?: number; data?: unknown }; message?: string };
+    const err = error as {
+      response?: { status?: number; data?: unknown };
+      message?: string;
+    };
     log.error(
       {
         event: "stk_push.job.failed",

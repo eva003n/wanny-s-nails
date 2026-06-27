@@ -10,6 +10,7 @@ import { logger } from "@wannys-nails/packages";
 
 
 import "./worker.js";
+import { prisma } from "./lib/prisma.js";
 
 log.info(
   JSON.stringify({
@@ -18,3 +19,6 @@ log.info(
     pid: process.pid,
   }),
 );
+
+process.on("SIGTERM", () => prisma.$disconnect())
+process.on("SIGINT", () => prisma.$disconnect())
