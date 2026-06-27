@@ -23,7 +23,7 @@ import {
 import { pushSender } from "./processors/push-sender.js";
 import type { Job } from "bullmq";
 import { processMessage } from "./processors/workflows/engine.js";
-import { prisma, logger } from "@wannys-nails/packages";
+import { logger } from "@wannys-nails/packages";
 
 const log = logger.child({ module: "worker:notifications" });
 
@@ -78,7 +78,7 @@ const whatsappWorker = createWorker<WhatsAppNotificationPayload>(
   },
   async (job: Job<WhatsAppNotificationPayload>) => {
     switch (job.name) {
-      case "whatsapp":
+      case JOB_NAMES.WHATSAPP: // text | interactive_button | interactive_list_buttons
         return whatsappProcessor(job);
       default:
         log.warn(
@@ -114,7 +114,7 @@ const notificationWorker = createWorker<NotificationJobData>(
   {
     queueName: Queue_Names.NOTIFICATIONS,
     workerName: "notification-dispatch",
-    concurrency: 3,
+    concurrency: 1,
   },
   async (job: Job<NotificationJobData>) => {
     await handleNotificationJob(job);
@@ -126,13 +126,13 @@ const notificationWorker = createWorker<NotificationJobData>(
 const fsmWorker = createWorker<InboundMessage>(
   {
     queueName: Queue_Names.NOTIFICATIONS,
-    workerName: "message",
+    workerName: JOB_NAMES.FSM,
     concurrency: 1,
   },
   async (job: Job<InboundMessage>) => {
     switch (job.name) {
-      case "message":
-        return processMessage(job.data);
+      case JOB_NAMES.FSM:
+        return processMessage(job.data, job.id as string);
       default:
         break;
     }

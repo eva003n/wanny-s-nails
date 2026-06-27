@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -b",
+    "build:dev": "tsc --watch",
     "dev": "nodemon",
     "prisma:validate": "prisma validate",
     "prisma:generate": "prisma generate",

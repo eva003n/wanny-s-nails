@@ -125,22 +125,22 @@ services:
         condition: service_healthy
     networks:
       - wanny-net  
-  worker-reminder:
-    build:
-      context: .
-      dockerfile: apps/workers/reminder/Dockerfile
-    container_name: wannys-worker-reminder
-    env_file:
-      - ./apps/api/.env.development
-    depends_on:
-      db-migrate:
-        condition: service_completed_successfully
-      redis:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-    networks:
-      - wanny-net  
+  # worker-reminder:
+  #   build:
+  #     context: .
+  #     dockerfile: apps/workers/reminder/Dockerfile
+  #   container_name: wannys-worker-reminder
+  #   env_file:
+  #     - ./apps/api/.env.development
+  #   depends_on:
+  #     db-migrate:
+  #       condition: service_completed_successfully
+  #     redis:
+  #       condition: service_healthy
+  #     postgres:
+  #       condition: service_healthy
+  #   networks:
+  #     - wanny-net  
 
   # ─── Frontend (PWA) ──────────────────────────────────────
 

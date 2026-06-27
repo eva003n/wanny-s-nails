@@ -14,9 +14,9 @@ export const Queue_Names = {
 } as const;
 
 export const JOB_NAMES = {
-  WHATSAPP: "whatsapp",
+  WHATSAPP: "whatsapp-outbound",
   EMAIL: "email",
-  FSM: "message", 
+  FSM: "whatsapp-inbound", 
   STK_PUSH: "stkpush",
   STK_CALLBACK: "stkcallback"
 } as const

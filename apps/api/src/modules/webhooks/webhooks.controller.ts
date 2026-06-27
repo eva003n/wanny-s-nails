@@ -341,9 +341,20 @@ export const handleWhatsApp = asyncHandler(
               };
 
               // enqueue message for processing by fsm engine
-              notificationQueue.add(JOB_NAMES.FSM, whatsappMessage, {
-                jobId: `${wamid}` // job deduplication
-              })
+              const job = await notificationQueue.add(
+                JOB_NAMES.FSM,
+                whatsappMessage,
+                {
+                  jobId: wamid, // job deduplication
+                },
+              );
+
+              log.info({
+                event: "whatsapp.callback.enqueued",
+                jobName: job.name,
+                jobId: job.id,
+                message: "Wnatsapp callback enqueued for processing",
+              });
          
             }
           }
