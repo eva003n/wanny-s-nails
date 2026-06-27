@@ -79,7 +79,7 @@ services:
     ports:
       - "8000:8000"
     env_file:
-      - ./apps/api/.env.development
+      - ./apps/api/.env.production
     depends_on:
       db-migrate:
         condition: service_completed_successfully
@@ -99,7 +99,7 @@ services:
       dockerfile: apps/workers/notification/Dockerfile
     container_name: wannys-worker-notification
     env_file:
-      - ./apps/api/.env.development
+      - ./apps/api/.env.production
     depends_on:
       db-migrate:
         condition: service_completed_successfully
@@ -115,7 +115,7 @@ services:
       dockerfile: apps/workers/payment/Dockerfile
     container_name: wannys-worker-payment
     env_file:
-      - ./apps/api/.env.development
+      - ./apps/api/.env.production
     depends_on:
       db-migrate:
         condition: service_completed_successfully
