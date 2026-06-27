@@ -2,7 +2,8 @@
  * Notification worker — processes the "notifications" queue.
  *
  * Handles:
- *  - WhatsApp text/template messages
+ *  - WhatsApp text/template messages (outbound)
+ *  - WhatsApp FSM (inbound messages)
  *  - Email notifications
  *  - Push notifications (admin-facing)
  */
@@ -37,8 +38,20 @@ async function handleNotificationJob(job: Job<NotificationJobData>): Promise<voi
   const jobName = job.name;
 
   switch (jobName) {
+    // — Outbound WhatsApp messages (enqueued by notification triggers) —
+    case JOB_NAMES.WHATSAPP: {
+      await whatsappProcessor(job as unknown as Job<WhatsAppNotificationPayload>);
+      break;
+    }
+
+    // — Inbound WhatsApp messages (enqueued by webhook controller → FSM) —
+    case JOB_NAMES.FSM: {
+      await processMessage(job.data as unknown as InboundMessage, job.id as string);
+      break;
+    }
+
+    // — Legacy dispatch format (NotificationService.dispatch) —
     case "send-whatsapp": {
-      // Build WhatsApp payload from notification data
       const whatsappPayload: WhatsAppNotificationPayload & { to: string } = {
         type: "text",
         to: job.data.endpoint.address,
@@ -60,6 +73,10 @@ async function handleNotificationJob(job: Job<NotificationJobData>): Promise<voi
       await pushSender(job);
       break;
     }
+    case "email": {
+      await emailProcessor(job as unknown as Job<EmailJobData>);
+      break;
+    }
     default:
       log.warn(
         { event: "worker.unknown_job", queue: Queue_Names.NOTIFICATIONS, jobName },
@@ -68,52 +85,14 @@ async function handleNotificationJob(job: Job<NotificationJobData>): Promise<voi
   }
 }
 
-// ─── WhatsApp Worker ──────────────────────────────────────────
-
-const whatsappWorker = createWorker<WhatsAppNotificationPayload>(
-  {
-    queueName: Queue_Names.NOTIFICATIONS,
-    workerName: JOB_NAMES.WHATSAPP,
-    concurrency: 1,
-  },
-  async (job: Job<WhatsAppNotificationPayload>) => {
-    switch (job.name) {
-      case JOB_NAMES.WHATSAPP: // text | interactive_button | interactive_list_buttons
-        return whatsappProcessor(job);
-      default:
-        log.warn(
-          { event: "worker.unknown_job", queue: Queue_Names.NOTIFICATIONS, jobName: job.name },
-          "Unknown WhatsApp job name",
-        );
-    }
-  },
-);
-
-// ─── Email Worker ─────────────────────────────────────────────
-
-const emailWorker = createWorker<EmailJobData>(
-  {
-    queueName: Queue_Names.NOTIFICATIONS,
-    workerName: JOB_NAMES.EMAIL,
-    concurrency: 1,
-  },
-  async (job: Job<EmailJobData>) => {
-    switch (job.name) {
-      case "email":
-        return emailProcessor(job);
-      default:
-        break;
-    }
-  },
-);
-
-// ─── Notification Dispatch Worker ─────────────────────────────
-// Processes jobs enqueued by NotificationService.dispatch()
+// ─── Single Notification Worker ──────────────────────────────
+// Handles all job types on the notifications queue (outbound WhatsApp,
+// inbound FSM, email, push) to avoid worker duplication and racing.
 
 const notificationWorker = createWorker<NotificationJobData>(
   {
     queueName: Queue_Names.NOTIFICATIONS,
-    workerName: "notification-dispatch",
+    workerName: "notification",
     concurrency: 1,
   },
   async (job: Job<NotificationJobData>) => {
@@ -121,27 +100,9 @@ const notificationWorker = createWorker<NotificationJobData>(
   },
 );
 
-// ─── FSM Worker ───────────────────────────────────────────────
-
-const fsmWorker = createWorker<InboundMessage>(
-  {
-    queueName: Queue_Names.NOTIFICATIONS,
-    workerName: JOB_NAMES.FSM,
-    concurrency: 1,
-  },
-  async (job: Job<InboundMessage>) => {
-    switch (job.name) {
-      case JOB_NAMES.FSM:
-        return processMessage(job.data, job.id as string);
-      default:
-        break;
-    }
-  },
-);
-
 // ─── Graceful Shutdown ────────────────────────────────────────
 
-registerGracefulShutdown([whatsappWorker, emailWorker, notificationWorker, fsmWorker]);
+registerGracefulShutdown([notificationWorker]);
 
 log.info(
   JSON.stringify({
