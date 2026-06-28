@@ -6,18 +6,17 @@
  */
 
 import { Redis, type RedisOptions } from "ioredis";
-import { logger } from "./logger.js";
 // const REDIS_URL = process.env.REDIS_URL!;
 // const APP_NAME = process.env.APP_NAME || "Wanny's Nails";
 
 // factory function to generate redis clients per workload
 type Config = {
-  APP_NAME: string
-  REDIS_URL: string
+  APP_NAME: string | undefined
+  REDIS_URL: string | undefined
 }
 
 export function createRedisClient(name: string, config: Config) {
-  const isProduction = config.REDIS_URL.startsWith("rediss://");
+  const isProduction = config.REDIS_URL?.startsWith("rediss://");
 
   const redisConfig: RedisOptions = {
     maxRetriesPerRequest: null, // due to queues
@@ -45,7 +44,7 @@ export function createRedisClient(name: string, config: Config) {
         }
       : {}),
 
-    connectionName: `${config.APP_NAME}-${process.pid}`,
+    connectionName: name,
     keepAlive: 30000,
     enableOfflineQueue: true, // queues commands in memory when redis is down(monitor memory usage)
   };
@@ -53,69 +52,29 @@ export function createRedisClient(name: string, config: Config) {
   const url = config.REDIS_URL
   const appName = config.APP_NAME
 
-try {
+
     if(!url) {
     throw new Error("REDIS_URL is required");
   }
   if(!appName) {
     throw new Error("APP_NAME is required");
   }
-}catch(err: any) {
-  logger.error({
-    event: "Redis.connection.error",
-    connectionName: `${config.APP_NAME}:${name}`,
-    error: err?.message
-  })
-}
 
-  const client = globalThis.redis ?? 
-   new Redis(url, {
-    ...redisConfig,
-    connectionName: `${appName}:${name}`,
-  });
+  const client =
+    globalThis.redis ??
+    new Redis(url, {
+      ...redisConfig,
+      connectionName: `${appName}:${name}`,
+    });
 
   // dev only during hot reload eg nodemon
-  if(!isProduction) {
-    globalThis.redis = client
+  if (!isProduction) {
+    globalThis.redis = client;
   }
 
-    client.on("connect", () => {
-      logger.info(
-        JSON.stringify({
-          event: "Redis.connected",
-          message: `[Redis:${name}] connected`,
-        }),
-      );
-    });
-
-    client.on("close", () => {
-      logger.warn(
-        JSON.stringify({
-          event: "Redis.disconnected",
-          message: `[Redis:${name}] connection closed`,
-        }),
-      );
-    });
-
-    client.on("reconnecting", () => {
-      logger.warn(
-        JSON.stringify({
-          event: "Redis.disconnected",
-          message: `[Redis:${name}] reconnecting`,
-        }),
-      );
-    });
-  
-  client.on("error", (err: Error) => {
-    logger.error(
-      JSON.stringify({
-        event: "Redis.error",
-        connectionName: name,
-        error: err,
-      }),
-    );
-  });
-
   return client;
+
 }
+  
+
 

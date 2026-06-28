@@ -9,25 +9,12 @@
 
 import { Worker, type ConnectionOptions, type Job } from "bullmq";
 import { handleDeadLetterJob } from "./dead-letter.processor.js";
-import { logger } from "../logger.js";
 import { createRedisClient } from "../redis.js";
-import { config } from "../config.js";
+import type { Logger } from "pino";
 
-const log = logger.child({module: "Worker"})
+const log = console
 
 
-// ─── Redis Connection (reads from env directly) ─────────────
-
-// export function createWorkerConnection() {
-//   const url = new URL(process.env.REDIS_URL as string);
-//   return {
-//     host: url.hostname,
-//     port: Number(url.port) || 6379,
-//     password: url.password || undefined,
-//     maxRetriesPerRequest: null,
-//     enableReadyCheck: false,
-//   };
-// }
 
 // ─── Worker Factory ─────────────────────────────────────────
 
@@ -44,7 +31,8 @@ export interface WorkerOptions {
 export function createWorker<T = any>(
   opts: WorkerOptions,
   processor: (job: Job<T>) => Promise<void>,
-  connection: ConnectionOptions
+  connection: ConnectionOptions,
+  log: Logger 
 ): Worker<T> {
   
   const worker = new Worker<T>(
@@ -62,7 +50,7 @@ export function createWorker<T = any>(
   // Wire dead letter handling
   worker.on("failed", (job, err) => {
     if (job && job.attemptsMade >= (job.opts.attempts ?? 1)) {
-      handleDeadLetterJob(opts.workerName, job, err);
+      handleDeadLetterJob(opts.workerName, job, log, err);
     }
   });
 

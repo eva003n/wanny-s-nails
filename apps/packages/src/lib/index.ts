@@ -2,7 +2,7 @@ export * from "./logger.js";
 export * from "./config.js";
 export * from "./prisma.js";
 export * from "./redis.js";
-export * from "./queues/index..js";
+export * from "./queues/queues.js";
 export * from "./workers/index.js";
 export * from "../utils/phone.js";
 export * from "../types.js";

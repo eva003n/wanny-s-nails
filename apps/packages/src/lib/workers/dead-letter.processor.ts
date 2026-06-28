@@ -1,7 +1,6 @@
 import type { Job } from "bullmq";
-import { logger } from "../logger.js";
+import type { Logger } from "pino";
 
-const log = logger.child({module: "dead_letter_processor"})
 // ─── Dead Letter Queue Listener ──────────────────────────────
 // BullMQ doesn't have a built-in DLQ. Instead, we monitor failed jobs
 // on each queue using the 'failed' event and log them for admin alerting.
@@ -20,12 +19,15 @@ export function getDeadLetterCounts(): Record<string, number> {
  * Handle a permanently failed job (exhausted all retries).
  * Logs structured data for admin alerting and monitoring dashboards.
  */
-export function handleDeadLetterJob(queueName: string, job: Job | undefined, error: Error): void {
+export function handleDeadLetterJob(queueName: string, job: Job | undefined, log: Logger, error: Error): void {
   const key = queueName;
   deadLetterCounts[key] = (deadLetterCounts[key] ?? 0) + 1;
 
+  log.child({module: "dead_letter_processor"})
+  log.info({ event: "dead_letter.monitor.started" });
+
   log.error(
-    JSON.stringify({
+    {
       event: "dead_letter.job",
       queue: queueName,
       jobId: job?.id,
@@ -34,7 +36,7 @@ export function handleDeadLetterJob(queueName: string, job: Job | undefined, err
       attemptsMade: job?.attemptsMade,
       error: error.message,
       deadLetterCount: deadLetterCounts[key],
-    }),
+    },
   );
 
   // In production, this could:
@@ -59,5 +61,3 @@ setInterval(() => {
     deadLetterCounts[key] = 0;
   }
 }, RESET_INTERVAL_MS);
-
-log.info(JSON.stringify({ event: "dead_letter.monitor.started" }));
