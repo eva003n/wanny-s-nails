@@ -1,10 +1,10 @@
-import { logger } from "@wannys-nails/packages";
-import type {
-  OutboundMessage,
-} from "@wannys-nails/packages";
+import { log as logger, notificationQueue } from "../../lib/index.js";
+import { _config as config } from "../../lib/config.js";
 
-import { JOB_NAMES, notificationQueue } from "@wannys-nails/packages";
-import { config } from "../../lib/config.js";
+import type { OutboundMessage } from "@wannys-nails/packages";
+
+import { JOB_NAMES } from "@wannys-nails/packages";
+
 import { redis } from "../../lib/redis.js";
 
 const log = logger.child({ module: "whatsapp-api" });
@@ -45,9 +45,12 @@ export async function sendMessage(message: OutboundMessage, messageId: string) {
     );
     // Re-enqueue after delay (we'll integrate BullMQ for this in Phase 5)
     // For now, add a small delay and retry once
-   
-    notificationQueue.add(JOB_NAMES.FSM_OUT, message, {jobId: messageId, delay: RATE_LIMIT_RETRY_DELAY})
-    
+
+    notificationQueue.add(JOB_NAMES.FSM_OUT, message, {
+      jobId: messageId,
+      delay: RATE_LIMIT_RETRY_DELAY,
+    });
+
     const retryAllowed = await checkRateLimit(message.to as string);
     if (!retryAllowed) {
       log.warn(
@@ -62,8 +65,11 @@ export async function sendMessage(message: OutboundMessage, messageId: string) {
     jobId: messageId,
   });
 
-  log.info({
-    event: "fsm.message.enqueued",
-    jobId: job?.id
-  }, "Outbound message enqueued")
+  log.info(
+    {
+      event: "fsm.message.enqueued",
+      jobId: job?.id,
+    },
+    "Outbound message enqueued",
+  );
 }

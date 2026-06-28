@@ -1,8 +1,7 @@
 import type { StateHandlerContext, StateTransitionResult } from "../types.js";
 import { resetInvalidCount } from "../session.js";
-import { createRedisClient, logger } from "@wannys-nails/packages";
-import { config } from "../../../lib/config.js";
-import { redis } from "../../../lib/redis.js";
+import { createRedisClient, } from "@wannys-nails/packages";
+import { log as logger, _config as config, redis } from "../../../lib/index.js";
 
 const log = logger.child({ module: "fsm-human-escalation" });
 

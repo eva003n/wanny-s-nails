@@ -4,10 +4,12 @@
  * Runs inside Docker, so env vars are injected directly into process.env.
  * No dotenv call here (that's the API's job in development).
  */
-if (process.env.NODE_ENV === "development") {
+const isDevelopment = (process.env.NODE_ENV || "development") === "development";
+
+if (isDevelopment) {
   const { config } = await import("dotenv");
   config({
-    path: "../../api/.env.development",
+    path: "./.env",
   });
 }
 
@@ -47,5 +49,5 @@ if (!parsed.success) {
   throw new Error("Invalid environment variables for notification worker.");
 }
 
-export const config = parsed.data;
+export const _config = parsed.data;
 export type Config = z.infer<typeof schema>;

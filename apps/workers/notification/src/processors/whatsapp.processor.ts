@@ -1,13 +1,13 @@
 import { type Job } from "bullmq";
 import axios from "axios";
 
-import { logger } from "@wannys-nails/packages";
+import { log as logger } from "../lib/index.js";
 import type {
   OutboundMessage,
   WhatsAppMessagePayload,
   WhatsAppTemplatePayload,
 } from "@wannys-nails/packages";
-import { config } from "../lib/config.js";
+import { _config as config } from "../lib/config.js";
 
 const log = logger.child({ module: "job:whatsapp" });
 

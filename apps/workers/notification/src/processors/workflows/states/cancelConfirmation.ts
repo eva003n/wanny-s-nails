@@ -1,7 +1,8 @@
 import type { StateHandlerContext, StateTransitionResult } from "../types.js";
 import { resetInvalidCount } from "../session.js";
 import { formatDateEAT, formatTime12h } from "../helpers.js";
-import {logger } from "@wannys-nails/packages";
+import { log as logger} from "../../../lib/index.js";
+
 import { prisma } from "../../../lib/prisma.js";
 
 const log = logger.child({ module: "fsm-cancel" });

@@ -1,6 +1,7 @@
 import type { StateHandlerContext, StateTransitionResult } from "../types.js";
 import { incrementInvalidCount, resetInvalidCount } from "../session.js";
-import {logger } from "@wannys-nails/packages";
+import { log as logger, paymentQueue } from "../../../lib/index.js";
+
 import { prisma } from "../../../lib/prisma.js";
 
 const log = logger.child({ module: "fsm-data-collection" });

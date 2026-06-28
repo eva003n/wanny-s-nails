@@ -11,7 +11,7 @@ import {
   createNewSession,
 } from "./session.js";
 import { sendMessage } from "./whatsapp.js";
-import { logger} from "@wannys-nails/packages";
+import { log as logger } from "../../lib/index.js";
 
 // State handlers
 import { handleIdle } from "./states/idle.js";

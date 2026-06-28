@@ -25,7 +25,7 @@ import {
 import { pushSender } from "./processors/push-sender.js";
 import type { Job } from "bullmq";
 import { processMessage } from "./processors/workflows/engine.js";
-import { logger } from "@wannys-nails/packages";
+import { log as logger} from "./lib/logger.js";
 import { notificationWorkerRedisConn, whatsAppWorkerRedisConn } from "./lib/redis.js";
 
 const log = logger.child({ module: "worker:notifications" });
@@ -115,7 +115,9 @@ const notificationWorker = createWorker<NotificationJobData>(
   async (job: Job<NotificationJobData>) => {
     await handleNotificationJob(job);
   },
-   notificationWorkerRedisConn.options
+   notificationWorkerRedisConn.options,
+   log
+
 );
 
 const whatAppWorker = createWorker<InboundMessage | OutboundMessage>({
@@ -129,7 +131,8 @@ const whatAppWorker = createWorker<InboundMessage | OutboundMessage>({
 async(job: Job<InboundMessage | OutboundMessage>) => {
   await handleWhatsappJob(job)
 },
-whatsAppWorkerRedisConn.options
+whatsAppWorkerRedisConn.options,
+log
 );
 // ─── Graceful Shutdown ────────────────────────────────────────
 

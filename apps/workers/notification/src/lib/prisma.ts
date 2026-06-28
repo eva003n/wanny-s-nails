@@ -1,6 +1,6 @@
 import { createPrismaClient } from "@wannys-nails/packages";
 
-import { config } from "./config.js";
+import { _config } from "./config.js";
 
-export const prisma = createPrismaClient(config.DATABASE_URL, config.NODE_ENV);
+export const prisma = createPrismaClient(_config.DATABASE_URL, _config.NODE_ENV);
 

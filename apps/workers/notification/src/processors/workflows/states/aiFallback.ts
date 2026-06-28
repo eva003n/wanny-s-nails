@@ -1,6 +1,5 @@
 import type { StateHandlerContext, StateTransitionResult } from "../types.js";
-import { logger } from "@wannys-nails/packages";
-
+import { log as logger } from "../../../lib/index.js";
 const log = logger.child({ module: "fsm-ai-fallback" });
 
 const SYSTEM_PROMPT = `You are a helpful assistant for Wanny's Nails salon in Nairobi, Kenya.
