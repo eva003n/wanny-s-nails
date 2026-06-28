@@ -2,14 +2,13 @@ import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 
 import crypto from "crypto";
-import { config } from "../../shared/lib/config.js";
-import {
-  logger,
-  notificationQueue,
-  paymentQueue,
-} from "@wannys-nails/packages";
+import { _config } from "../../shared/lib/index.js";
+import { logger} from "../../shared/lib/index.js";
 
-import { redis } from "../../shared/lib/cache.js";
+
+import { notificationQueue, paymentQueue } from "../../shared/lib/index.js";
+
+import { redis } from "../../shared/lib/index.js";
 import { paymentsService } from "../payments/payments.service.js";
 import {  } from "@wannys-nails/packages";
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";
@@ -25,7 +24,7 @@ export const verifyWhatsApp = asyncHandler(
     const token = req.query["hub.verify_token"] as string;
     const challenge = req.query["hub.challenge"] as string;
 
-    if (mode === "subscribe" && token === config.WHATSAPP_VERIFY_TOKEN) {
+    if (mode === "subscribe" && token === _config.WHATSAPP_VERIFY_TOKEN) {
       log.info(
         { event: "whatsapp.webhook.verified" },
         "WhatsApp webhook verified",
@@ -227,9 +226,9 @@ export const handleWhatsApp = asyncHandler(
     const signature = req.headers["x-hub-signature-256"] as string | undefined;
     const rawBody = (req as unknown as Record<string, unknown>).rawBody;
 
-    if (config.META_APP_SECRET && rawBody) {
+    if (_config.META_APP_SECRET && rawBody) {
       const expectedSignature = `sha256=${crypto
-        .createHmac("sha256", config.META_APP_SECRET)
+        .createHmac("sha256", _config.META_APP_SECRET)
         .update(rawBody as Buffer)
         .digest("hex")}`;
 

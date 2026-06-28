@@ -1,8 +1,8 @@
-import type { Prisma } from "@wannys-nails/packages";
-import { prisma } from "../../shared/lib/prisma.js";
+import { prisma, type Prisma } from "../../shared/lib/index.js";
 
-import { paymentQueue } from "@wannys-nails/packages";
-import { logger } from "@wannys-nails/packages";
+import { paymentQueue } from "../../shared/lib/index.js";
+import { logger } from "../../shared/lib/logger.js";
+
 
 const log = logger.child({ module: "payments" });
 import { PaymentFailedError, PaymentNotAllowedError, NotFoundError } from "../../shared/types/errors.js";

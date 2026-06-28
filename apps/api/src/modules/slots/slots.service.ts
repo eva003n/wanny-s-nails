@@ -1,4 +1,4 @@
-import {prisma} from "../../shared/lib/prisma.js"
+import {prisma} from "../../shared/lib/index.js"
 
 import { BusinessClosedError } from "../../shared/types/errors.js";
 

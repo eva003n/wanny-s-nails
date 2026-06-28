@@ -1,7 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { config } from "../../shared/lib/config.js";
-import { logger } from "@wannys-nails/packages";
+import { _config } from "../../shared/lib/config.js";
+import { logger } from "../../shared/lib/index.js";
+
 
 const log = logger.child({ module: "events" });
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";
@@ -34,7 +35,7 @@ export const connectSse = asyncHandler(async (req: Request, res: Response, _next
 
   let userId: string;
   try {
-    const decoded = jwt.verify(token, config.JWT_SECRET) as { userId: string };
+    const decoded = jwt.verify(token, _config.JWT_SECRET) as { userId: string };
     userId = decoded.userId;
   } catch {
     res

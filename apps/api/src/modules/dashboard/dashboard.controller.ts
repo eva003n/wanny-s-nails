@@ -2,7 +2,8 @@ import type { Request, Response, NextFunction } from "express";
 import { dashboardService } from "./dashboard.service.js";
 import { success } from "../../shared/utils/response.js";
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";
-import { logger } from "@wannys-nails/packages";
+import { logger } from "../../shared/lib/index.js";
+
 
 const log = logger.child({ module: "dashboard.controller" });
 

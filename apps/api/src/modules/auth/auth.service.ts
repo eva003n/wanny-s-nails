@@ -1,8 +1,8 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { prisma } from "../../shared/lib/prisma.js";
-import { redis } from "../../shared/lib/cache.js"
-import { config } from "../../shared/lib/config.js";
+import { prisma } from "../../shared/lib/index.js";
+import { redis } from "../../shared/lib/index.js"
+import { _config } from "../../shared/lib/index.js";
 import { UnauthorizedError, AccountLockedError } from "../../shared/types/errors.js";
 import type { JwtPayload } from "../../shared/middleware/auth.middleware.js";
 
@@ -23,22 +23,22 @@ const LOCKOUT_DURATION_SECONDS = 30 * 60; // 30 minutes
 const RATE_WINDOW_SECONDS = 15 * 60; // 15 minutes
 
 function signAccessToken(payload: JwtPayload): string {
-  return jwt.sign(payload, config.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES });
+  return jwt.sign(payload, _config.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES });
 }
 
 function signRefreshToken(userId: string): string {
-  return jwt.sign({ userId }, config.JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRES });
+  return jwt.sign({ userId }, _config.JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRES });
 }
 
 function extractPayload(token: string): JwtPayload {
-  return jwt.verify(token, config.JWT_SECRET) as JwtPayload;
+  return jwt.verify(token, _config.JWT_SECRET) as JwtPayload;
 }
 
 export const authService = {
   async login(input: LoginInput) {
     // --- Check account lockout ---
     const lockoutKey = LOCKOUT_KEY_PREFIX + input.email;
-    const lockoutTTL = await redis.auth.ttl(lockoutKey);
+    const lockoutTTL = await redis.ttl(lockoutKey);
     if (lockoutTTL > 0) {
       throw new AccountLockedError(lockoutTTL);
     }
@@ -59,13 +59,13 @@ export const authService = {
     if (!isPasswordValid) {
       // Increment failed attempts
       const failedKey = FAILED_ATTEMPTS_KEY_PREFIX + input.email;
-      const attempts = await redis.auth.incr(failedKey);
-      await redis.auth.expire(failedKey, RATE_WINDOW_SECONDS);
+      const attempts = await redis.incr(failedKey);
+      await redis.expire(failedKey, RATE_WINDOW_SECONDS);
 
       // Lock account after max attempts
       if (attempts >= MAX_FAILED_ATTEMPTS) {
-        await redis.auth.setex(lockoutKey, LOCKOUT_DURATION_SECONDS, "locked");
-        await redis.auth.del(failedKey); // reset counter after lockout
+        await redis.setex(lockoutKey, LOCKOUT_DURATION_SECONDS, "locked");
+        await redis.del(failedKey); // reset counter after lockout
         throw new AccountLockedError(LOCKOUT_DURATION_SECONDS);
       }
 
@@ -74,7 +74,7 @@ export const authService = {
 
     // Successful login — clear failed attempts counter
     const failedKey = FAILED_ATTEMPTS_KEY_PREFIX + input.email;
-    await redis.auth.del(failedKey);
+    await redis.del(failedKey);
 
     const payload: JwtPayload = {
       userId: user.id,
@@ -99,7 +99,7 @@ export const authService = {
 
   async refreshToken(token: string) {
     try {
-      const decoded = jwt.verify(token, config.JWT_SECRET) as { userId: string };
+      const decoded = jwt.verify(token, _config.JWT_SECRET) as { userId: string };
 
       const user = await prisma.user.findUnique({
         where: { id: decoded.userId },

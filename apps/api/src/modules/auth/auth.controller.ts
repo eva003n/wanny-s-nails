@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { authService } from "./auth.service.js";
 import { UnauthorizedError, AccountLockedError } from "../../shared/types/errors.js";
 import { success, noContent } from "../../shared/utils/response.js";
-import { config } from "../../shared/lib/config.js";
+import { _config } from "../../shared/lib/config.js";
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";
 import { z } from "zod";
 
@@ -17,7 +17,7 @@ export type LoginAuth = z.infer<typeof loginSchema>
 /** Access token cookie — 1 hour TTL. Also returned in the response body. */
 export const ACCESS_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: config.NODE_ENV === "production",
+  secure: _config.NODE_ENV === "production",
   sameSite: "strict" as const,
   signed: true,
   maxAge: 60 * 60 * 1000, // 1 hour
@@ -27,7 +27,7 @@ export const ACCESS_COOKIE_OPTIONS = {
 /** Refresh token cookie — 7-day TTL. */
 export const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: config.NODE_ENV === "production",
+  secure: _config.NODE_ENV === "production",
   sameSite: "strict" as const,
   signed: true,
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
@@ -36,7 +36,7 @@ export const REFRESH_COOKIE_OPTIONS = {
 
 const CLEAR_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: config.NODE_ENV === "production",
+  secure: _config.NODE_ENV === "production",
   sameSite: "strict" as const,
   signed: true,
   path: "/",

@@ -4,7 +4,8 @@
  * Admin-facing endpoints for notification history and management.
  */
 import type { Request, Response, NextFunction } from "express";
-import { logger } from "@wannys-nails/packages";
+import { logger } from "../../shared/lib/index.js";
+
 import { success, paginated, noContent } from "../../shared/utils/response.js";
 import { parsePagination } from "../../shared/utils/pagination.js";
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";

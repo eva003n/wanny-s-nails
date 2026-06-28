@@ -1,7 +1,9 @@
-import { prisma } from "../../shared/lib/prisma.js";
+import { prisma, notificationQueue } from "../../shared/lib/index.js";
 
-import { JOB_NAMES, notificationQueue } from "@wannys-nails/packages";
-import { logger } from "@wannys-nails/packages";
+import { JOB_NAMES, } from "@wannys-nails/packages";
+import { logger } from "../../shared/lib/index.js";
+
+
 import {
   BookingConflictError,
   BookingNotFoundError,

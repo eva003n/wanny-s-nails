@@ -1,5 +1,6 @@
 
-import {prisma} from "../../shared/lib/prisma.js"
+import { prisma } from "../../shared/lib/index.js";
+
 
 import {
   CustomerNotFoundError,

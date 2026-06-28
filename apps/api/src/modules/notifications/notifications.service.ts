@@ -11,10 +11,13 @@
  * This is NOT a fire-and-forget helper. Every domain event that needs to
  * notify someone goes through dispatch().
  */
-import {prisma} from "../../shared/lib/prisma.js"
+import { prisma, logger } from "../../shared/lib/index.js";
 
-import {  notificationQueue, logger } from "@wannys-nails/packages";
+
+
 import { normalizeKenyanPhone } from "@wannys-nails/packages";
+import { notificationQueue } from "../../shared/lib/index.js";
+
 import {
   NOTIFICATION_TRIGGERS,
   evaluateCondition,

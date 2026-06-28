@@ -1,7 +1,9 @@
 import type { Request, Response, NextFunction } from "express";
-import { logger } from "@wannys-nails/packages";
-import {prisma} from "../../shared/lib/prisma.js"
-import { redis } from "../../shared/lib/cache.js";
+import { logger } from "../../shared/lib/index.js";
+
+import { prisma } from "../../shared/lib/index.js";
+
+import { redis } from "../../shared/lib/index.js";
 const log = logger.child({ module: "health" });
 
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";
