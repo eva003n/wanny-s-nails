@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { AppError } from "../types/errors.js";
-import { logger } from "@wannys-nails/packages";
+import { logger } from "../lib/index.js";
 
 export const errorMiddleware = (
   err: Error,
@@ -8,18 +8,18 @@ export const errorMiddleware = (
   res: Response,
   _next: NextFunction
 ): void => {
-  const log = (req as any).log || logger;
+  const _log = (req as any).log || logger;
   const requestId = (req as any).requestId || (req.headers["x-request-id"] as string) || "unknown";
 
   if (err instanceof AppError) {
-    log.warn({ event: "app.error.handled", code: err.code, path: req.path, details: err.details, requestId }, err.message);
+    _log.warn({ event: "app.error.handled", code: err.code, path: req.path, details: err.details, requestId }, err.message);
     res.status(err.httpStatus);
     res.setHeader("X-Request-ID", requestId);
     res.json(err.toResponse());
     return;
   }
 
-  log.error({ err, event: "app.error.unhandled", path: req.path, requestId }, "Unhandled error");
+  _log.error({ err, event: "app.error.unhandled", path: req.path, requestId }, "Unhandled error");
   res.status(500).json({
     error: {
       code: "INTERNAL_ERROR",

@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { config } from "../lib/config.js";
+import { _config } from "../lib/index.js";
 import { UnauthorizedError, ForbiddenError } from "../types/errors.js";
 
 export interface JwtPayload {
@@ -46,7 +46,7 @@ export const authenticate = (
       throw new UnauthorizedError("Missing or invalid authorization header");
     }
 
-    const decoded = jwt.verify(token, config.JWT_SECRET) as unknown as JwtPayload;
+    const decoded = jwt.verify(token, _config.JWT_SECRET) as unknown as JwtPayload;
     req.user = decoded;
     next();
   } catch (error) {
