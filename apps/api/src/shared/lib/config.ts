@@ -1,24 +1,17 @@
-import { z } from "zod";
 
-if (process.env.NODE_ENV || "development" === "development") {
-  const { config } = await import("dotenv");
-  config({
-    path: ".env.development",
-  });
-}
-
-
+import "./env.js"
+import {z} from "zod"
 
 export const configSchema = z.object({
-  BASE_URL: z.string().url().optional(),
-  DATABASE_URL: z.string().url(),
-  API_DOC_URL: z.string().url(),
-  REDIS_URL: z.string().url(),
-  JWT_SECRET: z.string().min(32),
+  BASE_URL: z.string().default(""),
+  DATABASE_URL: z.string().default(""),
+  API_DOC_URL: z.string().default(""),
+  REDIS_URL: z.string().default(""),
+  JWT_SECRET: z.string().default(""),
   JWT_EXPIRES_IN: z.string().default("15m"),
   JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
-  CORS_ORIGIN: z.string(),
-  COOKIE_SECRET: z.string(),
+  CORS_ORIGIN: z.string().default(""),
+  COOKIE_SECRET: z.string().default(""),
   WHATSAPP_ACCESS_TOKEN: z.string().default(""),
   WHATSAPP_PHONE_NUMBER_ID: z.string().default(""),
   WHATSAPP_BUSINESS_ACCOUNT_ID: z.string().default(""),
@@ -29,8 +22,8 @@ export const configSchema = z.object({
   DARAJA_CONSUMER_SECRET: z.string().default(""),
   DARAJA_SHORTCODE: z.string().default(""),
   DARAJA_PASSKEY: z.string().default(""),
-  DARAJA_STK_PUSH_URL: z.url(),
-  DARAJA_STK_QUERY_URL: z.url(),
+  DARAJA_STK_PUSH_URL: z.string().default(""),
+  DARAJA_STK_QUERY_URL: z.string().default(""),
   DARAJA_CALLBACK_URL: z.string().default(""),
   RESEND_API_KEY: z.string().default(""),
   GEMINI_API_KEY: z.string().default(""),
@@ -52,16 +45,20 @@ if (!parsed.success) {
   console.error(
     JSON.stringify({
       event: "Env.error",
-      message: "❌ Invalid environment variables:",
+      message: "Invalid environment variables:",
       error: parsed.error.flatten().fieldErrors,
     }),
   );
-  throw new Error("Invalid envigronment variables. Check server logs.");
+  throw new Error("Invalid environment variables. Check server logs.");
 }
 
-export const config: Config = parsed.success
+export const _config: Config = parsed.success
   ? parsed.data
   : configSchema.parse(process.env);
 
-// export {config} from "@wannys-nails/packages"
+
+
+
+
+
 

@@ -1,16 +1,20 @@
-import {config} from "./shared/lib/config.js"
+import {_config} from "./shared/lib/index.js"
+import { logger} from "./shared/lib/logger.js";
+
+
 import {server} from "./app.js"
-import { logger } from "@wannys-nails/packages";
 
-export const log = logger.child({module: "api"})
 
-const port = config.PORT;
+const port = _config.PORT;
 
 
 server.listen(port, () => {
-    log.info({ event: "server.started", port, baseUrl: config.BASE_URL }, `Server running on ${config.BASE_URL}`)
+    logger.info({ event: "server.started", port, baseUrl: _config.BASE_URL }, `Server running on ${_config.BASE_URL}`)
 })
 
 process.on("uncaughtException", (err) => {
-    log.error(err, err.message)
+    logger.error({
+      event: "Error.uncaughtException",
+      error:  err.message
+    });
 })

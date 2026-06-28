@@ -24,9 +24,9 @@ import { pushSubscriptionsRoutes } from "./modules/push-subscriptions/push-subsc
 import { healthRoutes } from "./modules/health/health.routes.js";
 import { businessHoursRoutes } from "./modules/business-hours/business-hours.routes.js";
 import { logMiddleware } from "./shared/middleware/log.middleware.js";
-import { config } from "./shared/lib/config.js";
+import { _config } from "./shared/lib/index.js";
 import { notFound } from "./shared/middleware/404.middleware.js";
-import { groupedBoard } from "@wannys-nails/packages";
+import { groupedBoard } from "./shared/lib/index.js";
 
 const app = express();
 // express app is behind a proxy(trust first proxy hoop)
@@ -37,13 +37,13 @@ app.use(helmet());
 // CORS
 app.use(
   cors({
-    origin: config.CORS_ORIGIN.split(","),
+    origin: _config.CORS_ORIGIN.split(","),
     credentials: true,
   }),
 );
 
 // parse cookie
-app.use(cookieParser(config.COOKIE_SECRET.split(",")));
+app.use(cookieParser(_config.COOKIE_SECRET.split(",")));
 
 // Raw body for webhook signature verification
 app.use(
