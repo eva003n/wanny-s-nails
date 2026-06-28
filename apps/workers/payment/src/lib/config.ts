@@ -38,5 +38,5 @@ if (!parsed.success) {
   throw new Error("Invalid environment variables for payment worker.");
 }
 
-export const config = parsed.data;
+export const _config = parsed.data;
 export type Config = z.infer<typeof schema>;

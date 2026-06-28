@@ -1,7 +1,6 @@
 import { type Job } from "bullmq";
-import { config } from "../lib/config.js";
-import { logger } from "@wannys-nails/packages";
-import { prisma } from "@wannys-nails/packages";
+import { log as  logger, prisma, _config as config } from "../lib/index.js";
+
 
 const log = logger.child({ module: "job:payment-verify" });
 

@@ -11,8 +11,9 @@ import { stkPushProcessor, type StkPushJobData } from "./processors/stk-push.pro
 import { paymentVerifyProcessor, type PaymentVerifyJobData } from "./processors/payment-verify.processor.js";
 import type { Job } from "bullmq";
 import { paymentWorkerRedisConn } from "./lib/redis.js";
-import { log } from "./lib/logger.js";
+import { log as logger, prisma, _config as config } from "./lib/index.js";
 
+const log = logger.child({module: "payment_processor"})
 // ─── Payment Worker ──────────────────────────────────────────
 
 interface PaymentJobData {
@@ -35,7 +36,8 @@ const worker = createWorker<PaymentJobData>(
           { event: "worker.unknown_job", queue: Queue_Names.PAYMENTS, jobName: job.name })
     }
   },
-  paymentWorkerRedisConn.options
+  paymentWorkerRedisConn.options,
+  log
 );
 
 // ─── Graceful Shutdown ────────────────────────────────────────

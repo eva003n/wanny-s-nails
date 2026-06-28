@@ -5,7 +5,7 @@
  * Run: node dist/workers/payment/src/index.js
  */
 
-import { log } from "./lib/logger.js";
+import { log } from "./lib/index.js";
 import "./worker.js";
 
 log.info({
