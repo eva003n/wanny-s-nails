@@ -276,6 +276,7 @@ export const handleWhatsApp = asyncHandler(
               const wamid = message.id;
               if (wamid) {
                 // idempotency
+                try {
                 const dedupKey = `whatsapp:dedup:${wamid}`;
                 const exists = await redis.exists(dedupKey);
                 if (exists) {
@@ -286,6 +287,14 @@ export const handleWhatsApp = asyncHandler(
                   continue;
                 }
                 await redis.setex(dedupKey, 300, "1");
+                }catch(err) {
+                  log.error({
+                    event: "Redis.error",
+                    error: err
+                  })
+
+                }
+             
               }
 
               log.info(

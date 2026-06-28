@@ -5,7 +5,7 @@
  * at container start so no dotenv or zod validation is needed here.
  */
 
-import { Redis, type RedisOptions } from "ioredis";
+import  { Redis, type RedisOptions } from "ioredis";
 // const REDIS_URL = process.env.REDIS_URL!;
 // const APP_NAME = process.env.APP_NAME || "Wanny's Nails";
 
@@ -15,7 +15,7 @@ type Config = {
   REDIS_URL: string | undefined
 }
 
-export function createRedisClient(name: string, config: Config) {
+export function createRedisClient(name: string, config: Config): Redis {
   const isProduction = config.REDIS_URL?.startsWith("rediss://");
 
   const redisConfig: RedisOptions = {
