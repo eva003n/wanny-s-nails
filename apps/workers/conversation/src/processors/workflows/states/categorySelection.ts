@@ -8,10 +8,14 @@ import { prisma } from "../../../lib/prisma.js";
  * Human-readable labels for each service category.
  */
 const CATEGORY_LABELS: Record<ServiceCategory, string> = {
-  MANICURE: "💅 Manicure",
-  PEDICURE: "🦶 Pedicure",
-  OVERLAY: "✨ Overlay",
-  ACRYLIC: "💎 Acrylic",
+  MANICURE: "\u{1F485} Manicure",
+  PEDICURE: "\u{1F9B6} Pedicure",
+  ENHANCEMENTS: "\u2728 Enhancements",
+  NAIL_ART: "\u{1F3A8} Nail Art",
+  EXTENSIONS: "\u{1F4CF} Extensions",
+  REMOVAL: "\u{1F9F9} Removal",
+  REPAIR: "\u{1F527} Repair",
+  TREATMENT: "\u{1F33F} Treatment",
 };
 
 /**
@@ -23,8 +27,8 @@ const CATEGORY_LABELS: Record<ServiceCategory, string> = {
  * SERVICE_SELECTION which will only list services in that category.
  *
  * Transitions:
- *  valid category → SERVICE_SELECTION (save selectedCategory)
- *  invalid        → stay, increment count
+ *  valid category \u2192 SERVICE_SELECTION (save selectedCategory)
+ *  invalid        \u2192 stay, increment count
  */
 export async function handleCategorySelection(
   ctx: StateHandlerContext,
@@ -73,7 +77,7 @@ export async function handleCategorySelection(
     };
   }
 
-  // Invalid input — show category list again
+  // Invalid input \u2014 show category list again
   const newSession = incrementInvalidCount(ctx.session);
 
   return {

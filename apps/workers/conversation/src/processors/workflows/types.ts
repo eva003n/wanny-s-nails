@@ -21,7 +21,15 @@ export type FlowType = "BOOKING" | "RESCHEDULE" | "CANCEL" | "LOOKUP";
 
 // ─── Service Categories (mirrors Prisma enum) ───
 
-export type ServiceCategory = "MANICURE" | "OVERLAY" | "PEDICURE" | "ACRYLIC";
+export type ServiceCategory =
+  | "MANICURE"
+  | "PEDICURE"
+  | "ENHANCEMENTS"
+  | "NAIL_ART"
+  | "EXTENSIONS"
+  | "REMOVAL"
+  | "REPAIR"
+  | "TREATMENT";
 
 
 
