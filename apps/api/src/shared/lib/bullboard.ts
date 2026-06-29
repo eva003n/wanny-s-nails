@@ -3,7 +3,7 @@ import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
 import { ExpressAdapter } from "@bull-board/express";
 import type { Queue } from "bullmq";
 import { _config } from "./config.js";
-import { notificationQueue, paymentQueue } from "./queues.js";
+import { conversationQueue, notificationQueue, paymentQueue } from "./queues.js";
 
 // Website: https://oneuptime.com/blog/post/2026-01-21-bullmq-bull-board/view#installing-bull-board
 
@@ -80,10 +80,10 @@ const groups: QueueGroup[] = [
     name: "Notifications",
     queues: [notificationQueue],
   },
-  // {
-  //   name: "Bookings",
-  //   queues: [bookingQueue],
-  // },
+  {
+    name: "Conversations",
+    queues: [conversationQueue],
+  },
 ];
 
 export const groupedBoard = new GroupedBullBoard(groups);
