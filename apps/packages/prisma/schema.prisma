@@ -91,10 +91,14 @@ enum ReminderType {
 }
 
 enum ServiceCategory {
-  MANICURE
-  OVERLAY
-  PEDICURE
-  ACRYLIC
+  MANICURE // Natural nail care
+  PEDICURE // Foot and toenail care
+  ENHANCEMENTS // Overlays,gel overlays, acrylic overlays, BIAB, hard gel,
+  NAIL_ART // Designs, rhinestones, chrome, hand painting, etc
+  EXTENSIONS // tips, sculpted acrylics, Gel-X, soft gel extensions
+  REMOVAL // Removing existing products.
+  REPAIR  // Fixing broken or damaged nails
+  TREATMENT // Nail health treatments, paraffin wax, strengthening treatments, cuticle therapy
 }
 
 // ============================================

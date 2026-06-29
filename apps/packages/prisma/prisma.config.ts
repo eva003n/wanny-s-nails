@@ -1,22 +1,33 @@
-import path from "path";
+import {resolve, dirname, join} from "path";
 import { defineConfig, env } from "prisma/config";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 
-const __fileName = fileURLToPath(import.meta.url)
-const __dirName = path.dirname(__fileName)
 
-dotenv.config({ path: path.resolve(__dirName, "../.env") });
+
+const environment = process.env.NODE_ENV || "development"
+
+const isDevelopment = environment === "development"
+  const __fileName = fileURLToPath(import.meta.url)
+const __dirName = dirname(__fileName)
+
+if(isDevelopment) {
+  const dotenv = await import("dotenv")
+
+dotenv.config({ path: resolve(__dirName, `../.env.${environment}`) });
+}
+
+
 
 console.log(env("DATABASE_URL"));
 
 export default defineConfig({
-  schema: path.join(__dirName, "schema.prisma"),
+  schema: join(__dirName, "schema.prisma"),
   datasource: {
     url: env("DATABASE_URL"),
   },
   migrations: {
     path: "migrations",
-    seed: `tsx ${path.resolve(__dirName, "seed.ts")}`,
+    seed: `tsx ${resolve(__dirName, "seed.ts")}`,
   },
 });
