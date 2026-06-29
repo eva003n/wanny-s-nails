@@ -1,0 +1,23 @@
+{
+  "name": "@wanny/worker-conversation",
+  "version": "1.0.0",
+  "description": "Finite state machine worker — whats app bot interactions",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "scripts": {
+    "build": "tsc",
+    "build:dev": "tsc --watch",
+    "start": "node dist/src/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@wannys-nails/packages": "workspace:*",
+    "axios": "^1.17.0",
+    "bullmq": "^5.78.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "dotenv": "^17.4.2",
+    "typescript": "^6.0.3"
+  }
+}
