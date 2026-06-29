@@ -10,6 +10,7 @@ import {
   createWorker,
   InboundMessage,
   JOB_NAMES,
+  OutboundMessage,
   registerGracefulShutdown,
   type WhatsAppConversationPayload,
 } from "@wannys-nails/packages";
@@ -34,7 +35,7 @@ async function handleWhatsappJob(
       return processMessage(job.data as InboundMessage, job.id as string);
     // Outbound Whatsapp messages (enqueued by FSM)
     case JOB_NAMES.FSM_OUT:
-      return whatsappProcessor(job.data as any);
+      return await whatsappProcessor(job as unknown as Job<OutboundMessage>);
 
     default:
       log.warn(

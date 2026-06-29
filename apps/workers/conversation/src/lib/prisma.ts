@@ -1,4 +1,4 @@
-import { createPrismaClient } from "@wannys-nails/packages";
+import { createPrismaClient} from "@wannys-nails/packages";
 import { _config } from "./config.js";
 import { log } from "./logger.js";
 
@@ -25,3 +25,5 @@ try {
     err.message,
   );
 }
+
+export {type Booking} from "@wannys-nails/packages"

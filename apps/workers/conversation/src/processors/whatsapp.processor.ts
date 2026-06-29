@@ -262,39 +262,39 @@ async function sendTemplate(template: WhatsAppTemplatePayload): Promise<void> {
 // ─── Processor ─────────────────────────────────────────────────
 
 export async function whatsappProcessor(
-  job: Job<WhatsAppMessagePayload>,
+  job: Job<OutboundMessage>,
 ): Promise<void> {
   const { type, to } = job.data;
 
   log.info(
     { event: "whatsapp.job.start", jobId: job.id, to, type },
-    "Processing WhatsApp notification job",
+    "Processing WhatsApp conversation job",
   );
 
   try {
     switch (type) {
       case "text":
-        return sendText(job.data);
+        return await sendText(job.data);
 
       case "interactive_list":
-        return sendInteractiveListMessage(job.data);
+        return await sendInteractiveListMessage(job.data);
 
       case "interactive_button":
-        return sendInteractiveButtonMessage(job.data);
+        return await sendInteractiveButtonMessage(job.data);
 
       case "template":
-        return sendTemplate(job.data as WhatsAppTemplatePayload);
+        return await sendTemplate(job.data as WhatsAppTemplatePayload);
 
       default:
         log.warn(
-          { event: "whatsapp.send.unknown_type", to },
+          { event: "whatsapp.conversation.unknown_type", to },
           "Unknown message type",
         );
     }
 
     log.info(
       { event: "whatsapp.job.success", jobId: job.id, to },
-      "WhatsApp message sent successfully",
+      "WhatsApp conversation sent successfully",
     );
   } catch (error: unknown) {
     const err = error as {
@@ -303,15 +303,15 @@ export async function whatsappProcessor(
     };
     log.error(
       {
-        event: "whatsapp.job.failed",
+        event: "whatsapp.conversation.job.failed",
         jobId: job.id,
         to,
         status: err.response?.status,
         response: err.response?.data,
-        error: err.message,
+        error: err.message || err,
       },
-      "WhatsApp message delivery failed",
+      "WhatsApp conversation delivery failed",
     );
-    throw error; // BullMQ will retry
+    throw error; // BullMQ will retry whatsapp after a while
   }
 }

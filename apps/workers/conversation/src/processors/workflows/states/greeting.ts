@@ -9,14 +9,27 @@ import { formatDateEAT, formatTime12h } from "../helpers.js";
 function buildMainMenuMessage(
   name: string,
 ): StateTransitionResult["messages"][0] {
-  const greeting =
+  const now = new Date()
+  // current hour in local time
+  const currentHour = now.getHours()
+  let greeting = ""
+
+  if (currentHour >= 5 && currentHour < 12) {
+    greeting = "Good Morning,";
+  } else if (currentHour >= 12 && currentHour < 18) {
+    greeting = "Good Afternoon,";
+  } else {
+    greeting = "Good Evening.";
+  }
+
+  const greetingMessage =
     name === "there"
-      ? "Hi there! 👋 Welcome to Wanny's Nails."
-      : `Hi ${name}! 👋 Welcome to Wanny's Nails.`;
+      ? `${greeting} there! 👋 Welcome to Wanny's Nails.`
+      : `${greeting} ${name}! 👋 Welcome to Wanny's Nails.`;
 
   return {
     type: "interactive_list",
-    text: `${greeting}\nHow can we help you today?`,
+    text: `${greetingMessage}\nHow can we help you today?`,
     listTitle: "Wanny's Nails 💅",
     listButtonText: "Choose an option",
     listSections: [
@@ -98,6 +111,7 @@ export async function handleGreeting(
       };
     }
 
+    // check upcoming bookings
     const booking = await findActiveBooking(ctx.session.customerId);
     if (!booking) {
       return {
@@ -107,13 +121,14 @@ export async function handleGreeting(
             text: "You don't have any upcoming appointments. Would you like to book one? Reply 1.",
           },
         ],
-        sessionUpdates: resetInvalidCount(ctx.session),
-        nextState: "GREETING",
+        sessionUpdates: resetInvalidCount(ctx.session), // set back to 0
+        nextState: "GREETING", // return to greeting state
       };
     }
 
     const service = booking.service;
     const dateStr = booking.appointmentAt.toISOString();
+    // local time is (UTC +03:00)
     const eatDate = new Date(
       booking.appointmentAt.getTime() + 3 * 60 * 60 * 1000,
     );

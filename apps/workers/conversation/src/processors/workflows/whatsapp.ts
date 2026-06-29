@@ -62,18 +62,18 @@ export async function sendMessage(
   //   }
   // }
 
-  const jobEsists = await conversationQueue.getJob(messageId as string);
 
-  const job = await conversationQueue.add(JOB_NAMES.FSM_OUT, message, {
-    jobId: messageId,
-  });
-  if (!jobEsists) {
+  // const jobEsists = await conversationQueue.getJob(messageId as string);
+
+  const job = await conversationQueue.add(JOB_NAMES.FSM_OUT, message);
+  // if (!jobEsists) {
     log.info(
       {
         event: "Conversation.message.enqueued",
+        message: message,
         jobId: job?.id,
       },
       "Outbound message enqueued",
     );
-  }
+  // }
 }

@@ -24,6 +24,7 @@ export type FlowType = "BOOKING" | "RESCHEDULE" | "CANCEL" | "LOOKUP";
 export type ServiceCategory = "MANICURE" | "OVERLAY" | "PEDICURE" | "ACRYLIC";
 
 
+
 // ─── Session ───
 
 export interface ConversationSession {
@@ -42,6 +43,7 @@ export interface ConversationSession {
   selectedTime?: string | undefined; // "14:00" (EAT)
   appointmentAt?: string | undefined; // ISO UTC (computed after date+time selected)
   bookingId?: string | undefined;
+  // bookings?: Booking[] | undefined
   bookingRef?: string | undefined;
   paymentPhone?: string | undefined;
   /** Selected service category filter — set during CATEGORY_SELECTION */

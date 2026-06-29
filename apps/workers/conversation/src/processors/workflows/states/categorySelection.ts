@@ -34,10 +34,11 @@ export async function handleCategorySelection(
     where: { isActive: true },
     select: { category: true },
     distinct: ["category"],
-    orderBy: { category: "asc" },
+    orderBy: { category: "asc" },// alphabetically
   });
   const categories = categoriesRaw.map((c: { category: string }) => c.category);
 
+  // no services available
   if (categories.length === 0) {
     return {
       messages: [

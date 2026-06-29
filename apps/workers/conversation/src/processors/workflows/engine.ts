@@ -99,7 +99,7 @@ export async function processMessage(message: InboundMessage, messageId: string)
     session = createNewSession();
     isNewSession = true;
   }
-
+// set current state since last conversation
   const previousState = session.state;
 
   // ── 2. Global intent detection (before state handler) ──
@@ -180,16 +180,16 @@ export async function processMessage(message: InboundMessage, messageId: string)
       phone,
     };
 
-    const result = await handleIdle(ctx);
-    applyTransition(session, result);
-    await saveSession(phone, session);
+    const result = await handleIdle(ctx); // -> GREETING or DATE_COLLECTION 
+    applyTransition(session, result);// transition from state to state by mutating session updates
+    await saveSession(phone, session);// update redis with new state
 
     // If the IDLE handler returned messages, send them
     for (const msg of result.messages) {
       await sendMessage({ ...msg, to: phone }, msg.id );
     }
 
-    // Reload session after IDLE handler
+    // Reload session after IDLE handler(Avois staleness after an update)
     session = (await loadSession(phone)) ?? session;
 
     // Check what state the IDLE handler transitioned to
@@ -224,7 +224,7 @@ export async function processMessage(message: InboundMessage, messageId: string)
       return;
     }
 
-    // Returning customer — send greeting menu
+    // Returning customer | new customer — send greeting menu
     session.state = "GREETING";
 
     const name = session.customerName || "there";
@@ -244,14 +244,16 @@ export async function processMessage(message: InboundMessage, messageId: string)
       { event: "fsm.no_handler", state: currentState, phone },
       "No handler for state",
     );
+    // default to greeting state when their is no handler
     session.state = "GREETING";
     await saveSession(phone, session);
     return;
   }
 
+  // provides context or state to each handler
   const ctx: StateHandlerContext = {
-    message: trimmedMessage.toLowerCase(),
-    rawMessage: messageText,
+    message: trimmedMessage.toLowerCase(),// processed message
+    rawMessage: messageText, // direct message from user
     session: { ...session }, // Clone to avoid mutation during processing
     phone,
   };
@@ -341,7 +343,7 @@ function applyTransition(
   session: ConversationSession,
   result: StateTransitionResult,
 ): void {
-  // Apply session updates
+  // Apply session updates(mutates the sessionUpdates)
   Object.assign(session, result.sessionUpdates);
 
   // Apply state transition
@@ -353,6 +355,6 @@ function applyTransition(
   if (result.nextState && result.nextState !== session.state) {
     session.invalidInputCount = 0;
   }
-
+// store the last conversation timestamp
   session.lastActivity = new Date().toISOString();
 }

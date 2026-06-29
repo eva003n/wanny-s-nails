@@ -341,6 +341,6 @@ export const findActiveBooking = async (
       },
       payment: true,
     },
-    orderBy: { appointmentAt: "asc" },
+    orderBy: { appointmentAt: "asc" }, // oldest -> most recent
   });
 };
