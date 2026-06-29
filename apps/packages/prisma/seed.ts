@@ -65,7 +65,7 @@ const services = [
   {
     name: "Overlay + Gel",
     description: "Overlay enhancement finished with gel polish.",
-    durationMinutes: 120,
+    durationMinutes: 90,
     priceKes: 3500,
     category: "ENHANCEMENTS" as const,
     sortOrder: 4,
@@ -81,7 +81,7 @@ const services = [
   {
     name: "Overlay Ombre",
     description: "Overlay enhancement with an ombre finish.",
-    durationMinutes: 120,
+    durationMinutes: 90,
     priceKes: 4000,
     category: "ENHANCEMENTS" as const,
     sortOrder: 6,
@@ -107,7 +107,7 @@ const services = [
   {
     name: "Pedicure + Polish",
     description: "Pedicure finished with regular nail polish.",
-    durationMinutes: 75,
+    durationMinutes: 90,
     priceKes: 1500,
     category: "PEDICURE" as const,
     sortOrder: 9,
@@ -125,7 +125,7 @@ const services = [
   {
     name: "Acrylic Soak Off",
     description: "Safe removal of acrylic nail enhancements.",
-    durationMinutes: 30,
+    durationMinutes: 60,
     priceKes: 500,
     category: "REMOVAL" as const,
     sortOrder: 11,
