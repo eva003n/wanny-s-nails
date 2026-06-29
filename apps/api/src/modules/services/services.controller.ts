@@ -9,7 +9,7 @@ import { asyncHandler } from "../../shared/utils/asyncHandler.js";
 export const createServiceSchema = z.object({
   name: z.string().min(2).max(100),
   description: z.string().optional(),
-  category: z.enum(["MANICURE", "OVERLAY", "PEDICURE", "ACRYLIC"]),
+  category: z.enum(["MANICURE", "PEDICURE", "ENHANCEMENTS", "NAIL_ART", "EXTENSIONS", "REMOVAL", "REPAIR", "TREATMENT"]),
   durationMinutes: z.number().int().min(15).max(480),
   priceKes: z.number().int().min(1),
   sortOrder: z.number().int().optional(),
