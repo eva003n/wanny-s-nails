@@ -24,11 +24,21 @@ export type PaymentStatus = z.infer<typeof PaymentStatusSchema>;
 export const UserRoleSchema = z.enum(["OWNER", "STAFF"]);
 export type UserRole = z.infer<typeof UserRoleSchema>;
 
+/**
+ * Service categories — must match the Prisma enum exactly so the frontend
+ * can create/edit services without validation errors.
+ *
+ * Prisma enum: MANICURE | PEDICURE | ENHANCEMENTS | NAIL_ART | EXTENSIONS | REMOVAL | REPAIR | TREATMENT
+ */
 export const ServiceCategorySchema = z.enum([
   "MANICURE",
   "PEDICURE",
-  "OVERLAY",
-  "ACRYLIC",
+  "ENHANCEMENTS",
+  "NAIL_ART",
+  "EXTENSIONS",
+  "REMOVAL",
+  "REPAIR",
+  "TREATMENT",
 ]);
 export type ServiceCategory = z.infer<typeof ServiceCategorySchema>;
 

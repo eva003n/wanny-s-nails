@@ -302,10 +302,21 @@ export function useCreateBooking() {
       serviceId: string;
       appointmentAt: string;
     }) => {
-      // POST /bookings only accepts customerId (not newCustomer),
-      // so we assume newCustomer is resolved to an id upstream or passed as customerId.
+      // If newCustomer is provided, create the customer first,
+      // then use the returned ID for the booking.
+      let customerId = input.customerId;
+      if (input.newCustomer && !customerId) {
+        const { data: customerData } = await api.post("/customers", {
+          name: input.newCustomer.name,
+          phone: input.newCustomer.phone,
+        });
+        customerId = customerData.data.id;
+      }
+      if (!customerId) {
+        throw new Error("Customer ID is required");
+      }
       const { data } = await api.post("/bookings", {
-        customerId: input.customerId,
+        customerId,
         serviceId: input.serviceId,
         appointmentAt: input.appointmentAt,
       });

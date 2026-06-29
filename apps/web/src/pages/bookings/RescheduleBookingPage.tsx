@@ -4,7 +4,7 @@ import BottomSheet from "@/components/ui/BottomSheet";
 import Dialog from "@/components/ui/Dialog";
 import Button from "@/components/ui/Button";
 import { useBooking, useRescheduleBooking } from "@/pages/bookings/hooks/useBookings";
-import { useAvailableSlots } from "@/pages/bookings/hooks/useBookings";
+import { useAvailableSlots } from "@/hooks/useServices";
 import { useUiStore } from "@/store/ui.store";
 import { formatTime } from "@/lib/format";
 

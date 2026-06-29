@@ -2,7 +2,7 @@
  * §3.3 Services Settings — CRUD list grouped by categories
  *
  * Uses BottomSheet for add/edit, confirmation dialog for delete.
- * Services grouped by: Manicure, Pedicure, Overlay, Acrylic
+ * Categories match the Prisma enum (8 service categories).
  */
 import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
@@ -25,12 +25,21 @@ import Skeleton from "@/components/ui/Skeleton";
 import type { Service, ServiceCategory } from "@/lib/schemas";
 import { CirclePlus } from "lucide-react";
 
-// ─── Schema ─────────────────────────────────────────────────────────────────
+// ─── Schema (matches Prisma enum) ──────────────────────────────────────────
 
 const ServiceFormSchema = z.object({
   name: z.string().min(2, "Service name is required"),
   description: z.string().optional(),
-  category: z.enum(["MANICURE", "OVERLAY", "PEDICURE", "ACRYLIC"]),
+  category: z.enum([
+    "MANICURE",
+    "PEDICURE",
+    "ENHANCEMENTS",
+    "NAIL_ART",
+    "EXTENSIONS",
+    "REMOVAL",
+    "REPAIR",
+    "TREATMENT",
+  ]),
   durationMinutes: z.number().int().min(15, "Minimum 15 minutes").max(480),
   priceKes: z.number().int().min(1, "Price is required"),
 });
@@ -39,14 +48,31 @@ type ServiceFormData = z.infer<typeof ServiceFormSchema>;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+/**
+ * Human-readable labels for each service category.
+ * These must map 1:1 to the Prisma ServiceCategory enum values.
+ */
 const CATEGORY_LABELS: Record<ServiceCategory, string> = {
   MANICURE: "Manicure",
   PEDICURE: "Pedicure",
-  OVERLAY: "Overlay",
-  ACRYLIC: "Acrylic",
+  ENHANCEMENTS: "Enhancements",
+  NAIL_ART: "Nail Art",
+  EXTENSIONS: "Extensions",
+  REMOVAL: "Removal",
+  REPAIR: "Repair",
+  TREATMENT: "Treatment",
 };
 
-const CATEGORY_ORDER: ServiceCategory[] = ["MANICURE", "PEDICURE", "OVERLAY", "ACRYLIC"];
+const CATEGORY_ORDER: ServiceCategory[] = [
+  "MANICURE",
+  "PEDICURE",
+  "ENHANCEMENTS",
+  "NAIL_ART",
+  "EXTENSIONS",
+  "REMOVAL",
+  "REPAIR",
+  "TREATMENT",
+];
 
 function formatKES(amount: number): string {
   return `KES\u00A0${amount.toLocaleString("en-KE")}`;
@@ -79,16 +105,12 @@ export default function ServicesSection() {
 
   const selectedCategory = watch("category");
 
-  // Group services by category
+  // Group services by category — only shows categories that have services
   const grouped = useMemo(() => {
-    const groups: Record<ServiceCategory, Service[]> = {
-      MANICURE: [],
-      PEDICURE: [],
-      OVERLAY: [],
-      ACRYLIC: [],
-    };
+    const groups: Record<string, Service[]> = {};
     for (const s of services) {
-      if (s.category && groups[s.category]) {
+      if (s.category) {
+        if (!groups[s.category]) groups[s.category] = [];
         groups[s.category].push(s);
       }
     }
@@ -126,8 +148,9 @@ export default function ServicesSection() {
             setEditingId(null);
             reset();
           },
-          onError: () => {
-            showToast({ type: "error", message: "Failed to update service." });
+          onError: (err: unknown) => {
+            const msg = extractErrorMessage(err) || "Failed to update service.";
+            showToast({ type: "error", message: msg });
           },
         },
       );
@@ -138,8 +161,9 @@ export default function ServicesSection() {
           setSheetOpen(false);
           reset();
         },
-        onError: () => {
-          showToast({ type: "error", message: "Failed to add service." });
+        onError: (err: unknown) => {
+          const msg = extractErrorMessage(err) || "Failed to add service.";
+          showToast({ type: "error", message: msg });
         },
       });
     }
@@ -152,8 +176,9 @@ export default function ServicesSection() {
         showToast({ type: "success", message: "Service deleted." });
         setDeletingId(null);
       },
-      onError: () => {
-        showToast({ type: "error", message: "Failed to delete service." });
+      onError: (err: unknown) => {
+        const msg = extractErrorMessage(err) || "Failed to delete service.";
+        showToast({ type: "error", message: msg });
         setDeletingId(null);
       },
     });
@@ -216,7 +241,7 @@ export default function ServicesSection() {
 
       {CATEGORY_ORDER.map((cat) => {
         const items = grouped[cat];
-        if (items.length === 0) return null;
+        if (!items || items.length === 0) return null;
         return (
           <div key={cat} style={{ marginBottom: "var(--space-20)" }}>
             <p
@@ -384,6 +409,25 @@ export default function ServicesSection() {
       )}
     </>
   );
+}
+
+// ─── Extract error message from API response ───────────────────────────────
+
+function extractErrorMessage(err: unknown): string | null {
+  if (err && typeof err === "object") {
+    // Axios error shape
+    const axiosErr = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
+    if (axiosErr.response?.data?.error?.message) {
+      return axiosErr.response.data.error.message;
+    }
+    if (axiosErr.message) {
+      // Avoid showing generic "Request failed" messages
+      if (!axiosErr.message.startsWith("Request failed")) {
+        return axiosErr.message;
+      }
+    }
+  }
+  return null;
 }
 
 // ─── Add / Edit Bottom Sheet ────────────────────────────────────────────────
