@@ -24,7 +24,6 @@ import {
 } from "./processors/email.processor.js";
 import { pushSender } from "./processors/push-sender.js";
 import type { Job } from "bullmq";
-import { processMessage } from "./processors/workflows/engine.js";
 import { log as logger} from "./lib/logger.js";
 import { notificationWorkerRedisConn, whatsAppWorkerRedisConn } from "./lib/redis.js";
 
@@ -47,7 +46,7 @@ async function handleNotificationJob(job: Job<NotificationJobData>): Promise<voi
     
     }
 
-    // — Legacy dispatch format (NotificationService.dispatch) —
+    // — handles whatsapp notifications (NotificationService.dispatch) —
     case JOB_NAMES.WHATSAPP: {
       const whatsappPayload: WhatsAppMessagePayload & { to: string } = {
         type: "text",
@@ -77,30 +76,24 @@ async function handleNotificationJob(job: Job<NotificationJobData>): Promise<voi
   }
 }
 
-async function handleWhatsappJob (job: Job<InboundMessage | OutboundMessage | WhatsAppMessagePayload>){
-  switch (job.name) {
-    // — Inbound WhatsApp messages (enqueued by webhook controller → FSM) —
 
-    case JOB_NAMES.FSM_IN:
-      return processMessage(job.data as InboundMessage, job.id as string);
-// Outbound Whatsapp messages (enqueued by FSM)
-    case JOB_NAMES.FSM_OUT:
-      return whatsappProcessor(job.data as any);
-   
-    default:
-       log.warn(
-         {
-           event: "worker.unknown_job",
-           queue: Queue_Names.NOTIFICATIONS,
-           jobName: job.name,
-         },
-         "Unknown whatsapp job name",
-       );
 
-  }
-
-}
-
+// Finite state machine workers
+const whatAppWorker = createWorker<InboundMessage | OutboundMessage>(
+  {
+    queueName: Queue_Names.NOTIFICATIONS,
+    workerName: "fsm_worker",
+    concurrency: 1,
+    limiter: {
+      // base on whatsapp tier
+    },
+  },
+  async (job: Job<InboundMessage | OutboundMessage>) => {
+    await whatsappProcessor(job.data as any);
+  },
+  whatsAppWorkerRedisConn.options,
+  log,
+);
 // ─── Single Notification Worker ──────────────────────────────
 // Handles all job types on the notifications queue (outbound WhatsApp,
 // inbound FSM, email, push) to avoid worker duplication and racing.
@@ -120,30 +113,17 @@ const notificationWorker = createWorker<NotificationJobData>(
 
 );
 
-const whatAppWorker = createWorker<InboundMessage | OutboundMessage>({
-  queueName: Queue_Names.NOTIFICATIONS,
-  workerName: "whatsapp_worker",
-  concurrency: 1,
-  limiter: {
-    // base on whatsapp tier
-  }
-},
-async(job: Job<InboundMessage | OutboundMessage>) => {
-  await handleWhatsappJob(job)
-},
-whatsAppWorkerRedisConn.options,
-log
-);
+
 // ─── Graceful Shutdown ────────────────────────────────────────
 
 registerGracefulShutdown([notificationWorker, whatAppWorker]);
 
 log.info(
-  JSON.stringify({
+  {
     event: "worker.process.started",
     worker: "notification",
     pid: process.pid,
-  }),
+  },
 );
 
 /**

@@ -305,18 +305,11 @@ Apple deployments require apple developer account that cost $99/year(12,870ksh)
 **Negative:**
 - Limited access to ios native features
  
-## ADR-010: Large language model(Fallback mechanis)
-Adds ai intelligence, for non deterministic workflows that FSM cannot handle.
+## ADR-010: Processes
+Each process handles a single responsibility, if it crashes it does not affect the other and can scale independenntly
 
-**Date:** 2026  
-**Status:** Accepted
-
-### Desicion
-
-Use **Gemini 2.0 Flash**
-
-### Alternatives Considered
-
-| Option | Reason Rejected |
-|---|---|
-|||
+Four processes
+- API process(main)
+- Payments process(worker)
+- Conversation process(worker)
+- Notification process(worker)

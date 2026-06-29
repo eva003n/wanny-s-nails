@@ -6,7 +6,7 @@ import { _config } from "../../shared/lib/index.js";
 import { logger} from "../../shared/lib/index.js";
 
 
-import { notificationQueue, paymentQueue } from "../../shared/lib/index.js";
+import { conversationQueue, paymentQueue } from "../../shared/lib/index.js";
 
 import { redis } from "../../shared/lib/index.js";
 import { paymentsService } from "../payments/payments.service.js";
@@ -349,7 +349,7 @@ export const handleWhatsApp = asyncHandler(
 
          try {
                // enqueue message for processing by fsm engine
-              const job = await notificationQueue.add(
+              const job = await conversationQueue.add(
                 JOB_NAMES.FSM_IN,
                 whatsappMessage,
                 {

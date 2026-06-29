@@ -59,6 +59,10 @@ export type WhatsAppMessagePayload =
   | OutboundMessage
   | WhatsAppTemplatePayload;
 
+export type WhatsAppConversationPayload =
+  | OutboundMessage
+  | InboundMessage;
+
 export type EmailNotificationPayload = {
   to: string;
   subject: string;

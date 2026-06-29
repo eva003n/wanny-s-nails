@@ -9,8 +9,7 @@
 export const Queue_Names = {
   NOTIFICATIONS: "notifications",
   PAYMENTS: "payments",
-  REMINDERS: "reminders",
-  BOOKINGS: "bookings",
+  CONVERSATIONS: "conversations",
 } as const;
 
 export const JOB_NAMES = {

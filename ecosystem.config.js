@@ -79,6 +79,31 @@ module.exports = {
         NODE_ENV: "production",
       },
     },
+    {
+      name: "worker-conversation",
+      cwd: "./apps/workers/conversation",
+      script: "dist/index.js",
+      exec_mode: "fork",
+      instances: 1, // single instance — handles WhatsApp FSM + payment processors
+      env_file: "./apps/workers/conversation/.env",
+      watch: true,
+      max_memory_restart: "400M",
+      autorestart: true,
+      restart_delay: 3000,
+      max_restarts: 10,
+      min_uptime: "10s",
+      kill_timeout: 10000, // BullMQ workers need time to finish/ack in-flight jobs before SIGKILL
+      error_file: "./logs/worker-conversation-error.log",
+      out_file: "./logs/worker-conversation-out.log",
+      log_date_format: "YYYY-MM-DD HH:mm:ss Z",
+      merge_logs: true,
+      env: {
+        NODE_ENV: "development",
+      },
+      env_production: {
+        NODE_ENV: "production",
+      },
+    },
 
     {
       name: "worker-payment",
@@ -86,7 +111,7 @@ module.exports = {
       script: "dist/index.js",
       exec_mode: "fork",
       instances: 1, // single instance — WhatsApp + email senders, rate-limited per WA tier
-      env_file: "./apps/api/.env.development",
+      env_file: "/apps/workers/payment/.env",
       watch: true,
       max_memory_restart: "400M",
       autorestart: true,

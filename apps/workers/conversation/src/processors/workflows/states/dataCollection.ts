@@ -1,6 +1,6 @@
 import type { StateHandlerContext, StateTransitionResult } from "../types.js";
 import { incrementInvalidCount, resetInvalidCount } from "../session.js";
-import { log as logger, paymentQueue } from "../../../lib/index.js";
+import { log as logger, } from "../../../lib/index.js";
 
 import { prisma } from "../../../lib/prisma.js";
 

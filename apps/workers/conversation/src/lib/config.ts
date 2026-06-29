@@ -5,14 +5,29 @@
  * No dotenv call here (that's the API's job in development).
  */
 
+const isDevelopment = (process.env.NODE_ENV || "development") === "development";
+
+if (isDevelopment) {
+  const { config } = await import("dotenv");
+  config({
+    path: "./.env",
+  });
+}
+
 import { z } from "zod";
 
 const schema = z.object({
+  APP_NAME: z.string().default("WannysNails"),
+  NODE_ENV: z
+    .enum(["development", "staging", "production"])
+    .default("development"),
   // Redis (required for BullMQ + WhatsApp)
   REDIS_URL: z.string().min(1, "REDIS_URL is required"),
   // WhatsApp (required for sending reminders)
   WHATSAPP_ACCESS_TOKEN: z.string().min(1, "WHATSAPP_ACCESS_TOKEN is required"),
-  WHATSAPP_PHONE_NUMBER_ID: z.string().min(1, "WHATSAPP_PHONE_NUMBER_ID is required"),
+  WHATSAPP_PHONE_NUMBER_ID: z
+    .string()
+    .min(1, "WHATSAPP_PHONE_NUMBER_ID is required"),
   // Database (required for Prisma)
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
 });
@@ -27,5 +42,5 @@ if (!parsed.success) {
   throw new Error("Invalid environment variables for reminder worker.");
 }
 
-export const config = parsed.data;
+export const _config = parsed.data;
 export type Config = z.infer<typeof schema>;

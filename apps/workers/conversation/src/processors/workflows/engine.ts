@@ -170,7 +170,7 @@ export async function processMessage(message: InboundMessage, messageId: string)
     session.invalidInputCount = 0;
   }
 
-  // 3. Handle IDLE state → transition to GREETING or DATA_COLLECTION(onew customer)
+  // 3. Handle IDLE state → transition to GREETING or DATA_COLLECTION(new customer)
 
   if (session.state === "IDLE") {
     const ctx: StateHandlerContext = {
@@ -186,7 +186,7 @@ export async function processMessage(message: InboundMessage, messageId: string)
 
     // If the IDLE handler returned messages, send them
     for (const msg of result.messages) {
-      await sendMessage({ ...msg, to: phone }, messageId);
+      await sendMessage({ ...msg, to: phone }, msg.id );
     }
 
     // Reload session after IDLE handler

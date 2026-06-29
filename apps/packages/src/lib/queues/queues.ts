@@ -22,6 +22,15 @@ export function createQueues(connection: Redis) {
         removeOnFail: { age: 86400, count: 100 },
       },
     }),
+    conversationQueue: new Queue(Queue_Names.CONVERSATIONS, {
+      connection: connection as unknown as ConnectionOptions,
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: "exponential", delay: 1000 },
+        removeOnComplete: { age: 86400, count: 100 },
+        removeOnFail: { age: 86400, count: 100 },
+      },
+    }),
     paymentQueue: new Queue(Queue_Names.PAYMENTS, {
       connection: connection as unknown as ConnectionOptions,
       defaultJobOptions: {
