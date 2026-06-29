@@ -133,13 +133,13 @@ const services = [
 ];
 
 const businessHours = [
-  { dayOfWeek: 0, openTime: "09:00", closeTime: "15:00", isActive: false }, // Sunday - closed
-  { dayOfWeek: 1, openTime: "08:00", closeTime: "18:00", isActive: true },  // Monday
-  { dayOfWeek: 2, openTime: "08:00", closeTime: "18:00", isActive: true },  // Tuesday
-  { dayOfWeek: 3, openTime: "08:00", closeTime: "18:00", isActive: true },  // Wednesday
-  { dayOfWeek: 4, openTime: "08:00", closeTime: "18:00", isActive: true },  // Thursday
-  { dayOfWeek: 5, openTime: "08:00", closeTime: "18:00", isActive: true },  // Friday
-  { dayOfWeek: 6, openTime: "08:00", closeTime: "17:00", isActive: true },  // Saturday
+  { dayOfWeek: 0, openTime: "07:00", closeTime: "19:00", isActive: false }, // Sunday - closed
+  { dayOfWeek: 1, openTime: "07:00", closeTime: "19:00", isActive: true },  // Monday
+  { dayOfWeek: 2, openTime: "07:00", closeTime: "19:00", isActive: true },  // Tuesday
+  { dayOfWeek: 3, openTime: "07:00", closeTime: "19:00", isActive: true },  // Wednesday
+  { dayOfWeek: 4, openTime: "07:00", closeTime: "19:00", isActive: true },  // Thursday
+  { dayOfWeek: 5, openTime: "07:00", closeTime: "19:00", isActive: true },  // Friday
+  { dayOfWeek: 6, openTime: "07:00", closeTime: "19:00", isActive: true },  // Saturday
 ];
 
 const defaultNotificationSubscriptions = [
@@ -313,11 +313,11 @@ async function main() {
     console.error("❌ Business hours seeding failed:", err);
   }
 
-  try {
-    await seedNotificationSubscriptions();
-  } catch (err) {
-    console.error("❌ Notification subscriptions seeding failed:", err);
-  }
+  // try {
+  //   await seedNotificationSubscriptions();
+  // } catch (err) {
+  //   console.error("❌ Notification subscriptions seeding failed:", err);
+  // }
 
   console.log("\n🎉 Database seeded successfully!");
 }

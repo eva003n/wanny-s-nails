@@ -1,6 +1,6 @@
 import {resolve, dirname, join} from "path";
 import { defineConfig, env } from "prisma/config";
-import dotenv from "dotenv";
+// import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 
 
@@ -19,7 +19,7 @@ dotenv.config({ path: resolve(__dirName, `../.env.${environment}`) });
 
 
 
-console.log(env("DATABASE_URL"));
+
 
 export default defineConfig({
   schema: join(__dirName, "schema.prisma"),
@@ -28,6 +28,6 @@ export default defineConfig({
   },
   migrations: {
     path: "migrations",
-    seed: `tsx ${resolve(__dirName, "seed.ts")}`,
+    seed: `tsx prisma/seed.ts`,
   },
 });

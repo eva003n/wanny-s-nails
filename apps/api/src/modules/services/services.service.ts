@@ -8,7 +8,7 @@ import {
 interface CreateServiceInput {
   name: string;
   description?: string | undefined;
-  category: "MANICURE" | "OVERLAY" | "PEDICURE" | "ACRYLIC";
+  category: "MANICURE" | "PEDICURE" | "ENHANCEMENTS" | "NAIL_ART" | "EXTENSIONS" | "REMOVAL" | "REPAIR" | "TREATMENT";
   durationMinutes: number;
   priceKes: number;
   sortOrder?: number | undefined;
@@ -71,7 +71,7 @@ export const servicesService = {
       data: {
         name: data.name,
         description: data.description ?? null,
-        category: data.category,
+        category: data.category as any,
         durationMinutes: data.durationMinutes,
         priceKes: data.priceKes,
         sortOrder: data.sortOrder ?? 0,

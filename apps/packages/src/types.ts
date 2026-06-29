@@ -39,6 +39,7 @@ export type InboundMessage = {
 };
 
 export type OutboundMessage = {
+  id?: string,
   to?: string;
   type: "text" | "interactive_list" | "interactive_button" | "template";
   text?: string;
