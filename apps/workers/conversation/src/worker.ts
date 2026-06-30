@@ -62,4 +62,4 @@ const worker = createWorker<WhatsAppConversationPayload>(
 
 // ─── Graceful Shutdown ────────────────────────────────────────
 
-registerGracefulShutdown([worker]);
+registerGracefulShutdown([worker], log);

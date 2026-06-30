@@ -12,7 +12,7 @@ import { handleDeadLetterJob } from "./dead-letter.processor.js";
 import { createRedisClient } from "../redis.js";
 import type { Logger } from "pino";
 
-const log = console
+
 
 
 
@@ -56,30 +56,30 @@ export function createWorker<T = any>(
 
   worker.on("completed", (job) => {
     log.debug(
-      JSON.stringify({
+      {
         event: "worker.job.completed",
         queue: opts.workerName,
         jobId: job.id,
-      }),
+      },
     );
   });
 
   worker.on("error", (err) => {
     log.error(
-      JSON.stringify({
+      {
         event: "worker.error",
         queue: opts.workerName,
         error: err.message,
-      }),
+      },
     );
   });
 
   log.info(
-    JSON.stringify({
+    {
       event: "worker.started",
       queue: opts.queueName,
       worker: opts.workerName,
-    }),
+    },
   );
 
   return worker;
@@ -89,13 +89,14 @@ export function createWorker<T = any>(
 
 export function registerGracefulShutdown(
   workers: Array<{ close(): Promise<void> }>,
+  log: Logger
 ): void {
   const shutdown = async (signal: string) => {
     log.info(JSON.stringify({ event: "worker.shutdown.start", signal }));
 
     await Promise.all(workers.map((w) => w.close()));
 
-    log.info(JSON.stringify({ event: "worker.shutdown.complete" }));
+    log.info({ event: "worker.shutdown.complete" });
     process.exit(0);
   };
 
@@ -111,10 +112,10 @@ export function registerGracefulShutdown(
 
   process.on("unhandledRejection", (reason) => {
     log.error(
-      JSON.stringify({
+      {
         event: "worker.unhandled_rejection",
         reason: String(reason),
-      }),
+      },
     );
   });
 }
