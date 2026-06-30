@@ -4,11 +4,12 @@ import { servicesService } from "./services.service.js";
 import { success, created, noContent } from "../../shared/utils/response.js";
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";
 
+
 // --- Validation schemas (exported for use in routes) ---
 
 export const createServiceSchema = z.object({
   name: z.string().min(2).max(100),
-  description: z.string().optional(),
+  description: z.string().max(72, `Description must be 72 characters or less`).optional(),
   category: z.enum(["MANICURE", "PEDICURE", "ENHANCEMENTS", "NAIL_ART", "EXTENSIONS", "REMOVAL", "REPAIR", "TREATMENT"]),
   durationMinutes: z.number().int().min(15).max(480),
   priceKes: z.number().int().min(1),
@@ -17,7 +18,7 @@ export const createServiceSchema = z.object({
 
 export const updateServiceSchema = z.object({
   name: z.string().min(2).max(100).optional(),
-  description: z.string().optional(),
+  description: z.string().max(72, `Description must be 72 characters or less`).optional(),
   durationMinutes: z.number().int().min(15).max(480).optional(),
   priceKes: z.number().int().min(1).optional(),
   isActive: z.boolean().optional(),
