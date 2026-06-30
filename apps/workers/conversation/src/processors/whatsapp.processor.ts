@@ -1,8 +1,8 @@
 import { type Job } from "bullmq";
-import axios from "axios";
 
-import { log as logger } from "../lib/index.js";
-import type {
+import { log as logger, whatsappHttpClient } from "../lib/index.js";
+import {
+  HttpClientError,
   OutboundMessage,
   WhatsAppMessagePayload,
   WhatsAppTemplatePayload,
@@ -11,7 +11,6 @@ import { _config as config } from "../lib/config.js";
 
 const log = logger.child({ module: "job:whatsapp" });
 
-const GRAPH_API_VERSION = "v23.0";
 const MAX_LIST_ROWS = 10; // WhatsApp Cloud API limit for interactive list messages
 
 /**
@@ -20,9 +19,8 @@ const MAX_LIST_ROWS = 10; // WhatsApp Cloud API limit for interactive list messa
 
 async function sendText(message: OutboundMessage): Promise<void> {
   try {
-    console.log(message);
-    await axios.post(
-      `https://graph.facebook.com/${GRAPH_API_VERSION}/${config.WHATSAPP_PHONE_NUMBER_ID}/messages`,
+    await whatsappHttpClient.post(
+      "/messages",
       {
         messaging_product: "whatsapp",
         to: message.to,
@@ -89,6 +87,7 @@ async function sendInteractiveListMessage(message: OutboundMessage) {
 
   const phoneNumberId = config.WHATSAPP_PHONE_NUMBER_ID;
 
+  
   // Enforce WhatsApp's 10-row limit across all sections
   const totalRows = sections.reduce((sum, s) => sum + s.rows.length, 0);
   if (totalRows > MAX_LIST_ROWS) {
@@ -105,8 +104,8 @@ async function sendInteractiveListMessage(message: OutboundMessage) {
   }
 
   try {
-    await axios.post(
-      `https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`,
+    await whatsappHttpClient.post(
+      `/${phoneNumberId}/messages`,
       {
         messaging_product: "whatsapp",
         recipient_type: "individual",
@@ -126,26 +125,25 @@ async function sendInteractiveListMessage(message: OutboundMessage) {
         },
       },
       {
-        headers: {
-          Authorization: `Bearer ${config.WHATSAPP_ACCESS_TOKEN}`,
-          "Content-Type": "application/json",
-        },
+        // headers: {
+        //   Authorization: `Bearer ${config.WHATSAPP_ACCESS_TOKEN}`,
+        //   "Content-Type": "application/json",
+        // },
       },
     );
   } catch (error: unknown) {
-    const axiosError = error as {
-      response?: { status?: number; data?: unknown };
-      message?: string;
-    };
+    const axiosError = error
+  if( axiosError instanceof HttpClientError){
     log.error(
       {
         event: "whatsapp.send.list.failed",
         to: message.to,
-        status: axiosError.response?.status,
-        error: axiosError.response?.data,
+        status: axiosError.status,
+        error: axiosError.responseBody,
       },
       "Failed to send WhatsApp interactive list message",
     );
+  }
     throw error;
   }
 }
@@ -160,8 +158,8 @@ async function sendInteractiveButtonMessage(message: OutboundMessage) {
   const phoneNumberId = config.WHATSAPP_PHONE_NUMBER_ID;
 
   try {
-    await axios.post(
-      `https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`,
+    await whatsappHttpClient.post(
+      `/${phoneNumberId}/messages`,
       {
         messaging_product: "whatsapp",
         to: message.to,
@@ -207,10 +205,10 @@ async function sendInteractiveButtonMessage(message: OutboundMessage) {
 
 async function sendTemplate(template: WhatsAppTemplatePayload): Promise<void> {
   const phoneNumberId = config.WHATSAPP_PHONE_NUMBER_ID;
-  const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`;
+  const url = `/${phoneNumberId}/messages`;
   // const { default: axios } = await import("axios");
   try {
-    await axios.post(
+    await whatsappHttpClient.post(
       url,
       {
         messaging_product: "whatsapp",
