@@ -1,5 +1,7 @@
 import { type Job } from "bullmq";
 import { log as logger, prisma, _config as config } from "../lib/index.js";
+import { mpesaHttpClient } from "../lib/httpclient.js";
+import { HttpClientError } from "@wannys-nails/packages";
 
 
 const log = logger.child({ module: "job:stk-push" });
@@ -23,20 +25,6 @@ interface DarajaSTKPushResponse {
 }
 
 // ─── Daraja helpers ──────────────────────────────────────────
-
-async function getAccessToken(): Promise<string> {
-  const { default: axios } = await import("axios");
-  const response = await axios.get(
-    "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials",
-    {
-      auth: {
-        username: config.DARAJA_CONSUMER_KEY,
-        password: config.DARAJA_CONSUMER_SECRET,
-      },
-    },
-  );
-  return response.data.access_token;
-}
 
 function generateTimestamp(): string {
   const now = new Date();
@@ -76,7 +64,7 @@ export async function stkPushProcessor(
     );
     return;
   }
-  if (payment.status === "PAID" || payment.status === "REFUNDED") {
+  if (payment.status === "SUCCESS"|| payment.status === "REFUNDED") {
     log.info(
       {
         event: "stk_push.job.already_resolved",
@@ -93,10 +81,9 @@ export async function stkPushProcessor(
   const { default: axios } = await import("axios");
 
   try {
-    const accessToken = await getAccessToken();
 
-    const response = await axios.post<DarajaSTKPushResponse>(
-      config.DARAJA_STK_PUSH_URL,
+    const response = await mpesaHttpClient.post<DarajaSTKPushResponse>(
+      "/mpesa/stkpush/v3/processrequest",
       {
         BusinessShortCode: config.DARAJA_SHORTCODE,
         Password: password,
@@ -109,11 +96,6 @@ export async function stkPushProcessor(
         CallBackURL: config.DARAJA_CALLBACK_URL,
         AccountReference: accountReference,
         TransactionDesc: "Booking payment",
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
       },
     );
 
@@ -138,7 +120,7 @@ export async function stkPushProcessor(
       where: { id: paymentId },
       data: {
         checkoutRequestId: CheckoutRequestID,
-        status: "PAYMENT_PENDING",
+        status: "PENDING",
         phoneNumber,
       },
     });
@@ -170,21 +152,21 @@ export async function stkPushProcessor(
       "STK Push initiated successfully",
     );
   } catch (error: unknown) {
-    const err = error as {
-      response?: { status?: number; data?: unknown };
-      message?: string;
-    };
-    log.error(
-      {
-        event: "stk_push.job.failed",
-        jobId: job.id,
-        bookingId,
-        status: err.response?.status,
-        response: err.response?.data,
-        error: err.message,
-      },
-      "STK Push request failed",
-    );
+    const err = error
+    if(err instanceof HttpClientError) {
+       log.error(
+         {
+           event: "stk_push.job.failed",
+           jobId: job.id,
+           bookingId,
+           status: err.status,
+           response: err.responseBody,
+           error: err.message,
+         },
+         "STK Push request failed",
+       );
+    }
+   
     throw error; // BullMQ will retry
   }
 }

@@ -5,7 +5,7 @@ CREATE TYPE "UserRole" AS ENUM ('OWNER', 'STAFF');
 CREATE TYPE "BookingStatus" AS ENUM ('PENDING', 'APPROVED', 'RESCHEDULED', 'COMPLETED', 'CANCELLED', 'NO_SHOW');
 
 -- CreateEnum
-CREATE TYPE "PaymentStatus" AS ENUM ('UNPAID', 'PAYMENT_PENDING', 'PAID', 'PAYMENT_FAILED', 'REFUNDED');
+CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'SUCCESS', 'FAILED', 'CANCELLED', 'EXPIRED', 'REFUNDED', 'RECONCILING');
 
 -- CreateEnum
 CREATE TYPE "NotificationType" AS ENUM ('BOOKING_CREATED', 'BOOKING_PENDING_CONFIRMATION', 'BOOKING_CONFIRMED', 'BOOKING_REJECTED', 'BOOKING_CANCELLED', 'BOOKING_RESCHEDULED', 'BOOKING_COMPLETED', 'BOOKING_NO_SHOW', 'APPOINTMENT_REMINDER', 'PAYMENT_REQUEST', 'PAYMENT_RECEIVED', 'PAYMENT_REFUNDED', 'PAYMENT_SUCCESS', 'PAYMENT_FAILED', 'PAYMENT_EXPIRED', 'REVIEW_RECEIPT', 'THANK_YOU', 'FEEDBACK_REQUEST', 'REVIEW_REQUEST');
@@ -86,7 +86,7 @@ CREATE TABLE "bookings" (
     "duration_minutes" INTEGER NOT NULL,
     "price_kes" INTEGER NOT NULL,
     "status" "BookingStatus" NOT NULL DEFAULT 'PENDING',
-    "payment_status" "PaymentStatus" NOT NULL DEFAULT 'UNPAID',
+    "payment_status" "PaymentStatus" NOT NULL DEFAULT 'PENDING',
     "notes" TEXT,
     "metadata" JSONB DEFAULT '{}',
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -117,7 +117,7 @@ CREATE TABLE "payments" (
     "booking_id" TEXT NOT NULL,
     "checkout_request_id" TEXT,
     "amount_kes" INTEGER NOT NULL,
-    "status" "PaymentStatus" NOT NULL DEFAULT 'UNPAID',
+    "status" "PaymentStatus" NOT NULL DEFAULT 'PENDING',
     "mpesa_receipt_number" TEXT,
     "phone_number" TEXT,
     "completed_at" TIMESTAMP(3),

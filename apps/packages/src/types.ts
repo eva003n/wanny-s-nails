@@ -82,8 +82,8 @@ export interface StkPushPayload {
 }
 
 export interface PaymentVerifyPayload {
-  bookingId: string;
-  paymentId: string;
+  resultCode: number;
+  rawCallback: string;
   checkoutRequestId: string;
 }
 

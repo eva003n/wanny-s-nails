@@ -18,38 +18,33 @@ const MAX_LIST_ROWS = 10; // WhatsApp Cloud API limit for interactive list messa
  */
 
 async function sendText(message: OutboundMessage): Promise<void> {
+
+  const phoneNumberId = config.WHATSAPP_PHONE_NUMBER_ID
   try {
     await whatsappHttpClient.post(
-      "/messages",
+     `${phoneNumberId}/messages`,
       {
         messaging_product: "whatsapp",
         to: message.to,
         type: "text",
         text: { body: message.text },
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${config.WHATSAPP_ACCESS_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-      },
+      }
     );
   } catch (error: unknown) {
-    const axiosError = error as {
-      response?: { status?: number; data?: unknown };
-      message?: string;
-    };
+    const axiosError = error
+  if( axiosError instanceof HttpClientError){
+   
     log.error(
       {
         event: "whatsapp.send.failed",
         to: message.to,
-        status: axiosError.response?.status,
-        error: axiosError.response?.data,
+        status: axiosError?.status,
+        error: axiosError.responseBody,
       },
       "Failed to send WhatsApp text message",
     );
-
-    throw axiosError.response?.data; // trigger retry logic
+  }
+    throw axiosError; // trigger retry logic
 
     // If rate limited (429), we could re-enqueue, but for simplicity log and drop
   }
@@ -87,7 +82,7 @@ async function sendInteractiveListMessage(message: OutboundMessage) {
 
   const phoneNumberId = config.WHATSAPP_PHONE_NUMBER_ID;
 
-  
+
   // Enforce WhatsApp's 10-row limit across all sections
   const totalRows = sections.reduce((sum, s) => sum + s.rows.length, 0);
   if (totalRows > MAX_LIST_ROWS) {
@@ -175,27 +170,20 @@ async function sendInteractiveButtonMessage(message: OutboundMessage) {
           },
         },
       },
-      {
-        headers: {
-          Authorization: `Bearer ${config.WHATSAPP_ACCESS_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-      },
     );
   } catch (error: unknown) {
-    const axiosError = error as {
-      response?: { status?: number; data?: unknown };
-      message?: string;
-    };
+    const axiosError = error
+  if( axiosError instanceof HttpClientError){
     log.error(
       {
         event: "whatsapp.send.button.failed",
         to: message.to,
-        status: axiosError.response?.status,
-        error: axiosError.response?.data,
+        status: axiosError.status,
+        error: axiosError.responseBody,
       },
       "Failed to send WhatsApp interactive button message",
     );
+  }
     throw error;
   }
 }
@@ -231,29 +219,22 @@ async function sendTemplate(template: WhatsAppTemplatePayload): Promise<void> {
               : [],
         },
       },
-      {
-        headers: {
-          Authorization: `Bearer ${config.WHATSAPP_ACCESS_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-      },
     );
   } catch (error: unknown) {
-    const axiosError = error as {
-      response?: { status?: number; data?: unknown };
-      message?: string;
-    };
+    const axiosError = error 
+  if( axiosError instanceof HttpClientError){
     log.error(
       {
         event: "whatsapp.send.template.failed",
         to: template.to,
         templateName: template.templateName,
-        status: axiosError.response?.status,
-        error: axiosError.response?.data,
+        status: axiosError.status,
+        error: axiosError.responseBody
       },
       "Failed to send WhatsApp template message",
     );
-    throw error;
+  }
+    throw axiosError;
   }
 }
 

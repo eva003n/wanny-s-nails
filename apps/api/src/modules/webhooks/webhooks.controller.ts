@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import { z } from "zod";
+import { string, z } from "zod";
 
 import crypto from "crypto";
 import { _config } from "../../shared/lib/index.js";
@@ -384,36 +384,37 @@ export const handleDaraja = asyncHandler(
       "M-Pesa callback received",
     );
 
-    // 1. Validate the callback payload with Zod (discriminated union for success/failure)
+   
+      // 1. Respond immediately to daraja
+    res.status(200).json({ ResultCode: 0, ResultDesc: "Accepted" });
+
+     // 2. Validate the callback payload with Zod (discriminated union for success/failure)
+
     const parsed = DarajaCallbackSchema.safeParse(req.body);
     if (!parsed.success) {
       log.warn(
         { event: "payment.callback.invalid_schema", error: parsed.error },
         "Invalid M-Pesa callback payload",
       );
-      // Always respond 200 to Daraja to prevent retries
-      res.status(200).json({ ResultCode: 0, ResultDesc: "Accepted" });
-      return;
+
     }
 
-    const resultCode = parsed.data.Body.stkCallback.ResultCode;
-    const checkoutRequestId = parsed.data.Body.stkCallback.CheckoutRequestID;
+  
 
-    // 2. Persist DB updates (existing service — unchanged)
-    await paymentsService.handleCallback(req.body);
+    const resultCode = parsed.data?.Body.stkCallback.ResultCode;
+    const checkoutRequestId = parsed.data?.Body.stkCallback.CheckoutRequestID;
 
-    // 3. Respond immediately to daraja
-    res.status(200).json({ ResultCode: 0, ResultDesc: "Accepted" });
 
-    // 4. Enqueue payment-callback job for asynchronous side effects (WhatsApp notifications)
+    // 3. Enqueue payment-callback job for asynchronous side effects (WhatsApp notifications)
     await paymentQueue.add(
-      "payment-callback",
+      JOB_NAMES.STK_CALLBACK,
       {
         resultCode,
         checkoutRequestId,
         rawCallback: req.body,
       },
       {
+        jobId:checkoutRequestId as string, // idempotency
         attempts: 3,
         backoff: { type: "exponential", delay: 5000 },
       },
@@ -423,5 +424,5 @@ export const handleDaraja = asyncHandler(
       { event: "payment.callback.enqueued", checkoutRequestId, resultCode },
       "Payment callback enqueued for processing",
     );
-  },
+  }
 );

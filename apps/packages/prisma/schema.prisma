@@ -29,11 +29,14 @@ enum BookingStatus {
 }
 
 enum PaymentStatus {
-  UNPAID
-  PAYMENT_PENDING
-  PAID
-  PAYMENT_FAILED
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+  EXPIRED
   REFUNDED
+  RECONCILING   // transient: callback received, side effects not yet committed
+
 }
 
 enum NotificationType {
@@ -174,7 +177,7 @@ model Booking {
   durationMinutes Int           @map("duration_minutes")
   priceKes        Int           @map("price_kes")
   status          BookingStatus @default(PENDING)
-  paymentStatus   PaymentStatus @default(UNPAID) @map("payment_status")
+  paymentStatus   PaymentStatus @default(PENDING) @map("payment_status")
   notes           String?
   metadata        Json?          @default("{}")    
   createdAt       DateTime      @default(now()) @map("created_at")
@@ -222,7 +225,7 @@ model Payment {
   bookingId          String        @unique @map("booking_id")
   checkoutRequestId  String?       @unique @map("checkout_request_id")
   amountKes          Int           @map("amount_kes")
-  status             PaymentStatus @default(UNPAID)
+  status             PaymentStatus @default(PENDING)
   mpesaReceiptNumber String?       @unique @map("mpesa_receipt_number")
   phoneNumber        String?       @map("phone_number")
   completedAt        DateTime?     @map("completed_at")

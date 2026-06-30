@@ -60,7 +60,7 @@ export async function handleBookingConfirmation(
     const serviceId = ctx.session.selectedService?.id;
     const appointmentAt = ctx.session.appointmentAt;
 
-    if (!customerId || !serviceId || !appointmentAt) {
+    if (!serviceId || !appointmentAt) {
       log.error(
         { event: "fsm.booking.missing_data", phone: ctx.phone },
         "Missing session data for booking confirmation",
@@ -86,12 +86,26 @@ export async function handleBookingConfirmation(
         throw new Error("ServiceInactive");
       }
 
-      const customer = await prisma.customer.findUnique({
-        where: { id: customerId },
-      });
-      if (!customer) {
-        throw new Error("CustomerNotFound");
+         const customerId = ctx.session.customerId
+
+      if(!customerId) {
+        // set collection phase 
+        ctx.session.collectionPhase = "NAME"
+        return {
+          messages: [
+            {
+              type: "text",
+              text: "To complete your booking, I'll need a few details\nWhat's your full name?",
+            },
+          ],
+          sessionUpdates: resetInvalidCount(ctx.session),
+          nextState: "DATA_COLLECTION",
+        };
+        
       }
+
+   
+
 
       const start = new Date(appointmentAt);
       const end = new Date(start.getTime() + service.durationMinutes * 60 * 1000);
@@ -103,7 +117,7 @@ export async function handleBookingConfirmation(
         throw new Error("SlotAlignment");
       }
 
-      // Check business hours
+     // Check business hours
       const dayOfWeek = start.getDay();
       const businessHours = await prisma.businessHours.findUnique({
         where: { dayOfWeek },
@@ -156,7 +170,7 @@ export async function handleBookingConfirmation(
           return tx.booking.create({
             data: {
               reference: generateReference(),
-              customerId,
+              customerId: customerId,
               serviceId,
               appointmentAt: start,
               durationMinutes: service.durationMinutes,

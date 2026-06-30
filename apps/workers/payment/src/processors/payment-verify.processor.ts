@@ -1,5 +1,6 @@
 import { type Job } from "bullmq";
 import { log as  logger, prisma, _config as config } from "../lib/index.js";
+import { mpesaHttpClient } from "../lib/httpclient.js";
 
 
 const log = logger.child({ module: "job:payment-verify" });
@@ -22,20 +23,6 @@ interface DarajaQueryResponse {
 }
 
 // ─── Daraja helpers ──────────────────────────────────────────
-
-async function getAccessToken(): Promise<string> {
-  const { default: axios } = await import("axios");
-  const response = await axios.get(
-    "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials",
-    {
-      auth: {
-        username: config.DARAJA_CONSUMER_KEY,
-        password: config.DARAJA_CONSUMER_SECRET,
-      },
-    },
-  );
-  return response.data.access_token;
-}
 
 function generateTimestamp(): string {
   const now = new Date();
@@ -91,15 +78,15 @@ export async function paymentVerifyProcessor(
     return;
   }
 
-  const { default: axios } = await import("axios");
+
   const timestamp = generateTimestamp();
   const password = generatePassword(timestamp);
 
   try {
-    const accessToken = await getAccessToken();
 
-    const response = await axios.post<DarajaQueryResponse>(
-      config.DARAJA_STK_QUERY_URL,
+
+    const response = await mpesaHttpClient.post<DarajaQueryResponse>(
+      "/mpesa/stkpushquery/v3/query",
       {
         BusinessShortCode: config.DARAJA_SHORTCODE,
         Password: password,

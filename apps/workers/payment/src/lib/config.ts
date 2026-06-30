@@ -26,6 +26,7 @@ const schema = z.object({
   DARAJA_STK_PUSH_URL: z.string().min(1, "DARAJA_STK_PUSH_URL is required"),
   DARAJA_STK_QUERY_URL: z.string().min(1, "DARAJA_STK_QUERY_URL is required"),
   DARAJA_CALLBACK_URL: z.string().default(""),
+  DARAJA_BASE_URL: z.url("DARAJA_BASE_URL is required"),
 });
 
 const parsed = schema.safeParse(process.env);
