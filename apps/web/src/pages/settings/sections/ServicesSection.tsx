@@ -29,7 +29,12 @@ import { CirclePlus } from "lucide-react";
 
 const ServiceFormSchema = z.object({
   name: z.string().min(2, "Service name is required"),
-  description: z.string().max(72).optional(),
+  description: z
+    .string()
+    .max(72, `Description must be 72 characters or less`)
+    .optional()
+    .or(z.literal("")),
+
   category: z.enum([
     "MANICURE",
     "PEDICURE",
