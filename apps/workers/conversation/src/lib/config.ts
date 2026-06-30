@@ -28,6 +28,7 @@ const schema = z.object({
   WHATSAPP_PHONE_NUMBER_ID: z
     .string()
     .min(1, "WHATSAPP_PHONE_NUMBER_ID is required"),
+  WHATSAPP_API_VERSION: z.string().default(""),
   // Database (required for Prisma)
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
 });
