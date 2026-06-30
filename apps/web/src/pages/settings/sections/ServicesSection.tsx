@@ -126,7 +126,13 @@ export default function ServicesSection() {
 
   const openAddSheet = () => {
     setEditingId(null);
-    reset({ name: "", description: "", category: "MANICURE", durationMinutes: 90, priceKes: 0 });
+    reset({
+      name: "",
+      description: "",
+      category: "MANICURE",
+      durationMinutes: 90,
+      priceKes: 0,
+    });
     setSheetOpen(true);
   };
 
@@ -191,11 +197,18 @@ export default function ServicesSection() {
 
   // ─── Loading ────────────────────────────────────────────────────────────
 
-  if (error) return <ErrorState message="Couldn't load services." onRetry={refetch} />;
+  if (error)
+    return <ErrorState message="Couldn't load services." onRetry={refetch} />;
 
   if (isLoading) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-12)" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "var(--space-12)",
+        }}
+      >
         {[1, 2, 3].map((i) => (
           <Card key={i}>
             <Skeleton shape="text" width="50%" height="16px" />
@@ -220,7 +233,11 @@ export default function ServicesSection() {
         />
         <AddEditSheet
           open={sheetOpen}
-          onClose={() => { setSheetOpen(false); setEditingId(null); reset(); }}
+          onClose={() => {
+            setSheetOpen(false);
+            setEditingId(null);
+            reset();
+          }}
           onSubmit={handleSubmit(onSubmit)}
           register={register}
           errors={errors}
@@ -238,8 +255,18 @@ export default function ServicesSection() {
   return (
     <>
       {/* Add button */}
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "var(--space-12)" }}>
-        <Button variant="secondary" onClick={openAddSheet} style={{ width: "auto", padding: "0 var(--space-16)" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          marginBottom: "var(--space-12)",
+        }}
+      >
+        <Button
+          variant="secondary"
+          onClick={openAddSheet}
+          style={{ width: "auto", padding: "0 var(--space-16)" }}
+        >
           + Add Service
         </Button>
       </div>
@@ -262,10 +289,22 @@ export default function ServicesSection() {
             >
               {CATEGORY_LABELS[cat]}
             </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-8)" }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "var(--space-8)",
+              }}
+            >
               {items.map((service) => (
                 <Card key={service.id}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
                     <div>
                       <p
                         style={{
@@ -287,10 +326,29 @@ export default function ServicesSection() {
                           fontVariantNumeric: "tabular-nums",
                         }}
                       >
-                        {service.durationMinutes} min · {formatKES(service.priceKes)}
+                        {service.durationMinutes} min ·{" "}
+                        {formatKES(service.priceKes)}
                       </p>
+                      {service.description && (
+                        <p
+                          style={{
+                            fontSize: "13px",
+                            lineHeight: "18px",
+                            color: "var(--color-text-tertiary)",
+                            margin: "var(--space-2) 0 0",
+                          }}
+                        >
+                          {service.description}
+                        </p>
+                      )}
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "var(--space-4)",
+                      }}
+                    >
                       <button
                         onClick={() => openEditSheet(service)}
                         style={{
@@ -339,7 +397,11 @@ export default function ServicesSection() {
       {/* Add / Edit sheet */}
       <AddEditSheet
         open={sheetOpen}
-        onClose={() => { setSheetOpen(false); setEditingId(null); reset(); }}
+        onClose={() => {
+          setSheetOpen(false);
+          setEditingId(null);
+          reset();
+        }}
         onSubmit={handleSubmit(onSubmit)}
         register={register}
         errors={errors}
@@ -388,11 +450,31 @@ export default function ServicesSection() {
               top: "30vh",
             }}
           >
-            <p style={{ fontSize: "17px", fontWeight: 600, color: "var(--color-text-primary)", margin: 0 }}>
+            <p
+              style={{
+                fontSize: "17px",
+                fontWeight: 600,
+                color: "var(--color-text-primary)",
+                margin: 0,
+              }}
+            >
               Delete service?
             </p>
-            <p style={{ fontSize: "15px", color: "var(--color-text-secondary)", margin: "var(--space-8) 0 var(--space-16)" }}>
-              This will remove the service from the list. It cannot be undone.
+            <p
+              style={{
+                fontSize: "15px",
+                color: "var(--color-text-secondary)",
+                margin: "var(--space-8) 0 var(--space-16)",
+              }}
+            >
+              {deletingId
+                ? (() => {
+                    const s = services.find((svc) => svc.id === deletingId);
+                    return s
+                      ? `"${s.name}"${s.description ? ` — ${s.description}` : ""} will be removed. It cannot be undone.`
+                      : "This will remove the service from the list. It cannot be undone.";
+                  })()
+                : "This will remove the service from the list. It cannot be undone."}
             </p>
             <div style={{ display: "flex", gap: "var(--space-8)" }}>
               <Button
@@ -402,10 +484,7 @@ export default function ServicesSection() {
               >
                 Delete
               </Button>
-              <Button
-                variant="secondary"
-                onClick={() => setDeletingId(null)}
-              >
+              <Button variant="secondary" onClick={() => setDeletingId(null)}>
                 Cancel
               </Button>
             </div>
@@ -421,7 +500,10 @@ export default function ServicesSection() {
 function extractErrorMessage(err: unknown): string | null {
   if (err && typeof err === "object") {
     // Axios error shape
-    const axiosErr = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
+    const axiosErr = err as {
+      response?: { data?: { error?: { message?: string } } };
+      message?: string;
+    };
     if (axiosErr.response?.data?.error?.message) {
       return axiosErr.response.data.error.message;
     }
@@ -459,8 +541,22 @@ function AddEditSheet({
   isPending: boolean;
 }) {
   return (
-    <BottomSheet open={open} onClose={onClose} title={isEditing ? "Edit Service" : "Add Service"}>
-      <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }} style={{ display: "flex", flexDirection: "column", gap: "var(--space-16)" }}>
+    <BottomSheet
+      open={open}
+      onClose={onClose}
+      title={isEditing ? "Edit Service" : "Add Service"}
+    >
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit();
+        }}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "var(--space-16)",
+        }}
+      >
         <Input
           label="Service name"
           type="text"
@@ -482,18 +578,28 @@ function AddEditSheet({
           >
             Category
           </label>
-          <div style={{ display: "flex", gap: "var(--space-8)", flexWrap: "wrap" }}>
+          <div
+            style={{ display: "flex", gap: "var(--space-8)", flexWrap: "wrap" }}
+          >
             {CATEGORY_ORDER.map((cat) => (
               <button
                 key={cat}
                 type="button"
-                onClick={() => setValue("category", cat, { shouldValidate: true })}
+                onClick={() =>
+                  setValue("category", cat, { shouldValidate: true })
+                }
                 style={{
                   padding: "var(--space-8) var(--space-16)",
                   borderRadius: "var(--radius-sm)",
                   border: `1.5px solid ${selectedCategory === cat ? "var(--color-primary)" : "var(--color-border)"}`,
-                  background: selectedCategory === cat ? "var(--color-primary-light)" : "var(--color-surface)",
-                  color: selectedCategory === cat ? "var(--color-primary-dark)" : "var(--color-text-secondary)",
+                  background:
+                    selectedCategory === cat
+                      ? "var(--color-primary-light)"
+                      : "var(--color-surface)",
+                  color:
+                    selectedCategory === cat
+                      ? "var(--color-primary-dark)"
+                      : "var(--color-text-secondary)",
                   fontSize: "14px",
                   fontWeight: 500,
                   cursor: "pointer",
@@ -505,12 +611,29 @@ function AddEditSheet({
             ))}
           </div>
           {errors.category && (
-            <p style={{ fontSize: "13px", color: "var(--color-error)", marginTop: "var(--space-4)" }}>
+            <p
+              style={{
+                fontSize: "13px",
+                color: "var(--color-error)",
+                marginTop: "var(--space-4)",
+              }}
+            >
               {errors.category.message}
             </p>
           )}
         </div>
 
+        {/* Description */}
+        <div>
+          <div style={{ flex: 1 }}>
+            <Input
+              label="Description (min 72 characters)"
+              type="text"
+              {...register("description",)}
+              error={errors.description?.message}
+            />
+          </div>
+        </div>
         {/* Duration & Price */}
         <div style={{ display: "flex", gap: "var(--space-16)" }}>
           <div style={{ flex: 1 }}>
