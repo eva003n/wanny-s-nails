@@ -57,7 +57,7 @@ function buildServiceListMessage(
           rows: services.map((s, i) => ({
             id: String(i + 1),
             title: truncateTitle(s.name),
-            description: buildServiceDescription(s),
+            description: s.description ?? "",
           })),
         },
       ],
