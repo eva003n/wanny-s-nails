@@ -42,4 +42,4 @@ const worker = createWorker<PaymentJobData>(
 
 // ─── Graceful Shutdown ────────────────────────────────────────
 
-registerGracefulShutdown([worker]);
+registerGracefulShutdown([worker], log);

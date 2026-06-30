@@ -116,7 +116,7 @@ const notificationWorker = createWorker<NotificationJobData>(
 
 // ─── Graceful Shutdown ────────────────────────────────────────
 
-registerGracefulShutdown([notificationWorker, whatAppWorker]);
+registerGracefulShutdown([notificationWorker, whatAppWorker], log);
 
 log.info(
   {
