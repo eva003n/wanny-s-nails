@@ -29,16 +29,16 @@ import { CirclePlus } from "lucide-react";
 
 const ServiceFormSchema = z.object({
   name: z.string().min(2, "Service name is required"),
-  description: z.string().optional(),
+  description: z.string().max(72).optional(),
   category: z.enum([
     "MANICURE",
     "PEDICURE",
     "ENHANCEMENTS",
-    "NAIL_ART",
-    "EXTENSIONS",
+    // "NAIL_ART",
+    // "EXTENSIONS",
     "REMOVAL",
-    "REPAIR",
-    "TREATMENT",
+    // "REPAIR",
+    // "TREATMENT",
   ]),
   durationMinutes: z.number().int().min(15, "Minimum 15 minutes").max(480),
   priceKes: z.number().int().min(1, "Price is required"),
@@ -56,22 +56,22 @@ const CATEGORY_LABELS: Record<ServiceCategory, string> = {
   MANICURE: "Manicure",
   PEDICURE: "Pedicure",
   ENHANCEMENTS: "Enhancements",
-  NAIL_ART: "Nail Art",
-  EXTENSIONS: "Extensions",
+  // NAIL_ART: "Nail Art",
+  // EXTENSIONS: "Extensions",
   REMOVAL: "Removal",
-  REPAIR: "Repair",
-  TREATMENT: "Treatment",
+  // REPAIR: "Repair",
+  // TREATMENT: "Treatment",
 };
 
 const CATEGORY_ORDER: ServiceCategory[] = [
   "MANICURE",
   "PEDICURE",
   "ENHANCEMENTS",
-  "NAIL_ART",
-  "EXTENSIONS",
+  // "NAIL_ART",
+  // "EXTENSIONS",
   "REMOVAL",
-  "REPAIR",
-  "TREATMENT",
+  // "REPAIR",
+  // "TREATMENT",
 ];
 
 function formatKES(amount: number): string {

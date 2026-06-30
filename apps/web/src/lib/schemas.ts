@@ -34,11 +34,11 @@ export const ServiceCategorySchema = z.enum([
   "MANICURE",
   "PEDICURE",
   "ENHANCEMENTS",
-  "NAIL_ART",
-  "EXTENSIONS",
+  // "NAIL_ART",
+  // "EXTENSIONS",
   "REMOVAL",
-  "REPAIR",
-  "TREATMENT",
+  // "REPAIR",
+  // "TREATMENT",
 ]);
 export type ServiceCategory = z.infer<typeof ServiceCategorySchema>;
 

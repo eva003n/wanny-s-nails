@@ -36,11 +36,11 @@ export async function handleCategorySelection(
   const input = ctx.message.trim();
   const categoriesRaw = await prisma.nailService.findMany({
     where: { isActive: true },
-    select: { category: true },
+    select: { category: true, description: true },
     distinct: ["category"],
     orderBy: { category: "asc" },// alphabetically
   });
-  const categories = categoriesRaw.map((c: { category: string }) => c.category);
+  const categories = categoriesRaw.map((c) => c);
 
   // no services available
   if (categories.length === 0) {
@@ -71,7 +71,7 @@ export async function handleCategorySelection(
       messages: [],
       sessionUpdates: {
         ...resetInvalidCount(ctx.session),
-        selectedCategory: selectedCategory as ServiceCategory,
+        selectedCategory: selectedCategory.category,
       },
       nextState: "SERVICE_SELECTION",
     };
@@ -81,7 +81,7 @@ export async function handleCategorySelection(
   const newSession = incrementInvalidCount(ctx.session);
 
   return {
-    messages: [buildCategoryListMessage(categories as ServiceCategory[])],
+    messages: [buildCategoryListMessage(categories)],
     sessionUpdates: newSession,
     nextState: "CATEGORY_SELECTION",
   };
@@ -93,8 +93,12 @@ export async function handleCategorySelection(
  * We use a list instead of buttons because WhatsApp limits button messages to
  * 3 buttons max, but a salon may have more categories.
  */
+type Services = {
+  description: string | null;
+  category: ServiceCategory;
+};
 function buildCategoryListMessage(
-  categories: ServiceCategory[],
+  categories: Services[],
 ): StateTransitionResult["messages"][0] {
   return {
     type: "interactive_list",
@@ -106,7 +110,8 @@ function buildCategoryListMessage(
         title: "Categories",
         rows: categories.map((cat, i) => ({
           id: String(i + 1),
-          title: CATEGORY_LABELS[cat] ?? cat,
+          title: CATEGORY_LABELS[cat.category] ?? cat,
+          description: cat.description || ""
         })),
       },
     ],
