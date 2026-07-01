@@ -22,7 +22,7 @@ router.get("/", authenticate, validate({query: paymentsController.paymentQuerySc
 // GET /api/v1/payments/:id
 router.get("/:id", authenticate, validate({params: paymentsController.paymentParamSchema}), paymentsController.getPaymentById);
 
-// POST /api/v1/payments/mpesa-callback — public, validated by IP
-router.post("/stk-callback", paymentsController.handleMpesaCallback);
+// M-Pesa callbacks are now handled by POST /api/v1/webhooks/daraja
+// This route is kept for backwards compatibility but should forward
 
 export { router as paymentsRoutes };

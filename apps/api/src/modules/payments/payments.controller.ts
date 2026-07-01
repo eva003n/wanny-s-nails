@@ -70,9 +70,6 @@ export const getPaymentById = asyncHandler(
   },
 );
 
-export const handleMpesaCallback = asyncHandler(
-  async (req: Request, res: Response, _next: NextFunction) => {
-    await paymentsService.handleCallback(req.body);
-    success(res, { ResultCode: 0, ResultDesc: "Accepted" });
-  },
-);
+// Callback handling is now in webhooks.controller.ts::handleDaraja
+// This endpoint is deprecated — all MPesa callbacks go through
+// POST /api/v1/webhooks/daraja

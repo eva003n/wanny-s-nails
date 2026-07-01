@@ -1,8 +1,8 @@
+import { JOB_NAMES } from "@wannys-nails/packages";
 import { prisma, type Prisma } from "../../shared/lib/index.js";
 
 import { paymentQueue } from "../../shared/lib/index.js";
 import { logger } from "../../shared/lib/logger.js";
-
 
 const log = logger.child({ module: "payments" });
 import { PaymentFailedError, PaymentNotAllowedError, NotFoundError } from "../../shared/types/errors.js";
@@ -22,31 +22,43 @@ export const paymentsService = {
       throw new PaymentNotAllowedError("Booking must be in APPROVED status to initiate payment");
     }
 
-    if (booking.payment?.status === "PAID" || booking.payment?.status === "REFUNDED") {
+    // Check if there's an existing payment that's already resolved
+    if (booking.payment?.status === "SUCCESS" || booking.payment?.status === "REFUNDED") {
       throw new PaymentNotAllowedError("Booking already has a completed payment");
     }
 
-    // Ensure payment record exists
+    // If there's an existing failed/cancelled/expired payment, reset it to PENDING
     let payment = booking.payment;
     if (!payment) {
       payment = await prisma.payment.create({
         data: {
           bookingId,
           amountKes: booking.priceKes,
-          status: "UNPAID",
+          status: "PENDING",
         },
+      });
+    } else if (["FAILED", "CANCELLED", "EXPIRED"].includes(payment.status)) {
+      // Reset for retry
+      payment = await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: "PENDING",
+          checkoutRequestId: null,
+          phoneNumber,
+          failureReason: null,
+        },
+      });
+    } else {
+      // Already PENDING — update phone number
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: { phoneNumber },
       });
     }
 
-    // Update status to PAYMENT_PENDING immediately
-    await prisma.payment.update({
-      where: { id: payment.id },
-      data: { status: "PAYMENT_PENDING", phoneNumber },
-    });
-
     // Enqueue STK Push job to BullMQ (async processing)
     const job = await paymentQueue.add(
-      "stk-push",
+      JOB_NAMES.STK_PUSH,
       {
         bookingId,
         paymentId: payment.id,
@@ -162,110 +174,5 @@ export const paymentsService = {
       include: { transactions: true },
     });
   },
-
-  async handleCallback(callbackBody: Record<string, unknown>) {
-    const body = callbackBody as { Body?: { stkCallback?: Record<string, unknown> } };
-    const stkCallback = body.Body?.stkCallback ?? {};
-    const checkoutRequestId = stkCallback.CheckoutRequestID as string;
-    const resultCode = stkCallback.ResultCode as number;
-    const resultDesc = stkCallback.ResultDesc as string;
-
-    // find related payment 
-    const payment = await prisma.payment.findUnique({
-      where: { checkoutRequestId },
-    });
-
-    if (!payment) {
-      log.warn({ event: "payment.callback.not_found", checkoutRequestId }, "Payment not found for callback");
-      return;
-    }
-
-    if (payment.status === "PAID" || payment.status === "REFUNDED") {
-      return;
-    }
-
-    if (resultCode === 0) {
-      const metadata = stkCallback.CallbackMetadata as { Item: Array<{ Name: string; Value: unknown }> };
-      const mpesaReceiptNumber = metadata?.Item?.find((i) => i.Name === "MpesaReceiptNumber")?.Value as string;
-      const amount = metadata?.Item?.find((i) => i.Name === "Amount")?.Value as number;
-      const transactionDate = metadata?.Item?.find((i) => i.Name === "TransactionDate")?.Value as string;
-
-      if (amount && amount !== payment.amountKes) {
-        log.warn({ event: "payment.callback.amount_mismatch", expected: payment.amountKes, received: amount }, "Payment amount mismatch — DISPUTED");
-      }
-
-      await prisma.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: "PAID",
-          mpesaReceiptNumber,
-          completedAt: transactionDate ? new Date(transactionDate) : new Date(),
-        },
-      });
-
-      await prisma.booking.update({
-        where: { id: payment.bookingId },
-        data: { paymentStatus: "PAID" },
-      });
-
-      const attemptCount = await prisma.paymentTransaction.count({
-        where: { paymentId: payment.id },
-      });
-
-      await prisma.paymentTransaction.create({
-        data: {
-          paymentId: payment.id,
-          attemptNumber: attemptCount + 1,
-          checkoutRequestId,
-          resultCode,
-          resultDesc,
-          mpesaReceiptNumber,
-          rawCallback: JSON.parse(JSON.stringify(callbackBody)),
-        },
-      });
-    } else {
-      const failureReason = getFailureReason(resultCode);
-
-      await prisma.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: "PAYMENT_FAILED",
-          failureReason,
-        },
-      });
-
-      await prisma.booking.update({
-        where: { id: payment.bookingId },
-        data: { paymentStatus: "PAYMENT_FAILED" },
-      });
-
-      const attemptCount = await prisma.paymentTransaction.count({
-        where: { paymentId: payment.id },
-      });
-
-      await prisma.paymentTransaction.create({
-        data: {
-          paymentId: payment.id,
-          attemptNumber: attemptCount + 1,
-          checkoutRequestId,
-          resultCode,
-          resultDesc,
-          rawCallback: callbackBody as unknown as Prisma.InputJsonValue,
-        },
-      });
-    }
-  },
 };
 
-function getFailureReason(code: number): string {
-  const reasons: Record<number, string> = {
-    1: "Insufficient funds",
-    1032: "Request cancelled by user",
-    1037: "DS timeout",
-    2001: "Invalid credentials",
-    2026: "Amount less than minimum",
-    17: "Insufficient funds",
-    26: "System busy",
-  };
-  return reasons[code] ?? `Daraja error code: ${code}`;
-}
