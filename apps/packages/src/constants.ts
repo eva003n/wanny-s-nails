@@ -17,8 +17,17 @@ export const JOB_NAMES = {
   EMAIL: "send-email",
   FSM_IN: "whatsapp-inbound",
   FSM_OUT: "whatsapp-outbound",
+
+  // Payments
   STK_PUSH: "stk-push",
   STK_CALLBACK: "stk-callback",
-  PUSH_NOTIFICATION: "send-push"
+  STK_TIMEOUT_CHECK: "payment-timeout-check",
+  STK_RECONCILIATION: "payment_reconciliation",
+  // Notifications
+  PAYMENT_CONFIRMATION: "whatsapp-payment-confirmed",
+  PAYMENT_FAILURE: "whatsapp-payment-failed",
+  PAYMENT_RETRY: "payment-retry-prompt",
+  PAYMENT_EXPIRED: "payment-expired-notification",
+  PUSH_NOTIFICATION: "send-push",
 } as const;
 
