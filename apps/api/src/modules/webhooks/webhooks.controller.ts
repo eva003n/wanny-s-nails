@@ -384,44 +384,41 @@ export const handleDaraja = asyncHandler(
       "M-Pesa callback received",
     );
 
-   
-      // 1. Respond immediately to daraja
+    // 1. Respond immediately to Daraja — acknowledge before processing
     res.status(200).json({ ResultCode: 0, ResultDesc: "Accepted" });
 
-     // 2. Validate the callback payload with Zod (discriminated union for success/failure)
-
+    // 2. Validate the callback payload with Zod
     const parsed = DarajaCallbackSchema.safeParse(req.body);
     if (!parsed.success) {
       log.warn(
         { event: "payment.callback.invalid_schema", error: parsed.error },
         "Invalid M-Pesa callback payload",
       );
-
+      return;
     }
 
-  
+    const { stkCallback } = parsed.data.Body;
+    const { CheckoutRequestID, ResultCode } = stkCallback;
 
-    const resultCode = parsed.data?.Body.stkCallback.ResultCode;
-    const checkoutRequestId = parsed.data?.Body.stkCallback.CheckoutRequestID;
-
-
-    // 3. Enqueue payment-callback job for asynchronous side effects (WhatsApp notifications)
+    // 3. Enqueue payment-callback job for async processing
+    //    The worker handles all DB mutations and side effects inside a
+    //    transaction — never mutate payment state inline in the HTTP handler.
     await paymentQueue.add(
       JOB_NAMES.STK_CALLBACK,
       {
-        resultCode,
-        checkoutRequestId,
-        rawCallback: req.body,
+        checkoutRequestId: CheckoutRequestID,
+        resultCode: ResultCode,
+        rawCallback: req.body, // pass full body for metadata extraction
       },
       {
-        jobId:checkoutRequestId as string, // idempotency
+        jobId: CheckoutRequestID, // idempotency: Daraja may redeliver
         attempts: 3,
         backoff: { type: "exponential", delay: 5000 },
       },
     );
 
     log.info(
-      { event: "payment.callback.enqueued", checkoutRequestId, resultCode },
+      { event: "payment.callback.enqueued", checkoutRequestId: CheckoutRequestID, resultCode: ResultCode },
       "Payment callback enqueued for processing",
     );
   }
