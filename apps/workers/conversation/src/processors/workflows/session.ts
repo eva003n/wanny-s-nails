@@ -5,7 +5,7 @@
 import { redis } from "../../lib/redis.js";
 import type { ConversationSession } from "./types.js";
 
-const SESSION_TTL = 1800; // 30 minutes in seconds
+const SESSION_TTL = 1800; // 30 minutes in seconds(only remember unregistered user last conversation state for 30 minutes)
 const SESSION_PREFIX = "session:";
 
 

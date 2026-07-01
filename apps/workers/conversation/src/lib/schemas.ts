@@ -2,9 +2,14 @@ import { z } from "zod";
 
 /**
  * Common WhatsApp text object
+  "text": {
+    "preview_url": <ENABLE_LINK_PREVIEW>,
+    "body": "<BODY_TEXT>"
+  }
  */
 export const WhatsAppTextSchema = z.object({
-  text: z.string().min(1).max(1024),
+  preview_url: z.boolean().default(false).optional(),
+  body: z.string().min(1).max(4096),
 });
 
 /**
