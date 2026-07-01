@@ -1,3 +1,4 @@
+import { log, prisma } from "../lib/index.js";
 
 
 async function processMpesaCallback(body: DarajaCallbackBody) {
@@ -12,7 +13,7 @@ async function processMpesaCallback(body: DarajaCallbackBody) {
   });
 
   if (!payment) {
-    logger.warn(
+    log.warn(
       { CheckoutRequestID },
       "Callback for unknown CheckoutRequestID",
     );
@@ -57,7 +58,7 @@ async function processMpesaCallback(body: DarajaCallbackBody) {
             failureReason: `Amount mismatch: expected ${payment.amountKes}, received ${amount}`,
           },
         });
-        await alertOwner("PAYMENT_AMOUNT_MISMATCH", payment);
+        //await alertOwner("PAYMENT_AMOUNT_MISMATCH", payment);
         return;
       }
 
@@ -77,7 +78,7 @@ async function processMpesaCallback(body: DarajaCallbackBody) {
       await tx.payment.update({
         where: { id: payment.id },
         data: {
-          status: "PAID",
+          status: "SUCCESS",
           mpesaReceiptNumber: receiptNumber,
           completedAt: parseDarajaDate(transactionDate),
         },
@@ -102,7 +103,7 @@ async function processMpesaCallback(body: DarajaCallbackBody) {
       await tx.payment.update({
         where: { id: payment.id },
         data: {
-          status: "PAYMENT_FAILED",
+          status: "FAILED",
           failureReason: `ResultCode ${ResultCode}: ${ResultDesc}`,
         },
       });
