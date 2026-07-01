@@ -31,7 +31,7 @@ async function getAccessToken() {
 
     if(existingToken) return existingToken;
 
-    const response = axios.get<{}, AxiosResponse< AuthResponse>, {}>(`${config.DARAJA_BASE_URL}/oauth/v1/generate`, {
+    const response = await axios.get<{}, AxiosResponse< AuthResponse>, {}>(`${config.DARAJA_BASE_URL}/oauth/v1/generate`, {
         headers: {
            Authorization: `Basic ${clientCredentials}`
         }, 
@@ -40,7 +40,7 @@ async function getAccessToken() {
         }
     })
 
-    const {data} = authResponseSchema.safeParse(response)
+    const {data} = authResponseSchema.safeParse(response.data)
 
     const token = data?.access_token
     const expiresIn = data?.expires_in
