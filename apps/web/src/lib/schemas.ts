@@ -13,10 +13,11 @@ export const BookingStatusSchema = z.enum([
 export type BookingStatus = z.infer<typeof BookingStatusSchema>;
 
 export const PaymentStatusSchema = z.enum([
-  "UNPAID",
-  "PAYMENT_PENDING",
-  "PAID",
-  "PAYMENT_FAILED",
+  "PENDING",
+  "SUCCESS",
+  "FAILED",
+  "CANCELLED",
+  "EXPIRED",
   "REFUNDED",
 ]);
 export type PaymentStatus = z.infer<typeof PaymentStatusSchema>;
@@ -61,13 +62,7 @@ export type ServiceRef = z.infer<typeof ServiceRefSchema>;
 
 export const PaymentSchema = z.object({
   id: z.string().uuid(),
-  status: z.enum([
-    "UNPAID",
-    "PAYMENT_PENDING",
-    "PAID",
-    "PAYMENT_FAILED",
-    "REFUNDED",
-  ]),
+  status: PaymentStatusSchema,
   mpesaReceiptNumber: z.string().nullable(),
   amountKes: z.number().int().positive(),
   createdAt: z.string().datetime(),
@@ -110,21 +105,8 @@ export type AvailableSlotsResponse = z.infer<
 export const BookingSchema = z.object({
   id: z.string().uuid(),
   reference: z.string(),
-  status: z.enum([
-    "PENDING",
-    "APPROVED",
-    "CANCELLED",
-    "COMPLETED",
-    "NO_SHOW",
-    "RESCHEDULED",
-  ]),
-  paymentStatus: z.enum([
-    "UNPAID",
-    "PAYMENT_PENDING",
-    "PAID",
-    "PAYMENT_FAILED",
-    "REFUNDED",
-  ]),
+  status: BookingStatusSchema,
+  paymentStatus: PaymentStatusSchema,
   appointmentAt: z.string().datetime(),
   priceKes: z.number().int().positive(),
   durationMinutes: z.number().int().positive(),
@@ -225,13 +207,7 @@ export const PaymentTransactionSchema = z.object({
   }),
   customer: CustomerRefSchema,
   amountKes: z.number().int().positive(),
-  status: z.enum([
-    "UNPAID",
-    "PAYMENT_PENDING",
-    "PAID",
-    "PAYMENT_FAILED",
-    "REFUNDED",
-  ]),
+  status: PaymentStatusSchema,
   mpesaReceiptNumber: z.string().nullable(),
   method: z.enum(["MPESA", "CASH"]),
   createdAt: z.string(),

@@ -421,98 +421,818 @@ async function sendWhatsAppNotification(job: Job<NotificationJobData>) {
 
 ## 7. PWA Push Delivery (admin-facing)
 
-Standard Web Push, but prod-grade means handling the edge cases:
 
-```javascript
-// apps/web/public/sw.js
-self.addEventListener('push', (event) => {
-  const data = event.data.json();
-  event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: '/icons/icon-192.png',
-      data: { url: data.url },
-      tag: data.notificationId, // collapses duplicate notifications for the same event
-    })
-  );
-});
+> **Stack:** Vite PWA (`vite-plugin-pwa` + Workbox), React 19, TypeScript, VAPID via `web-push`
+> **Target:** Admin PWA, mobile-first (iPhone Safari + Android Chrome), desktop Chrome/Edge
 
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  event.waitUntil(clients.openWindow(event.notification.data.url));
-});
+---
 
-self.addEventListener('pushsubscriptionchange', (event) => {
-  event.waitUntil(
-    self.registration.pushManager
-      .subscribe(event.oldSubscription.options)
-      .then((newSub) => fetch('/api/v1/push-subscriptions/refresh', {
-        method: 'POST',
-        body: JSON.stringify(newSub),
-      }))
-  );
+## What the original implementation was missing
+
+| Gap | Risk |
+|---|---|
+| No `vite-plugin-pwa` config — SW not integrated with Vite build pipeline | SW not registered in prod build; push never works after `vite build` |
+| No iOS/Safari handling — `pushManager` doesn't exist on iOS < 16.4 | Silent failure; admin gets no notifications on iPhone |
+| `clients.openWindow` without checking existing windows first | Opens a second tab every click on iOS (which doesn't allow multiple windows in standalone mode) |
+| `pushsubscriptionchange` doesn't send auth headers | Re-subscription silently rejected by API (401) |
+| No `applicationServerKey` in `pushManager.subscribe` | Chrome rejects subscription without VAPID public key |
+| `loadRenderedPayload(notificationId)` inside `Promise.allSettled` | N DB reads for N subscriptions — should render once, fan out |
+| No badge management or `navigator.clearAppBadge` | Badge count accumulates forever on iOS home screen icon |
+| No `renotify: true` on same-`tag` updates that should re-alert | Important updates silently replace old notification with no sound/vibration |
+| No `vibrate` or `silent` distinction | All notifications vibrate equally — low priority events shouldn't interrupt |
+| No permission state check before subscription attempt | Throws on iOS if called before user gesture |
+
+---
+
+## 1. Vite PWA Config
+
+```typescript
+// vite.config.ts
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import { VitePWA } from "vite-plugin-pwa";
+
+export default defineConfig({
+  plugins: [
+    react(),
+    VitePWA({
+      // "injectRegister: 'auto'" handles SW registration in main bundle.
+      // Use 'prompt' if you want manual control over update prompts.
+      registerType: "autoUpdate",
+      injectRegister: "auto",
+
+      // Don't use generateSW — we need a custom SW for push event handling.
+      // Workbox can't generate push listeners; it only handles fetch/cache.
+      strategies: "injectManifest",
+      srcDir: "src/sw",
+      filename: "sw.ts",          // your custom SW source
+      injectManifest: {
+        // Workbox will inject the precache manifest into your custom SW
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        globIgnores: ["**/node_modules/**"],
+      },
+
+      manifest: {
+        name: "Wanny's Nails — Admin",
+        short_name: "Wanny Admin",
+        description: "Booking and operations dashboard",
+        theme_color: "#1a1a2e",           // match your design tokens
+        background_color: "#ffffff",
+        display: "standalone",
+        orientation: "portrait",          // admin app is portrait-primary on mobile
+        start_url: "/admin",
+        scope: "/admin",
+        id: "/admin",                     // PWA identity — prevents duplicate installs
+        icons: [
+          { src: "/icons/icon-192.png",  sizes: "192x192",  type: "image/png" },
+          { src: "/icons/icon-512.png",  sizes: "512x512",  type: "image/png" },
+          // maskable icon required for adaptive icon on Android
+          { src: "/icons/icon-512-maskable.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+          // Apple touch icon — Safari uses this for home screen, ignores manifest icons
+          { src: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+        ],
+        screenshots: [
+          // Required for Chrome's "Add to Home Screen" install prompt on Android
+          { src: "/screenshots/dashboard.png", sizes: "390x844", type: "image/png", form_factor: "narrow" },
+        ],
+      },
+
+      devOptions: {
+        // Enable SW in dev so you can test push without a prod build.
+        // SW runs in dev mode with no caching — fetch passthrough only.
+        enabled: true,
+        type: "module",
+      },
+    }),
+  ],
 });
 ```
 
+---
+
+## 2. index.html — Required Meta Tags for iOS
+
+Vite PWA injects the manifest link automatically, but iOS Safari requires these additional meta tags in `index.html`. Without them, Safari ignores the manifest entirely.
+
+```html
+<!-- index.html -->
+<head>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Wanny Admin" />
+
+  <!-- Apple touch icons — Safari won't use the manifest icons -->
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+
+  <!-- iOS splash screens — one per device resolution you care about -->
+  <!-- iPhone 15 Pro Max -->
+  <link rel="apple-touch-startup-image"
+        media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)"
+        href="/splash/splash-1290x2796.png" />
+  <!-- iPhone 15 / 14 -->
+  <link rel="apple-touch-startup-image"
+        media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)"
+        href="/splash/splash-1170x2532.png" />
+</head>
+```
+
+---
+
+## 3. Service Worker (`src/sw/sw.ts`)
+
+This is the custom SW source. Vite PWA (`injectManifest` strategy) compiles this file and injects the Workbox precache manifest into it at build time.
+
 ```typescript
-// apps/workers/notification/src/processors/push-sender.ts
-async function sendPushNotification(job: Job<NotificationJobData>) {
-  const { notificationId, endpoint } = job.data;
-  
-  // Look up all active subscriptions for this admin user
-  const subscriptions = await db.pushSubscription.findMany({
-    where: { userId: endpoint.address, isActive: true },
+/// <reference lib="WebWorker" />
+/// <reference types="vite-plugin-pwa/client" />
+import { clientsClaim, setCacheNameDetails } from "workbox-core";
+import { precacheAndRoute, cleanupOutdatedCaches } from "workbox-precaching";
+import { registerRoute, NavigationRoute } from "workbox-routing";
+import { NetworkFirst, CacheFirst, StaleWhileRevalidate } from "workbox-strategies";
+import { ExpirationPlugin } from "workbox-expiration";
+
+declare const self: ServiceWorkerGlobalScope;
+
+// Take control of all pages immediately on activation.
+// Without this, the new SW waits for all tabs to close before activating.
+clientsClaim();
+self.skipWaiting();
+
+setCacheNameDetails({ prefix: "wanny-admin" });
+
+// Workbox injects the precache manifest here at build time
+precacheAndRoute(self.__WB_MANIFEST);
+cleanupOutdatedCaches();
+
+// --- Routing strategies ---
+
+// API calls: network-first with a 10s timeout, fall back to cache
+// (covers the admin viewing bookings while briefly offline)
+registerRoute(
+  ({ url }) => url.pathname.startsWith("/api/"),
+  new NetworkFirst({
+    cacheName: "api-cache",
+    networkTimeoutSeconds: 10,
+    plugins: [new ExpirationPlugin({ maxEntries: 100, maxAgeSeconds: 60 * 5 })],
+  })
+);
+
+// Static assets: cache-first (they're versioned by Vite)
+registerRoute(
+  ({ request }) => ["style", "script", "worker"].includes(request.destination),
+  new CacheFirst({ cacheName: "static-assets" })
+);
+
+// Images: stale-while-revalidate
+registerRoute(
+  ({ request }) => request.destination === "image",
+  new StaleWhileRevalidate({
+    cacheName: "images",
+    plugins: [new ExpirationPlugin({ maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 30 })],
+  })
+);
+
+// Navigation: serve shell from cache, let React Router handle routing
+registerRoute(
+  new NavigationRoute(
+    new NetworkFirst({ cacheName: "html-cache", networkTimeoutSeconds: 3 })
+  )
+);
+
+// --- Push event ---
+
+self.addEventListener("push", (event) => {
+  // Never assume event.data exists — pushes can be sent with no payload
+  // (called "empty push" or "tickle") to tell the SW to fetch fresh data.
+  if (!event.data) {
+    event.waitUntil(handleTicklePush());
+    return;
+  }
+
+  let data: PushPayload;
+  try {
+    data = event.data.json() as PushPayload;
+  } catch {
+    console.error("[SW] Failed to parse push payload");
+    return;
+  }
+
+  event.waitUntil(showNotification(data));
+});
+
+async function showNotification(data: PushPayload) {
+  // Don't show if a focused window is already on the target URL —
+  // avoids notifying the admin about a booking they're looking at.
+  const windowClients = await self.clients.matchAll({
+    type: "window",
+    includeUncontrolled: true,
+  });
+  const focused = windowClients.find(
+    (c) => c.visibilityState === "visible" && c.url.includes(data.url ?? "")
+  );
+  if (focused) return;
+
+  const options: NotificationOptions = {
+    body: data.body,
+    icon: "/icons/icon-192.png",
+    badge: "/icons/badge-96.png",  // monochrome icon shown in Android status bar
+    tag: data.tag,
+    data: { url: data.url, notificationId: data.notificationId },
+
+    // Vibration — distinguish priority levels
+    ...(data.priority === "high"
+      ? { vibrate: [200, 100, 200], requireInteraction: true }
+      : { vibrate: [100], requireInteraction: false }),
+
+    // renotify: true makes a same-tag notification re-alert (sound + vibrate)
+    // even if it's replacing an existing one. Use for status updates that
+    // the admin needs to know changed (e.g. payment received after pending).
+    renotify: data.renotify ?? false,
+
+    // Actions (shown as buttons below the notification body on Android)
+    // iOS ignores these — don't rely on them for critical flows
+    actions: data.actions ?? [],
+
+    // Timestamp for the notification drawer (shows relative time: "2 min ago")
+    timestamp: Date.now(),
+  };
+
+  await self.registration.showNotification(data.title, options);
+
+  // Update badge count — iOS 16.4+ and Chrome Android
+  if ("setAppBadge" in self.navigator) {
+    const current = await getStoredBadgeCount();
+    await (self.navigator as any).setAppBadge(current + 1);
+    await storeNewBadgeCount(current + 1);
+  }
+}
+
+// Empty push: SW fetches fresh notification count and updates the badge.
+// Server sends this after reading a notification to clear the badge.
+async function handleTicklePush() {
+  try {
+    const res = await fetch("/api/v1/admin/notifications/unread-count", {
+      credentials: "include",
+    });
+    const { count } = await res.json();
+
+    if ("setAppBadge" in self.navigator) {
+      count > 0
+        ? await (self.navigator as any).setAppBadge(count)
+        : await (self.navigator as any).clearAppBadge();
+    }
+    await storeBadgeCount(count);
+  } catch {
+    // Offline — skip badge update
+  }
+}
+
+// --- Notification click ---
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  const url = event.notification.data?.url ?? "/admin";
+  const action = event.action; // which action button was tapped, if any
+
+  if (action === "dismiss") return; // explicit dismiss — do nothing
+
+  event.waitUntil(handleNotificationClick(url, event.notification.data?.notificationId));
+});
+
+async function handleNotificationClick(url: string, notificationId?: string) {
+  const windowClients = await self.clients.matchAll({
+    type: "window",
+    includeUncontrolled: true,
+  });
+
+  // If a window is already open, focus it and navigate — don't open a second tab.
+  // This matters especially on iOS standalone mode where opening a second window
+  // exits the PWA and opens Safari.
+  const existing = windowClients.find((c) => c.url.startsWith(self.location.origin));
+
+  if (existing) {
+    await existing.focus();
+    // postMessage tells the React app to navigate without a full page reload
+    existing.postMessage({ type: "NAVIGATE", url });
+  } else {
+    await self.clients.openWindow(url);
+  }
+
+  // Mark notification as read server-side (fire-and-forget — don't await in SW)
+  if (notificationId) {
+    fetch(`/api/v1/admin/notifications/${notificationId}/read`, {
+      method: "PATCH",
+      credentials: "include",
+    }).catch(() => {/* offline — will sync when back online */});
+  }
+}
+
+// --- Subscription change (browser rotates VAPID keys) ---
+
+self.addEventListener("pushsubscriptionchange", (event) => {
+  event.waitUntil(resubscribe(event as PushSubscriptionChangeEvent));
+});
+
+async function resubscribe(event: PushSubscriptionChangeEvent) {
+  if (!event.oldSubscription?.options) return;
+
+  try {
+    const newSub = await self.registration.pushManager.subscribe(
+      event.oldSubscription.options // reuses same VAPID applicationServerKey
+    );
+
+    // Must send auth token — use stored token from IDB or cookie
+    const token = await getStoredAuthToken();
+
+    await fetch("/api/v1/admin/push-subscriptions/refresh", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        oldEndpoint: event.oldSubscription.endpoint,
+        newSubscription: newSub.toJSON(),
+      }),
+    });
+  } catch (err) {
+    console.error("[SW] pushsubscriptionchange resubscription failed", err);
+    // Don't throw — a failed resubscription means push silently stops working.
+    // Log to a remote error tracker if you have one accessible from SW context.
+  }
+}
+
+// --- Badge persistence (SW has no localStorage — use IndexedDB) ---
+
+async function getStoredBadgeCount(): Promise<number> {
+  return (await getFromIDB("badge-count")) ?? 0;
+}
+async function storeNewBadgeCount(count: number) {
+  await setInIDB("badge-count", count);
+}
+async function storeBadgeCount(count: number) {
+  await setInIDB("badge-count", count);
+}
+
+// Minimal IDB helpers — don't import a full IDB library into the SW
+function openDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open("wanny-sw", 1);
+    req.onupgradeneeded = () => req.result.createObjectStore("kv");
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function getFromIDB(key: string): Promise<any> {
+  const db = await openDB();
+  return new Promise((resolve) => {
+    const tx = db.transaction("kv", "readonly");
+    const req = tx.objectStore("kv").get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => resolve(undefined);
+  });
+}
+async function setInIDB(key: string, value: any): Promise<void> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("kv", "readwrite");
+    tx.objectStore("kv").put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function getStoredAuthToken(): Promise<string | null> {
+  return getFromIDB("auth-token");
+}
+
+// --- Types ---
+
+interface PushPayload {
+  title: string;
+  body: string;
+  tag: string;
+  url?: string;
+  notificationId?: string;
+  priority?: "high" | "normal" | "low";
+  renotify?: boolean;
+  actions?: Array<{ action: string; title: string }>;
+}
+```
+
+---
+
+## 4. React: Subscription Hook (`usePushSubscription.ts`)
+
+```typescript
+// apps/pwa/src/hooks/usePushSubscription.ts
+import { useEffect, useState, useCallback } from "react";
+import { apiClient } from "@/lib/apiClient";
+
+export type PushPermissionState = "unsupported" | "denied" | "prompt" | "granted" | "ios-unsupported";
+
+export function usePushSubscription() {
+  const [permission, setPermission] = useState<PushPermissionState>("prompt");
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPermission(detectPermissionState());
+    checkExistingSubscription();
+  }, []);
+
+  function detectPermissionState(): PushPermissionState {
+    // iOS < 16.4: Web Push not supported at all
+    if (isIOS() && !isIOSPushSupported()) return "ios-unsupported";
+    if (!("serviceWorker" in navigator)) return "unsupported";
+    if (!("PushManager" in window)) return "unsupported";
+    if (Notification.permission === "denied") return "denied";
+    if (Notification.permission === "granted") return "granted";
+    return "prompt";
+  }
+
+  async function checkExistingSubscription() {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      setIsSubscribed(!!sub);
+      if (sub) setPermission("granted");
+    } catch {
+      // SW not ready yet — fine on first load
+    }
+  }
+
+  const subscribe = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Must be called from a user gesture (button click) — browsers block
+      // Notification.requestPermission() calls outside user interaction.
+      const permResult = await Notification.requestPermission();
+      if (permResult !== "granted") {
+        setPermission("denied");
+        setError("Notifications blocked. Enable them in your browser settings.");
+        return;
+      }
+
+      const reg = await navigator.serviceWorker.ready;
+
+      // Check for existing subscription before creating a new one —
+      // calling subscribe() twice creates two subscriptions on the same
+      // endpoint which is wasteful and can cause duplicate notifications.
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(
+            import.meta.env.VITE_VAPID_PUBLIC_KEY
+          ),
+        });
+      }
+
+      await apiClient.post("/admin/push-subscriptions", {
+        subscription: sub.toJSON(),
+        userAgent: navigator.userAgent,
+      });
+
+      // Store auth token in IDB so the SW can use it for pushsubscriptionchange
+      await storeTokenForSW();
+
+      setIsSubscribed(true);
+      setPermission("granted");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Subscription failed";
+      setError(message);
+      console.error("[Push] Subscription error:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const unsubscribe = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await sub.unsubscribe();
+        await apiClient.delete("/admin/push-subscriptions", {
+          data: { endpoint: sub.endpoint },
+        });
+      }
+      setIsSubscribed(false);
+    } catch (err) {
+      console.error("[Push] Unsubscribe error:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  return { permission, isSubscribed, isLoading, error, subscribe, unsubscribe };
+}
+
+// --- Helpers ---
+
+function isIOS(): boolean {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
+function isIOSPushSupported(): boolean {
+  // Web Push on iOS requires: iOS 16.4+, Safari 16.4+, AND installed to home screen
+  // There's no reliable UA check for "installed to home screen" — best proxy
+  // is checking for PushManager existence, which Safari only exposes post-install.
+  return "PushManager" in window;
+}
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+}
+
+async function storeTokenForSW(): Promise<void> {
+  // Store the auth token in IDB where the SW can read it for pushsubscriptionchange.
+  // Get the token from wherever your auth state lives (Zustand store, cookie, etc.)
+  const token = document.cookie.match(/auth_token=([^;]+)/)?.[1] ?? "";
+  if (!token) return;
+
+  const reg = await navigator.serviceWorker.ready;
+  reg.active?.postMessage({ type: "STORE_TOKEN", token });
+}
+```
+
+---
+
+## 5. React: SW Message Bridge
+
+The SW posts `NAVIGATE` messages to the React app. Handle them in the app root so push notification clicks deep-link without a full reload.
+
+```typescript
+// apps/pwa/src/main.tsx or App.tsx
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+
+export function SWMessageBridge() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type === "NAVIGATE") {
+        // Replace relative URL — SW sends full URL, React Router wants pathname
+        const url = new URL(event.data.url, window.location.origin);
+        navigate(url.pathname + url.search);
+      }
+      if (event.data?.type === "STORE_TOKEN") {
+        // SW asking us to store a token it needs — shouldn't reach here
+        // (the SW calls this itself), but handle defensively
+      }
+    };
+
+    navigator.serviceWorker?.addEventListener("message", handler);
+    return () => navigator.serviceWorker?.removeEventListener("message", handler);
+  }, [navigate]);
+
+  return null;
+}
+```
+
+---
+
+## 6. iOS-Specific UX: Install Prompt
+
+iOS Safari only grants `PushManager` access when the PWA is installed to the home screen. You must detect the uninstalled state and prompt the user to install — there's no `beforeinstallprompt` event on iOS.
+
+```typescript
+// apps/pwa/src/components/IOSInstallBanner.tsx
+import { useState, useEffect } from "react";
+
+export function IOSInstallBanner() {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+    // navigator.standalone = true means already installed
+    const isInstalled = (window.navigator as any).standalone === true;
+    const dismissed = sessionStorage.getItem("ios-install-dismissed");
+
+    setShow(isIOS && !isInstalled && !dismissed);
+  }, []);
+
+  if (!show) return null;
+
+  return (
+    <div className="fixed bottom-0 inset-x-0 p-4 bg-white border-t border-gray-200 shadow-lg z-50">
+      <div className="flex items-start gap-3">
+        <img src="/icons/apple-touch-icon.png" className="w-12 h-12 rounded-xl" alt="" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-900">Install Wanny Admin</p>
+          <p className="text-xs text-gray-600 mt-0.5">
+            Tap <ShareIcon className="inline w-4 h-4" /> then{" "}
+            <strong>Add to Home Screen</strong> to enable notifications.
+          </p>
+        </div>
+        <button
+          onClick={() => {
+            sessionStorage.setItem("ios-install-dismissed", "1");
+            setShow(false);
+          }}
+          className="text-gray-400 p-1"
+          aria-label="Dismiss"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ShareIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <path d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+    </svg>
+  );
+}
+```
+
+---
+
+## 7. Badge Management — Clearing on Read
+
+When the admin opens the notification panel or marks items as read, clear the badge:
+
+```typescript
+// apps/pwa/src/hooks/useNotificationBadge.ts
+export async function clearBadge(): Promise<void> {
+  if ("clearAppBadge" in navigator) {
+    await (navigator as any).clearAppBadge();
+  }
+
+  // Also tell the SW to update its stored count
+  const reg = await navigator.serviceWorker.ready;
+  reg.active?.postMessage({ type: "CLEAR_BADGE" });
+}
+
+// Add to SW.ts (handle in the message event listener):
+// self.addEventListener("message", (event) => {
+//   if (event.data?.type === "CLEAR_BADGE") {
+//     storeBadgeCount(0);
+//     if ("clearAppBadge" in self.navigator) {
+//       (self.navigator as any).clearAppBadge();
+//     }
+//   }
+// });
+```
+
+---
+
+## 8. Server: Push Sender (Fixed)
+
+```typescript
+// apps/worker-notifications/src/processors/webPush.processor.ts
+import webpush from "web-push";
+import type { Job } from "bullmq";
+
+webpush.setVapidDetails(
+  `mailto:${process.env.VAPID_CONTACT_EMAIL}`,
+  process.env.VAPID_PUBLIC_KEY!,
+  process.env.VAPID_PRIVATE_KEY!
+);
+
+export async function processWebPushNotification(job: Job<WebPushJobData>) {
+  const { logId, adminUserId, payload } = job.data;
+
+  const subscriptions = await prisma.pushSubscription.findMany({
+    where: { adminUserId, isActive: true },
   });
 
   if (subscriptions.length === 0) {
-    await db.notification.update({
-      where: { id: notificationId },
-      data: { status: 'SKIPPED', lastError: 'No active push subscriptions' },
+    await prisma.notificationLog.update({
+      where: { id: logId },
+      data: { status: "SKIPPED", failureReason: "No active push subscriptions" },
     });
     return;
   }
 
+  // Serialize payload ONCE outside the fan-out loop.
+  // The original implementation called loadRenderedPayload() inside
+  // Promise.allSettled — N subscriptions = N DB reads for the same data.
+  const serializedPayload = JSON.stringify(payload);
+
   const results = await Promise.allSettled(
     subscriptions.map((sub) =>
-      webpush.sendNotification(
-        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-        JSON.stringify(await loadRenderedPayload(notificationId)),
-        { TTL: 3600 } // 1-hour TTL: if browser offline, hold it for an hour
-      ).catch(async (err) => {
-        if (err.statusCode === 410 || err.statusCode === 404) {
-          await db.pushSubscription.update({
-            where: { id: sub.id },
-            data: { isActive: false },
-          });
-        }
-        throw err; // let BullMQ retry handle transient failures
-      })
+      webpush
+        .sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          serializedPayload,
+          {
+            TTL: getTTLForPriority(payload.priority),
+            urgency: mapPriorityToUrgency(payload.priority),
+            // Topic header: same as `tag` in the SW — push services collapse
+            // multiple pushes with the same topic to only the latest one.
+            // Prevents notification storms if the worker retries rapidly.
+            topic: payload.tag,
+          }
+        )
+        .catch(async (err: webpush.WebPushError) => {
+          if (err.statusCode === 410 || err.statusCode === 404) {
+            // Subscription permanently expired — deactivate immediately
+            await prisma.pushSubscription.update({
+              where: { id: sub.id },
+              data: { isActive: false },
+            });
+            logger.info({ subId: sub.id, endpoint: sub.endpoint.slice(0, 40) },
+              "Push subscription expired and deactivated");
+          } else if (err.statusCode === 429) {
+            // Push service is rate-limiting us — don't count as a permanent failure,
+            // let BullMQ retry with backoff
+            logger.warn({ subId: sub.id }, "Push service rate limit hit");
+          }
+          throw err;
+        })
     )
   );
 
-  const allFailed = results.every((r) => r.status === 'rejected');
-  await db.notification.update({
-    where: { id: notificationId },
+  const allFailed = results.every((r) => r.status === "rejected");
+  const failures = results
+    .filter((r): r is PromiseRejectedResult => r.status === "rejected")
+    .map((r) => (r.reason as Error)?.message);
+
+  await prisma.notificationLog.update({
+    where: { id: logId },
     data: {
-      status: allFailed ? 'FAILED' : 'SENT',
-      sentAt: new Date(),
+      status: allFailed ? "FAILED" : "SENT",
+      deliveredAt: allFailed ? undefined : new Date(),
+      attempts: { increment: 1 },
+      lastAttemptAt: new Date(),
+      failureReason: failures.length ? failures.join("; ") : undefined,
     },
   });
 
-  if (allFailed) throw new Error('All push subscriptions failed delivery');
+  if (allFailed) {
+    throw new Error(`All ${subscriptions.length} push subscriptions failed: ${failures[0]}`);
+  }
+}
+
+function getTTLForPriority(priority?: string): number {
+  // TTL = how long the push service holds the notification for an offline browser
+  switch (priority) {
+    case "high":   return 4 * 60 * 60;  // 4 hours — new booking, payment received
+    case "normal": return 60 * 60;       // 1 hour — default
+    case "low":    return 15 * 60;       // 15 min — slot released, etc.
+    default:       return 60 * 60;
+  }
+}
+
+function mapPriorityToUrgency(priority?: string): "very-low" | "low" | "normal" | "high" {
+  // RFC 8030 urgency header — push services use this to decide whether to
+  // wake a device on battery saver. "high" wakes the device immediately.
+  switch (priority) {
+    case "high":   return "high";
+    case "normal": return "normal";
+    case "low":    return "low";
+    default:       return "normal";
+  }
 }
 ```
 
-**Why `TTL: 3600` on the push:** Without a TTL, the push service holds the notification indefinitely. The admin's browser might reconnect 12 hours later and get a stale "new booking" notification for a slot long since handled. One hour is long enough for the admin to come back online; after that, the notification is stale and should be discarded.
+---
 
-**Quiet hours check at dispatch time:** Before enqueuing a push notification for an admin, the dispatcher checks `NotificationPreference.quietHours`. If quiet hours are active, the push is skipped and logged — the admin will see the information when they open the PWA dashboard.
+## 9. iOS Support Matrix
 
-- **VAPID keys**: generate once, store in secrets manager / `.env`, never rotate without re-registering all clients.
-- **Fallback fallback:** The admin PWA dashboard itself serves as the fallback for missed push notifications — all push-eligible events are visible in the notification audit panel. Email fallback is reserved for critical events only.
+| iOS Version | Web Push Support | Notes |
+|---|---|---|
+| < 16.4 | ❌ None | No `PushManager`, no notifications |
+| 16.4 – 16.6 | ⚠️ Partial | Must be installed to home screen; no badge API |
+| 17.0+ | ✅ Full | Badge API available; still requires home screen install |
+| 17.4+ | ✅ Full | More reliable; use this as your minimum support floor |
+
+**The hard constraint:** iOS Safari only exposes `PushManager` when the PWA is installed to the home screen via Add to Home Screen. A user visiting the admin PWA in Safari without installing it will never receive push notifications, regardless of iOS version. The `IOSInstallBanner` component (§6) handles prompting this.
+
+---
+
+## 10. Environment Variables
+
+```bash
+# VAPID — generate once: npx web-push generate-vapid-keys
+VAPID_PUBLIC_KEY=          # also set as VITE_VAPID_PUBLIC_KEY for the PWA
+VAPID_PRIVATE_KEY=
+VAPID_CONTACT_EMAIL=admin@wannysnails.co.ke
+
+# Exposed to Vite build (must be prefixed VITE_)
+VITE_VAPID_PUBLIC_KEY=     # same value as VAPID_PUBLIC_KEY
+```
 
 ---
 
 ## 8. Email Delivery (fallback/receipts)
+Use resend SDK
 
 ```typescript
 // apps/workers/notification/src/processors/email.processor.ts

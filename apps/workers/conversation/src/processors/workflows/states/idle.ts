@@ -14,38 +14,13 @@ export async function handleIdle(
 ): Promise<StateTransitionResult> {
   const existingCustomer = await findCustomerByPhone(ctx.phone);
 
-  // if (existingCustomer) {
-  //   // Returning customer — proceed to GREETING as before
-  //   return {
-  //     messages: [],
-  //     sessionUpdates: {
-  //       state: "GREETING",
-  //       customerId: existingCustomer.id,
-  //       customerName: existingCustomer.name,
-  //       isNewCustomer: false,
-  //       invalidInputCount: 0,
-  //       flow: undefined,
-  //       selectedService: undefined,
-  //       selectedDate: undefined,
-  //       selectedTime: undefined,
-  //       appointmentAt: undefined,
-  //       bookingId: undefined,
-  //       bookingRef: undefined,
-  //       paymentPhone: undefined,
-  //       collectionPhase: undefined,
-  //       temporaryName: undefined,
-  //       temporaryEmail: undefined,
-  //     },
-  //     nextState: "GREETING",
-  //   };
-  // }
-
-  // New customer — transition to DATA_COLLECTION to collect name & email
+  // All customers transition to greeting (New or existing customers)
   return {
     messages: [],
     sessionUpdates: {
       state: "GREETING",
       customerName: existingCustomer?.name ?? "there",
+      customerId: existingCustomer?.id ?? undefined,
       isNewCustomer: existingCustomer == null,
       collectionPhase: undefined,
       invalidInputCount: 0,

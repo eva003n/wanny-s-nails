@@ -5,6 +5,14 @@
  * No dotenv call here (that's the API's job in development).
  */
 
+const isDevelopment = (process.env.NODE_ENV || "development") === "development";
+
+if (isDevelopment) {
+  const { config } = await import("dotenv");
+  config({
+    path: "./.env",
+  });
+}
 import { z } from "zod";
 
 const schema = z.object({
