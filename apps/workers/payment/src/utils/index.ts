@@ -1,0 +1,12 @@
+export function getFailureReason(code: number): string {
+  const reasons: Record<number, string> = {
+    1: "Insufficient funds",
+    1032: "Request cancelled by user",
+    1037: "DS timeout",
+    2001: "Invalid credentials",
+    2026: "Amount less than minimum",
+    17: "Insufficient funds",
+    26: "System busy",
+  };
+  return reasons[code] ?? `Daraja error code: ${code}`;
+}

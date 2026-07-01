@@ -35,7 +35,7 @@ const log = logger.child({ module: "fsm-awaiting-payment" });
       throw new Error("Booking must be in APPROVED status to initiate payment");
     }
 
-    if (booking.payment?.status === "PAID" || booking.payment?.status === "REFUNDED") {
+    if (booking.payment?.status === "SUCCESS" || booking.payment?.status === "REFUNDED") {
       throw new Error("Booking already has a completed payment");
     }
 
@@ -46,16 +46,22 @@ const log = logger.child({ module: "fsm-awaiting-payment" });
         data: {
           bookingId,
           amountKes: booking.priceKes,
-          status: "UNPAID",
+          status: "PENDING",
         },
       });
+    } else if (booking.payment && ["FAILED", "CANCELLED", "EXPIRED"].includes(booking.payment.status)) {
+      // Reset for retry
+      payment = await prisma.payment.update({
+        where: { id: payment.id },
+        data: { status: "PENDING", phoneNumber, checkoutRequestId: null, failureReason: null },
+      });
+    } else {
+      // Already PENDING — update phone number
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: { phoneNumber },
+      });
     }
-
-    // Update status to PAYMENT_PENDING immediately
-    await prisma.payment.update({
-      where: { id: payment.id },
-      data: { status: "PAYMENT_PENDING", phoneNumber },
-    });
 
     // Enqueue STK Push job to BullMQ (async processing)
     const job = await paymentQueue.add(

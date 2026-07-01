@@ -55,7 +55,7 @@ function normalizePayment(p: Record<string, any>): PaymentTransaction {
       phone: p.booking?.customer?.phone ?? p.customer?.phone ?? "",
     },
     amountKes: p.amountKes ?? 0,
-    status: p.status ?? "UNPAID",
+    status: p.status ?? "PENDING",
     mpesaReceiptNumber: p.mpesaReceiptNumber ?? null,
     method: "MPESA",
     createdAt: p.createdAt ?? new Date().toISOString(),

@@ -1,80 +1,163 @@
-import { log, prisma } from "../lib/index.js";
+import { type Job } from "bullmq";
+import { log as logger, prisma, _config as config } from "../lib/index.js";
+import { notificationQueue } from "../lib/queues.js";
+import { parseStkCallbackBody, extractCallbackMetadata, isStkCallbackSuccess } from "../lib/schemas.js";
+import { JOB_NAMES } from "@wannys-nails/packages";
+import { getFailureReason } from "../utils/index.js";
 
+const log = logger.child({ module: "job:stk-callback" });
 
-async function processMpesaCallback(body: DarajaCallbackBody) {
-  const { stkCallback } = body.Body;
-  const { CheckoutRequestID, ResultCode, ResultDesc, CallbackMetadata } =
-    stkCallback;
+// ─── Job Data Types ──────────────────────────────────────────
 
-  // 1. Find the pending payment
+export interface StkCallbackJobData {
+  checkoutRequestId: string;
+  resultCode: number;
+  rawCallback: unknown;
+}
+
+// ─── Helpers ─────────────────────────────────────────────────
+
+async function getAttemptNumber(paymentId: string): Promise<number> {
+  const count = await prisma.paymentTransaction.count({
+    where: { paymentId },
+  });
+  return count + 1;
+}
+
+function parseDarajaDate(raw: string): Date {
+  // Daraja sends TransactionDate as "YYYYMMDDHHmmss"
+  const year = raw.slice(0, 4);
+  const month = raw.slice(4, 6);
+  const day = raw.slice(6, 8);
+  const hours = raw.slice(8, 10);
+  const minutes = raw.slice(10, 12);
+  const seconds = raw.slice(12, 14);
+  return new Date(`${year}-${month}-${day}T${hours}:${minutes}:${seconds}+03:00`);// EAT
+}
+
+// ─── Processor ───────────────────────────────────────────────
+
+export async function processStkCallback(
+  job: Job<StkCallbackJobData>,
+): Promise<void> {
+  const { checkoutRequestId, resultCode, rawCallback } = job.data;
+
+  log.info(
+    {
+      event: "stk_callback.job.start",
+      jobId: job.id,
+      checkoutRequestId,
+      resultCode,
+    },
+    "Processing STK callback job",
+  );
+
+  // 1. Find the pending payment by checkoutRequestId
   const payment = await prisma.payment.findUnique({
-    where: { checkoutRequestId: CheckoutRequestID },
-    include: { booking: { include: { customer: true, service: true } } },
+    where: { checkoutRequestId },
+    include: {
+      booking: {
+        include: { customer: true },
+      },
+    },
   });
 
   if (!payment) {
     log.warn(
-      { CheckoutRequestID },
-      "Callback for unknown CheckoutRequestID",
+      { event: "stk_callback.job.payment_not_found", checkoutRequestId },
+      "Callback for unknown CheckoutRequestID — skipping",
     );
-    return; // Not our transaction
+    return;
   }
 
-  // 2. Idempotency check
-  if (ResultCode === 0) {
-    const receiptNumber = extractMetadata(
-      CallbackMetadata,
-      "MpesaReceiptNumber",
+  // 2. Idempotency guard: if already completed, skip
+  if (payment.completedAt || payment.status === "SUCCESS" || payment.status === "REFUNDED") {
+    log.info(
+      { event: "stk_callback.job.duplicate", paymentId: payment.id },
+      "Duplicate callback — payment already completed",
     );
-    const existing = await prisma.paymentTransaction.findUnique({
-      where: { mpesaReceiptNumber: receiptNumber },
-    });
-    if (existing) {
-      logger.info({ receiptNumber }, "Duplicate callback — already processed");
-      return;
-    }
+    return;
   }
 
-  // 3. Begin transaction
+  // 3. Terminal-state guard: never let a late/duplicate callback
+  //    overwrite an already-resolved payment
+  if (["SUCCESS", "FAILED", "CANCELLED", "EXPIRED"].includes(payment.status)) {
+    log.info(
+      {
+        event: "stk_callback.job.already_terminal",
+        paymentId: payment.id,
+        status: payment.status,
+      },
+      "Payment already in terminal state, ignoring callback",
+    );
+    return;
+  }
+
+  // 4. Process the callback inside a transaction(Avoid Race condition)
   await prisma.$transaction(async (tx) => {
-    if (ResultCode === 0) {
-      const amount = extractMetadata(CallbackMetadata, "Amount");
-      const receiptNumber = extractMetadata(
-        CallbackMetadata,
-        "MpesaReceiptNumber",
-      );
-      const transactionDate = extractMetadata(
-        CallbackMetadata,
-        "TransactionDate",
-      );
+    if (resultCode === 0) {
+      // --- Successful payment ---
+      // Parse the callback to extract metadata
+      let receiptNumber: string;
+      let amount: number;
+      let transactionDate: string;
 
-      // Amount verification
-      if (amount !== payment.amountKes) {
-        // Flag as disputed, alert owner
-        await tx.payment.update({
-          where: { id: payment.id },
-          data: {
-            status: "PAYMENT_FAILED",
-            failureReason: `Amount mismatch: expected ${payment.amountKes}, received ${amount}`,
-          },
-        });
-        //await alertOwner("PAYMENT_AMOUNT_MISMATCH", payment);
+      try {
+        const parsed = parseStkCallbackBody(rawCallback);
+        if (!isStkCallbackSuccess(parsed.Body.stkCallback)) {
+          throw new Error("Expected success callback but got failure shape");
+        }
+        const metadata = extractCallbackMetadata(parsed.Body.stkCallback);
+        receiptNumber = metadata.mpesaReceiptNumber;
+        amount = metadata.amount;
+        transactionDate = metadata.transactionDate;
+      } catch (err) {
+        log.error(
+          { event: "stk_callback.job.parse_failed", paymentId: payment.id, error: String(err) },
+          "Failed to parse callback metadata",
+        );
+        // Don't throw — we don't want BullMQ to retry a malformed callback
         return;
       }
 
-      // Successful payment
+      // Amount verification
+      if (amount !== payment.amountKes) {
+        log.warn(
+          {
+            event: "stk_callback.job.amount_mismatch",
+            paymentId: payment.id,
+            expected: payment.amountKes,
+            received: amount,
+          },
+          "Payment amount mismatch — flagging as disputed",
+        );
+
+        await tx.payment.update({
+          where: { id: payment.id },
+          data: {
+            status: "FAILED",
+            failureReason: `Amount mismatch: expected ${payment.amountKes}, received ${amount}`,
+          },
+        });
+
+        // TODO: alert owner via notification
+        return;
+      }
+
+      // Record the transaction
       await tx.paymentTransaction.create({
         data: {
           paymentId: payment.id,
           attemptNumber: await getAttemptNumber(payment.id),
-          checkoutRequestId: CheckoutRequestID,
+          checkoutRequestId,
           resultCode: 0,
-          resultDesc: ResultDesc,
+          resultDesc: "Success",
           mpesaReceiptNumber: receiptNumber,
-          rawCallback: body as any,
+          rawCallback: rawCallback as any,
         },
       });
 
+      // Update payment to SUCCESS
       await tx.payment.update({
         where: { id: payment.id },
         data: {
@@ -84,44 +167,94 @@ async function processMpesaCallback(body: DarajaCallbackBody) {
         },
       });
 
+      // Update booking payment status
       await tx.booking.update({
         where: { id: payment.bookingId },
-        data: { paymentStatus: "PAID" },
+        data: { paymentStatus: "SUCCESS" },
       });
+
+      log.info(
+        {
+          event: "stk_callback.job.success",
+          paymentId: payment.id,
+          bookingId: payment.bookingId,
+          receiptNumber,
+          amount,
+        },
+        "Payment processed successfully",
+      );
     } else {
-      // Failed payment
+      // --- Failed/cancelled payment ---
+      const terminalStatus = resultCode === 1032 ? "CANCELLED" : "FAILED";
+
       await tx.paymentTransaction.create({
         data: {
           paymentId: payment.id,
           attemptNumber: await getAttemptNumber(payment.id),
-          resultCode: ResultCode,
-          resultDesc: ResultDesc,
-          rawCallback: body as any,
+          checkoutRequestId,
+          resultCode,
+          resultDesc: `${getFailureReason(resultCode)}`,
+          rawCallback: rawCallback as any,
         },
       });
 
       await tx.payment.update({
         where: { id: payment.id },
         data: {
-          status: "FAILED",
-          failureReason: `ResultCode ${ResultCode}: ${ResultDesc}`,
+          status: terminalStatus,
+          failureReason: ` ${getFailureReason(resultCode)}`,
         },
       });
+
+      log.info(
+        {
+          event: "stk_callback.job.failed",
+          paymentId: payment.id,
+          bookingId: payment.bookingId,
+          resultCode,
+          terminalStatus,
+        },
+        "Payment failed or cancelled",
+      );
     }
   });
 
-  // 4. Notify customer (outside transaction — non-critical)
-  if (ResultCode === 0) {
-    await notificationQueue.add("whatsapp-payment-confirmed", {
-      phone: payment.booking.customer.phone,
-      bookingRef: payment.booking.reference,
-      amountKes: payment.amountKes,
-    });
-  } else {
-    await notificationQueue.add("whatsapp-payment-failed", {
-      phone: payment.booking.customer.phone,
-      resultCode: ResultCode,
-      bookingRef: payment.booking.reference,
-    });
+  // 5. Side effects (outside transaction — non-critical)
+  //    These run after the DB transaction commits, so a notification
+  //    failure never rolls back a payment.
+  try {
+    if (resultCode === 0) {
+      await notificationQueue.add(
+        JOB_NAMES.PAYMENT_CONFIRMATION,
+        {
+          phone: payment.booking.customer.phone,
+          bookingRef: payment.booking.reference,
+          amountKes: payment.amountKes,
+        },
+        {
+          attempts: 3,
+          backoff: { type: "exponential", delay: 5000 },
+        },
+      );
+    } else {
+      await notificationQueue.add(
+        JOB_NAMES.PAYMENT_FAILURE,
+        {
+          phone: payment.booking.customer.phone,
+          resultCode,
+          bookingRef: payment.booking.reference,
+        },
+        {
+          attempts: 3,
+          backoff: { type: "exponential", delay: 5000 },
+        },
+      );
+    }
+  } catch (err) {
+    // Notification failure is non-fatal — don't throw
+    log.error(
+      { event: "stk_callback.job.notification_failed", paymentId: payment.id, error: String(err) },
+      "Failed to enqueue payment notification",
+    );
   }
 }

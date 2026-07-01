@@ -93,7 +93,7 @@ export async function handleAwaitingPaymentPhone(
       throw new Error("Booking must be in APPROVED status to initiate payment");
     }
 
-    if (refreshedBooking.payment?.status === "PAID" || refreshedBooking.payment?.status === "REFUNDED") {
+    if (refreshedBooking.payment?.status === "SUCCESS" || refreshedBooking.payment?.status === "REFUNDED") {
       throw new Error("Booking already has a completed payment");
     }
 
@@ -104,16 +104,32 @@ export async function handleAwaitingPaymentPhone(
         data: {
           bookingId,
           amountKes: refreshedBooking.priceKes,
-          status: "UNPAID",
+          status: "PENDING",
         },
       });
+    } else if (
+      refreshedBooking.payment &&
+      ["FAILED", "CANCELLED", "EXPIRED"].includes(
+        refreshedBooking.payment.status,
+      )
+    ) {
+      // Reset for retry
+      payment = await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: "PENDING",
+          phoneNumber: phone,
+          checkoutRequestId: null,
+          failureReason: null,
+        },
+      });
+    } else {
+      // Already PENDING — update phone number
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: { phoneNumber: phone },
+      });
     }
-
-    // Update status to PAYMENT_PENDING
-    await prisma.payment.update({
-      where: { id: payment.id },
-      data: { status: "PAYMENT_PENDING", phoneNumber: phone },
-    });
 
     // Enqueue STK Push job
     await paymentQueue.add(

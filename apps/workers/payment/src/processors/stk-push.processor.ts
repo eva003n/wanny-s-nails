@@ -1,8 +1,8 @@
 import { type Job } from "bullmq";
 import { log as logger, prisma, _config as config } from "../lib/index.js";
 import { mpesaHttpClient } from "../lib/httpclient.js";
-import { HttpClientError } from "@wannys-nails/packages";
-
+import { paymentQueue } from "../lib/queues.js";
+import { HttpClientError, JOB_NAMES } from "@wannys-nails/packages";
 
 const log = logger.child({ module: "job:stk-push" });
 
@@ -142,6 +142,29 @@ export async function stkPushProcessor(
       },
     });
 
+    // ── Schedule a timeout check job (~90s from now) ─────────
+    // If the callback never arrives, this job will query Daraja
+    // directly to determine the actual payment status.
+    await paymentQueue.add(
+      JOB_NAMES.STK_TIMEOUT_CHECK,
+      {
+        paymentId,
+        bookingId,
+        checkoutRequestId: CheckoutRequestID,
+      },
+      {
+        delay: 90_000, // Daraja's STK prompt expires ~60-90s on the handset
+        jobId: `timeout:${paymentId}`,
+        removeOnComplete: true,
+        removeOnFail: false,// Dead letter queue
+      },
+    );
+
+    // Schedule a reconciliation job to run after every 10 mins
+    await paymentQueue.upsertJobScheduler(JOB_NAMES.STK_RECONCILIATION, {
+      every: 10 * 60 * 1000 // 10min
+    }, {name: "reconcile"})
+
     log.info(
       {
         event: "stk_push.job.success",
@@ -149,7 +172,7 @@ export async function stkPushProcessor(
         bookingId,
         checkoutRequestId: CheckoutRequestID,
       },
-      "STK Push initiated successfully",
+      "STK Push initiated successfully, timeout scheduled",
     );
   } catch (error: unknown) {
     const err = error
