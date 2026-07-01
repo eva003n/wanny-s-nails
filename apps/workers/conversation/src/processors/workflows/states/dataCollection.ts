@@ -29,7 +29,7 @@ export const phoneNumberSchema = z
   .string()
   .trim()
   .min(10, "Phone number is too short.")
-  .max(12, "Phone number is too long.")
+  .max(13, "Phone number is too long.")
   .regex(
     /^\+[1-9]\d{1,14}$/,
     "Phone number must be in E.164 format (e.g. +254712345678)",
@@ -89,29 +89,47 @@ export async function handleDataCollection(
   // ── Phase: PHONE ──
   if (phase === "PHONE") {
     const input = ctx.rawMessage.trim();
-    // 1. Remove all spaces, dashes, or parentheses if any exist
+    // Remove all spaces, dashes, or parentheses if any exist
     let phone = input.replace(/[\s\-\(\)]/g, "");
 
     try {
       phone = normalizeKenyanPhone(phone);
-      const {data} = phoneNumberSchema.safeParse(phone)
-      ctx.phone = data ?? ctx.phone
-  
-
-    }catch(error) {
+    } catch {
       const newSession = incrementInvalidCount(ctx.session);
       return {
         messages: [
           {
             type: "text",
-            text: "That doesn't look like a valid phone number. Please enter a valid phone number",
+            text: "That doesn't look like a valid Kenyan phone number. Please try again (e.g., 0712 345 678).",
           },
         ],
         sessionUpdates: newSession,
         nextState: "DATA_COLLECTION",
       };
-    
     }
+
+    // Validate normalized number against E.164 schema
+    const { data: validPhone, error: validationError } = phoneNumberSchema.safeParse(phone);
+    if (!validPhone) {
+      const newSession = incrementInvalidCount(ctx.session);
+      log.warn(
+        { event: "data_collection.invalid_phone", input: phone, validationError },
+        "Phone number validation failed after normalization",
+      );
+      return {
+        messages: [
+          {
+            type: "text",
+            text: "That doesn't look like a valid Kenyan phone number. Please try again (e.g., 0712 345 678).",
+          },
+        ],
+        sessionUpdates: newSession,
+        nextState: "DATA_COLLECTION",
+      };
+    }
+
+    // Use the validated phone
+    const normalizedPhone = validPhone;
     
 
     // Create customer record in DB
@@ -120,8 +138,7 @@ export async function handleDataCollection(
       const customer = await prisma.customer.create({
         data: {
           name,
-          phone: ctx.phone,
-          // email: email ?? null,
+          phone: normalizedPhone,
           consentGiven: true,
           consentAt: new Date(),
         },

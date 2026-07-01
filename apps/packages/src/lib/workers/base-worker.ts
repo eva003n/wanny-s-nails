@@ -43,7 +43,11 @@ export function createWorker<T = any>(
     {
       connection,
       concurrency: opts.concurrency ?? 1,
-      name: opts.workerName
+      name: opts.workerName,
+      limiter: {
+        max: opts.limiter?.max ?? 0,
+        duration: opts.limiter?.duration ?? 0
+      }
     },
   );
 
