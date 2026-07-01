@@ -99,7 +99,7 @@ export async function processMessage(message: InboundMessage, messageId: string)
     session = createNewSession();
     isNewSession = true;
   }
-// set current state since last conversation
+  // set current state since last conversation
   const previousState = session.state;
 
   // ── 2. Global intent detection (before state handler) ──
@@ -180,13 +180,26 @@ export async function processMessage(message: InboundMessage, messageId: string)
       phone,
     };
 
-    const result = await handleIdle(ctx); // -> GREETING or DATE_COLLECTION 
+    let result: StateTransitionResult;
+    try {
+      result = await handleIdle(ctx); // -> GREETING or DATE_COLLECTION
+    } catch (error) {
+      log.error(
+        { event: "fsm.idle.handler.error", error, phone },
+        "IDLE handler threw an error",
+      );
+      result = {
+        messages: [],
+        sessionUpdates: {},
+        nextState: "GREETING",
+      };
+    }
     applyTransition(session, result);// transition from state to state by mutating session updates
     await saveSession(phone, session);// update redis with new state
 
     // If the IDLE handler returned messages, send them
     for (const msg of result.messages) {
-      await sendMessage({ ...msg, to: phone }, msg.id );
+      await sendMessage({ ...msg, to: phone }, messageId);
     }
 
     // Reload session after IDLE handler(Avois staleness after an update)
@@ -279,6 +292,24 @@ export async function processMessage(message: InboundMessage, messageId: string)
 
   applyTransition(session, result);
 
+  // ── 6b. Invalid input threshold — escalate to human after 3 consecutive failures ──
+  if (
+    session.invalidInputCount >= 3 &&
+    session.state !== "HUMAN_ESCALATION"
+  ) {
+    log.warn(
+      {
+        event: "fsm.invalid_input_threshold",
+        phone,
+        state: session.state,
+        count: session.invalidInputCount,
+      },
+      "Invalid input threshold reached — escalating to human",
+    );
+    session.state = "HUMAN_ESCALATION";
+    session.invalidInputCount = 0;
+  }
+
   // ── 7. Send outbound messages ──
 
   for (const msg of result.messages) {
@@ -338,23 +369,30 @@ export async function processMessage(message: InboundMessage, messageId: string)
 
 /**
  * Apply a state transition result to the session.
+ *
+ * IMPORTANT: `Object.assign` may include a `state` override from sessionUpdates,
+ * so we capture the state before that mutation to compare against `result.nextState`.
  */
 function applyTransition(
   session: ConversationSession,
   result: StateTransitionResult,
 ): void {
-  // Apply session updates(mutates the sessionUpdates)
+  // Capture the state before applying any mutations
+  const stateBefore = session.state;
+
+  // Apply session updates (may include `state` override from handler)
   Object.assign(session, result.sessionUpdates);
 
-  // Apply state transition
+  // Apply explicit state transition (takes precedence over sessionUpdates.state)
   if (result.nextState) {
     session.state = result.nextState;
   }
 
-  // Reset invalid count on successful transition (if not already reset by handler)
-  if (result.nextState && result.nextState !== session.state) {
+  // Reset invalid count when transitioning to a *different* state
+  if (result.nextState && result.nextState !== stateBefore) {
     session.invalidInputCount = 0;
   }
-// store the last conversation timestamp
+
+  // Store the last conversation timestamp
   session.lastActivity = new Date().toISOString();
 }

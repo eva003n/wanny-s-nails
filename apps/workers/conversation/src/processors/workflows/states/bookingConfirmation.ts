@@ -56,7 +56,6 @@ export async function handleBookingConfirmation(
 
   // --- Confirm booking ---
   if (input === "yes" || input === "y" || input === "1") {
-    const customerId = ctx.session.customerId;
     const serviceId = ctx.session.selectedService?.id;
     const appointmentAt = ctx.session.appointmentAt;
 
@@ -86,9 +85,7 @@ export async function handleBookingConfirmation(
         throw new Error("ServiceInactive");
       }
 
-         const customerId = ctx.session.customerId
-
-      if(!customerId) {
+      if(!ctx.session.customerId) {
         // set collection phase 
         ctx.session.collectionPhase = "NAME"
         return {
@@ -138,6 +135,9 @@ export async function handleBookingConfirmation(
         throw new Error("OutsideBusinessHours");
       }
 
+      // customerId is guaranteed non-null here (checked above)
+      const customerId: string = ctx.session.customerId;
+
       const booking = await prisma.$transaction(
         async (tx) => {
           const MAX_SERVICE_MINUTES = 240;
@@ -170,7 +170,7 @@ export async function handleBookingConfirmation(
           return tx.booking.create({
             data: {
               reference: generateReference(),
-              customerId: customerId,
+              customerId,
               serviceId,
               appointmentAt: start,
               durationMinutes: service.durationMinutes,
