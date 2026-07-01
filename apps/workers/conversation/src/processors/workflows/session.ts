@@ -11,7 +11,7 @@ const SESSION_PREFIX = "session:";
 
 /**
  * Build the Redis key for a conversation session.
- * Expects phone in E.164 format (e.g. +254712345678).
+ * Expects phone without + prefix (e.g. 254712345678).
  */
 export function sessionKey(phone: string): string {
   return `${SESSION_PREFIX}${phone}`;

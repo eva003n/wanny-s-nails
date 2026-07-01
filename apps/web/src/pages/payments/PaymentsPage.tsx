@@ -39,7 +39,7 @@ export default function PaymentsListPage() {
   const totalKes = useMemo(
     () =>
       payments
-        .filter((p) => p.status === "PAID")
+        .filter((p) => p.status === "SUCCESS")
         .reduce((sum, p) => sum + p.amountKes, 0),
     [payments],
   );

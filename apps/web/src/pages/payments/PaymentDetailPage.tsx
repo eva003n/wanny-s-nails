@@ -151,7 +151,7 @@ export default function PaymentDetailPage() {
               {payment.customer.name}
             </p>
             <a
-              href={`https://wa.me/${payment.customer.phone}`}
+              href={`https://wa.me/${payment.phoneNumber}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1 text-sm text-primary"

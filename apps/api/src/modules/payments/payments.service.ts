@@ -67,8 +67,12 @@ export const paymentsService = {
         accountReference: booking.reference,
       },
       {
+        jobId: payment.id, // idempotency
         attempts: 2,
-        backoff: { type: "fixed", delay: 30000 },
+        backoff: { type: "fixed", 
+          delay: 30000 // stk timeout
+
+        },
       },
     );
 

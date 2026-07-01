@@ -76,17 +76,17 @@ export function parsePhoneToE164(input: string): string | null {
 
   // Already E.164
   if (/^\+254[17]\d{8}$/.test(cleaned)) {
-    return cleaned;
+    return cleaned.slice(1);
   }
 
   // Local format: 0712345678 or 012345678
   if (/^0[17]\d{8}$/.test(cleaned)) {
-    return `+254${cleaned.slice(1)}`;
+    return `254${cleaned.slice(1)}`;
   }
 
   // Without leading +254 or 0: 254712345678
   if (/^254[17]\d{8}$/.test(cleaned)) {
-    return `+${cleaned}`;
+    return `${cleaned}`;
   }
 
   return null;

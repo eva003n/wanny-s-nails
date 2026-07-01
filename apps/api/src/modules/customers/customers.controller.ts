@@ -14,7 +14,7 @@ import { asyncHandler } from "../../shared/utils/asyncHandler.js";
 
 export const createCustomerSchema = z.object({
   name: z.string().min(2).max(100),
-  phone: z.string().regex(/^\+254[17]\d{8}$/, "Invalid Kenyan phone number"),
+  phone: z.string().regex(/^254[17]\d{8}$/, "Invalid Kenyan phone number"),
   email: z.string().email().optional(),
 });
 
@@ -23,7 +23,7 @@ export const updateCustomerSchema = z.object({
   email: z.string().email().optional(),
   phone: z
     .string()
-    .regex(/^\+254[17]\d{8}$/, "Invalid Kenyan phone number")
+    .regex(/^254[17]\d{8}$/, "Invalid Kenyan phone number")
     .optional(),
 });
 

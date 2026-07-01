@@ -91,7 +91,7 @@ export interface StateHandlerContext {
   rawMessage: string;
   /** Current conversation session */
   session: ConversationSession;
-  /** Phone number in E.164 */
+  /** Phone number (currently stored as 254XXXXXXXXX, without leading +) */
   phone: string;
 }
 

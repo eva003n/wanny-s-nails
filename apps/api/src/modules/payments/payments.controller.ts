@@ -11,7 +11,7 @@ export const stkPushSchema = z.object({
   bookingId: z.string().uuid(),
   phoneNumber: z
     .string()
-    .regex(/^\+254[17]\d{8}$/, "Invalid Kenyan phone number"),
+    .regex(/^254[17]\d{8}$/, "Invalid Kenyan phone number"),
 });
 
 // --- Handlers ---

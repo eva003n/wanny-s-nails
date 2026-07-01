@@ -3,6 +3,7 @@ import { resetInvalidCount, incrementInvalidCount } from "../session.js";
 import { log as logger, paymentQueue } from "../../../lib/index.js";
 
 import { prisma } from "../../../lib/prisma.js";
+import { JOB_NAMES } from "@wannys-nails/packages";
 
 const log = logger.child({ module: "fsm-awaiting-payment" });
 
@@ -65,7 +66,7 @@ const log = logger.child({ module: "fsm-awaiting-payment" });
 
     // Enqueue STK Push job to BullMQ (async processing)
     const job = await paymentQueue.add(
-      "stk-push",
+      JOB_NAMES.STK_PUSH,
       {
         bookingId,
         paymentId: payment.id,

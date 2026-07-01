@@ -41,6 +41,7 @@ function normalizePayment(p: Record<string, any>): PaymentTransaction {
   return {
     id: p.id,
     bookingId: p.bookingId ?? p.booking?.id,
+    phoneNumber: p.phoneNumber,
     booking: {
       id: p.bookingId ?? p.booking?.id,
       reference: p.booking?.reference ?? p.reference ?? "",

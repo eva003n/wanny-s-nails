@@ -31,8 +31,8 @@ export const phoneNumberSchema = z
   .min(10, "Phone number is too short.")
   .max(13, "Phone number is too long.")
   .regex(
-    /^\+[1-9]\d{1,14}$/,
-    "Phone number must be in E.164 format (e.g. +254712345678)",
+    /^254[17]\d{8}$/,
+    "Invalid Kenyan phone number",
   );
 
 export async function handleDataCollection(

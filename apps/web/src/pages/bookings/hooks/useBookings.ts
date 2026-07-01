@@ -281,7 +281,7 @@ export function useSendPaymentRequest() {
     }) => {
       const { data } = await api.post("/payments/stk-push", {
         bookingId,
-        phoneNumber,
+        phoneNumber: phoneNumber.replace(/[^0-9]/g, ""),
       });
       return validateOrThrow(
         BookingSchema,
@@ -308,7 +308,7 @@ export function useCreateBooking() {
       if (input.newCustomer && !customerId) {
         const { data: customerData } = await api.post("/customers", {
           name: input.newCustomer.name,
-          phone: input.newCustomer.phone,
+          phone: input.newCustomer.phone.replace(/[^0-9]/g, ""),
         });
         customerId = customerData.data.id;
       }

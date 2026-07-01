@@ -200,6 +200,7 @@ export const PaginatedServicesSchema = z.object({
 export const PaymentTransactionSchema = z.object({
   id: z.string(),
   bookingId: z.string(),
+  phoneNumber: z.string(),
   booking: z.object({
     id: z.string(),
     reference: z.string(),
