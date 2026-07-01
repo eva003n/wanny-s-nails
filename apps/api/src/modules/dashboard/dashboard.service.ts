@@ -54,10 +54,10 @@ export const dashboardService = {
       },
     });
 
-    // 3. Today's revenue (PAID payments for today's bookings)
+    // 3. Today's revenue (SUCCESS payments for today's bookings)
     const todayRevenue = await prisma.payment.aggregate({
       where: {
-        status: "PAID",
+        status: "SUCCESS",
         booking: {
           appointmentAt: {
             gte: todayStart,
@@ -71,10 +71,10 @@ export const dashboardService = {
     });
     const todayRevenueKes = todayRevenue._sum.amountKes ?? 0;
 
-    // 4. Unpaid amount (all UNPAID or PAYMENT_PENDING payments)
+    // 4. Unpaid amount (all PENDING payments)
     const unpaidPayments = await prisma.payment.aggregate({
       where: {
-        status: { in: ["UNPAID", "PAYMENT_PENDING"] },
+        status: "PENDING",
       },
       _sum: {
         amountKes: true,
@@ -82,10 +82,10 @@ export const dashboardService = {
     });
     const unpaidKes = unpaidPayments._sum.amountKes ?? 0;
 
-    // 5. Week revenue (PAID payments since week start)
+    // 5. Week revenue (SUCCESS payments since week start)
     const weekRevenue = await prisma.payment.aggregate({
       where: {
-        status: "PAID",
+        status: "SUCCESS",
         booking: {
           appointmentAt: {
             gte: weekStart,
@@ -99,10 +99,10 @@ export const dashboardService = {
     });
     const weekRevenueKes = weekRevenue._sum.amountKes ?? 0;
 
-    // 6. Month revenue (PAID payments since month start)
+    // 6. Month revenue (SUCCESS payments since month start)
     const monthRevenue = await prisma.payment.aggregate({
       where: {
-        status: "PAID",
+        status: "SUCCESS",
         booking: {
           appointmentAt: {
             gte: monthStart,

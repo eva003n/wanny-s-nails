@@ -676,13 +676,13 @@ export const bookingsService = {
     await prisma.payment.upsert({
       where: { bookingId: id },
       update: {
-        status: "PAID",
+        status: "SUCCESS",
         amountKes: booking.priceKes,
       },
       create: {
         bookingId: id,
         amountKes: booking.priceKes,
-        status: "PAID",
+        status: "SUCCESS",
       },
     });
 
@@ -690,7 +690,7 @@ export const bookingsService = {
     return prisma.booking.update({
       where: { id },
       data: {
-        paymentStatus: "PAID",
+        paymentStatus: "SUCCESS",
         ...(notes ? { notes } : {}),
       },
       include: {
@@ -757,7 +757,7 @@ export const bookingsService = {
     if (!bookingFull) {
       throw new BookingNotFoundError();
     }
-    if (bookingFull.payment?.status === "PAID") {
+    if (bookingFull.payment?.status === "SUCCESS" || bookingFull.payment?.status === "REFUNDED") {
       throw new InvalidStatusTransitionError(bookingFull.status, "delete");
     }
     return prisma.booking.update({

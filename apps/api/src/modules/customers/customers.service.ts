@@ -78,7 +78,7 @@ export const customersService = {
       prisma.booking.count({ where: { customerId: id, status: "CANCELLED" } }),
       prisma.booking.count({ where: { customerId: id, status: "NO_SHOW" } }),
       prisma.payment.aggregate({
-        where: { booking: { customerId: id }, status: "PAID" },
+        where: { booking: { customerId: id }, status: "SUCCESS" },
         _sum: { amountKes: true },
       }),
       prisma.booking.findFirst({
