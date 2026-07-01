@@ -57,7 +57,7 @@ export interface ConversationSession {
   /** Selected service category filter — set during CATEGORY_SELECTION */
   selectedCategory?: ServiceCategory | undefined;
   /** Sub-phase within DATA_COLLECTION: "NAME" (collecting name) or "EMAIL" (collecting email) */
-  collectionPhase?: "NAME" | "EMAIL" | undefined;
+  collectionPhase?: "NAME" | "PHONE" | undefined;
   /** Temp name stored during DATA_COLLECTION before DB record is created */
   temporaryName?: string | undefined;
   /** Temp email stored during DATA_COLLECTION before DB record is created */
