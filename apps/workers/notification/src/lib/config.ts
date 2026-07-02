@@ -28,6 +28,7 @@ const schema = z.object({
   WHATSAPP_PHONE_NUMBER_ID: z
     .string()
     .min(1, "WHATSAPP_PHONE_NUMBER_ID is required"),
+  WHATSAPP_API_VERSION: z.string().default("v25.0"),
   // Email (Resend) — optional; if not set, email sending will fail gracefully
   RESEND_API_KEY: z.string().default(""),
   // Gemini AI (fallback) — optional; if not set, AI fallback skips to human escalation
@@ -37,6 +38,9 @@ const schema = z.object({
   VAPID_PRIVATE_KEY: z.string().default(""),
   // App metadata
   APP_NAME: z.string().default("Wanny's Nails"),
+  LOG_LEVEL: z.string().default("info"),
+  LOGTAIL_INGESTION_HOST: z.string().default(""),
+  LOGTAIL_SOURCE_TOKEN: z.string().default(""),
 });
 
 const parsed = schema.safeParse(process.env);

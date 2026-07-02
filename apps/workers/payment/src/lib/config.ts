@@ -35,6 +35,9 @@ const schema = z.object({
   DARAJA_STK_QUERY_URL: z.string().min(1, "DARAJA_STK_QUERY_URL is required"),
   DARAJA_CALLBACK_URL: z.string().default(""),
   DARAJA_BASE_URL: z.url("DARAJA_BASE_URL is required"),
+  LOG_LEVEL: z.string().default("info"),
+  LOGTAIL_INGESTION_HOST: z.string().default(""),
+  LOGTAIL_SOURCE_TOKEN: z.string().default(""),
 });
 
 const parsed = schema.safeParse(process.env);

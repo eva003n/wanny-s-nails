@@ -31,6 +31,9 @@ const schema = z.object({
   WHATSAPP_API_VERSION: z.string().default(""),
   // Database (required for Prisma)
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+  LOG_LEVEL: z.string().default("info"),
+  LOGTAIL_INGESTION_HOST: z.string().default(""),
+  LOGTAIL_SOURCE_TOKEN: z.string().default(""),
 });
 
 const parsed = schema.safeParse(process.env);

@@ -276,21 +276,21 @@ export async function whatsappProcessor(
       "WhatsApp conversation sent successfully",
     );
   } catch (error: unknown) {
-    const err = error as {
-      response?: { status?: number; data?: unknown };
-      message?: string;
-    };
+    const err = error as HttpClientError
+    if(err instanceof HttpClientError) {
     log.error(
       {
         event: "whatsapp.conversation.job.failed",
         jobId: job.id,
         to,
-        status: err.response?.status,
-        response: err.response?.data,
+        status: err.status,
+        response: err.responseBody,
         error: err.message || err,
       },
       "WhatsApp conversation delivery failed",
     );
+    }
+
     throw error; // BullMQ will retry whatsapp after a while
   }
 }
