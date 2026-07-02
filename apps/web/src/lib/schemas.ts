@@ -64,7 +64,7 @@ export const PaymentSchema = z.object({
   id: z.string().uuid(),
   status: PaymentStatusSchema,
   mpesaReceiptNumber: z.string().nullable(),
-  amountKes: z.number().int().positive(),
+  amountKes: z.number().int().positive().nullable(),
   createdAt: z.string().datetime(),
 });
 
@@ -197,6 +197,41 @@ export const PaginatedServicesSchema = z.object({
 
 // ─── Payment transaction schemas ─────────────────────────────────────────────
 
+/**
+ * Raw payment shape as returned by the backend.
+ * The backend nests `customer` inside `booking`, does not return `method`,
+ * and may return `amountKes: null` for non-OWNER roles.
+ * `normalizePayment()` in usePayments transforms this to the UI shape.
+ */
+export const RawPaymentSchema = z.object({
+  id: z.string(),
+  bookingId: z.string(),
+  checkoutRequestId: z.string().nullable().optional(),
+  phoneNumber: z.string().nullable(),
+  amountKes: z.number().int().positive().nullable(),
+  status: PaymentStatusSchema,
+  mpesaReceiptNumber: z.string().nullable(),
+  completedAt: z.string().datetime().nullable().optional(),
+  failureReason: z.string().nullable().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string().optional(),
+  booking: z.object({
+    id: z.string(),
+    reference: z.string(),
+    appointmentAt: z.string().optional(),
+    customer: z.object({
+      id: z.string(),
+      name: z.string(),
+    }),
+    service: ServiceRefSchema,
+  }),
+  transactions: z.array(z.any()).optional(),
+});
+export type RawPayment = z.infer<typeof RawPaymentSchema>;
+
+/**
+ * Normalized payment shape used by the UI after `normalizePayment()`.
+ */
 export const PaymentTransactionSchema = z.object({
   id: z.string(),
   bookingId: z.string(),
@@ -225,7 +260,7 @@ export const PaginatedPaymentsMetaSchema = z.object({
 });
 
 export const PaginatedPaymentsSchema = z.object({
-  data: z.array(PaymentTransactionSchema),
+  data: z.array(RawPaymentSchema),
   meta: PaginatedPaymentsMetaSchema.optional(),
 });
 

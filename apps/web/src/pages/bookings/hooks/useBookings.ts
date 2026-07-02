@@ -9,6 +9,7 @@ import {
   PaginatedBookingsSchema,
 } from "@/lib/schemas";
 import type { Booking, BookingFilters } from "@/lib/schemas";
+import { paymentKeys } from "@/pages/payments/hooks/usePayments";
 
 export interface BookingMeta {
   page: number;
@@ -283,13 +284,13 @@ export function useSendPaymentRequest() {
         bookingId,
         phoneNumber: phoneNumber.replace(/[^0-9]/g, ""),
       });
-      return validateOrThrow(
-        BookingSchema,
-        data.data,
-        "POST /payments/stk-push",
-      );
+      // STK push returns { paymentId, checkoutRequestId, message }, not a booking
+      return data.data as { paymentId: string; checkoutRequestId: string | null; message: string };
     },
-    onSuccess: (updated) => updateCaches(queryClient, updated),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: paymentKeys.all });
+      queryClient.invalidateQueries({ queryKey: bookingKeys.all });
+    },
   });
 }
 

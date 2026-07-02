@@ -4,7 +4,9 @@ import { api } from "@/lib/api";
 import { validateOrThrow } from "@/lib/guards";
 import {
   PaginatedPaymentsSchema,
+  RawPaymentSchema,
   type PaymentTransaction,
+  type RawPayment,
 } from "@/lib/schemas";
 
 export const paymentKeys = {
