@@ -78,12 +78,11 @@ export async function stkPushProcessor(
 
   const timestamp = generateTimestamp();
   const password = generatePassword(timestamp);
-  const { default: axios } = await import("axios");
 
   try {
 
     const response = await mpesaHttpClient.post<DarajaSTKPushResponse>(
-      "/mpesa/stkpush/v3/processrequest",
+      "/mpesa/stkpush/v1/processrequest",
       {
         BusinessShortCode: config.DARAJA_SHORTCODE,
         Password: password,
@@ -112,7 +111,7 @@ export async function stkPushProcessor(
       );
       throw new Error(
         `Daraja rejected STK Push: ${response.data.ResponseDescription}`,
-      );
+      ); // trigger bullmq retry
     }
 
     // Update payment record with the checkout request ID
@@ -154,14 +153,15 @@ export async function stkPushProcessor(
       },
       {
         delay: 90_000, // Daraja's STK prompt expires ~60-90s on the handset
-        jobId: `timeout:${paymentId}`,
+        jobId: `timeout.${paymentId}`,
       },
     );
 
     // Schedule a reconciliation job to run after every 10 mins
     await paymentQueue.upsertJobScheduler(JOB_NAMES.STK_RECONCILIATION, {
-      every: 10 * 60 * 1000 // 10min
-    }, {name: "reconcile"})
+      every: 10 * 60 * 1000, // 10min
+      jobId: `reconcile.${payment.id}`
+    })
 
     log.info(
       {
@@ -170,7 +170,7 @@ export async function stkPushProcessor(
         bookingId,
         checkoutRequestId: CheckoutRequestID,
       },
-      "STK Push initiated successfully, timeout scheduled",
+      "STK Push initiated successfully, timeout and reconciliation scheduled",
     );
   } catch (error: unknown) {
     const err = error
