@@ -140,7 +140,6 @@ export async function processStkCallback(
           },
         });
 
-        // TODO: alert owner via notification
         return;
       }
 
@@ -197,7 +196,7 @@ export async function processStkCallback(
           rawCallback: rawCallback as any,
         },
       });
-
+// sync both payment and booking payment status
       await tx.payment.update({
         where: { id: payment.id },
         data: {
@@ -205,6 +204,14 @@ export async function processStkCallback(
           failureReason: ` ${getFailureReason(resultCode)}`,
         },
       });
+        await prisma.booking.update({
+          where: {
+            id: payment.bookingId,
+          },
+          data: {
+            paymentStatus: terminalStatus
+          },
+        });
 
       log.info(
         {
@@ -254,7 +261,7 @@ export async function processStkCallback(
     // Notification failure is non-fatal — don't throw
     log.error(
       { event: "stk_callback.job.notification_failed", paymentId: payment.id, error: String(err) },
-      "Failed to enqueue payment notification",
+      "Failed to enq'ueue payment notification",
     );
   }
 }
