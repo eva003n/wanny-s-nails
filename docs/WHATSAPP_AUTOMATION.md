@@ -1,14 +1,23 @@
 # WhatsApp Automation — Wanny's Nails
 
-**Version:** 1.3
+**Version:** 1.2
 
 ---
 
 ## Overview
 
-The WhatsApp chatbot uses a **hybrid FSM + AI** architecture. A deterministic Finite State Machine handles all structured booking flows. A free-tier LLM (Gemini 2.0 Flash) handles edge cases the FSM cannot — FAQs, complaints, open questions, and ambiguous intent. Human escalation is the last resort, only when AI also cannot resolve.
+The WhatsApp chatbot uses a **deterministic FSM architecture** that handles structured booking flows with strict validation at every boundary. Invalid input is managed through an escalation ladder that transitions to human support after repeated failures.
 
-## WhatsApp Cloud API integration flow
+**Key Principles:**
+- Deterministic: Booking flows behave identically every time
+- Zero cost per message for the structured majority
+- Fail-fast validation at every system boundary
+- Transactional state transitions (only commit state after successful outbound delivery)
+- Idempotent message processing via `wamid` deduplication
+
+---
+
+## WhatsApp Cloud API Integration Flow
 
 ```
 Facebook Account
@@ -20,41 +29,24 @@ Facebook Account
         |_Test WhatsApp Business     --- Step 1
         | account (WABA)
         |_Your WhatsApp Business account (WABA)
-        |    |__Phone Number --------------- Step 2
-        |    |__Message Templates ---------- Step 2
-        |    |__Payment Method ------------- Step 2
-        |
-        |__System User --------------------- Step 2
-        |__Business Verification ----------- Step 3
+             |__Phone Number --------------- Step 2
+             |__Message Templates ---------- Step 2
+             |__Payment Method ------------- Step 2
+             |
+             |__System User ------------------- Step 2
+             |__Business Verification ---------- Step 3
 ```
 
-**Escalation ladder:**
+**Escalation Ladder:**
 
 ```
 FSM handles it          (structured flow — free, instant, deterministic)
-       │
-       │ unrecognised input ×3  OR  intent outside FSM scope
-       ▼
-AI_FALLBACK handles it  (FAQ, open questions — Gemini free tier)
-       │
-       │ AI cannot resolve  OR  customer explicitly asks for human
-       ▼
+        │
+        │ unrecognised input ×3  OR  intent outside FSM scope
+        ▼
+
 HUMAN_ESCALATION        (owner notified via Web Push / WhatsApp)
 ```
-
-**Why FSM first:**
-
-- Deterministic: booking flows behave exactly the same every time
-- Zero cost per message for the structured majority
-- Easier to debug, test, and audit
-- No hallucination risk on booking data (prices, times, availability)
-
-**Why AI as fallback (not primary):**
-
-- Handles the ~5% of messages outside the FSM scope
-- Gemini 2.0 Flash free tier: 1,500 req/day — far exceeds expected fallback volume
-- Constrained by a tight system prompt — cannot go off-script
-- Detects booking intent and routes back to FSM automatically
 
 ---
 
@@ -67,66 +59,235 @@ Incoming WhatsApp message
 POST /webhooks/whatsapp
          │
          ▼
-Signature validation (X-Hub-Signature-256)
+Inbound Validation Middleware (Zod schemas)
          │
          ▼
-Message normalisation (extract phone, text/button reply/list reply)
+WAMID Deduplication (Redis, 5-min TTL)
          │
          ▼
-Async queue (immediate 200 OK to WhatsApp)
+Async Queue (immediate 200 OK to WhatsApp)
          │
          ▼
-Global intent check (STOP / human / menu keywords)
+Global Intent Check (STOP / human / menu keywords)
          │
          ▼
-FSM Engine.process(phone, message)
+FSM Engine.processMessage()
          │
-         ├── Load session from Redis (or create new)
+         ├── Load session from Redis (or create new, TTL 30 min)
          │
-         ├── Lookup transition function for current state
+         ├── State-Aware Input Validation (Zod schema per state)
          │
-         ├── Execute transition (may read DB, create booking, etc.)
-         │   │
-         │   └── If state = AI_FALLBACK → call Gemini API
+         ├── Execute State Handler
          │
-         ├── Save updated session to Redis (TTL 30 min)
+         ├── Transactional Outbound:
+         │   ├── Generate messages
+         │   ├── Validate messages (Zod)
+         │   ├── Send via WhatsApp Transport Service
+         │   └── On success: commit state transition
+         │       On failure: stay in current state
          │
-         └── Send outbound messages via WhatsApp Cloud API
-              (text, interactive lists, or interactive buttons)
+         └── Save updated session to Redis
 ```
 
 ---
 
-## Interactive Messages
+## Validation Architecture
 
-The bot uses WhatsApp interactive message types instead of plain text where appropriate. This gives customers a native, tap-to-select experience rather than typing numbers manually.
+### Inbound Validation
 
-### Message Types Used
+Every incoming webhook payload is validated before entering the FSM:
 
-| WhatsApp Type           | Used For                                                                    | When                                           |
-| ----------------------- | --------------------------------------------------------------------------- | ---------------------------------------------- |
-| `interactive` (list)    | Main menu, service selection, date selection, time selection                | Multi-option menus with 3+ choices             |
-| `interactive` (buttons) | Confirmations (booking, cancel, reschedule), payment retry/cancel           | Binary yes/no or 2-3 action choices            |
-| `text`                  | Status messages, error messages, data collection (name/email, phone number) | Free-text input or informational-only messages |
+```
+Webhook Payload
+   │
+   ▼
+Validate webhook structure
+   │
+   ▼
+Validate event type
+   │
+   ▼
+Normalize to InboundNormalizedEvent
+   │
+   ▼
+FSM Engine
+```
 
-### Interactive List Messages
+**Validation Responsibilities:**
+- Validate webhook payload structure
+- Validate supported event types (`messages` only)
+- Validate text messages (non-empty, max length)
+- Validate interactive replies (button/list)
+- Normalize payloads into internal format
+- Reject malformed payloads immediately
 
-Lists present a scrollable menu with a button trigger. When the customer taps the button, they see a sheet with sections and rows. Each row has:
+**Boundary:** No business logic executes before validation succeeds.
 
-- `id` — machine-readable identifier sent back to the FSM (e.g. `"1"`, `"2"`)
-- `title` — short label visible in the list (max 24 chars)
-- `description` — optional subtitle (max 72 chars)
+### State-Aware Input Validation
 
-### Interactive Button Messages
+Each FSM state defines its input schema. Validation occurs **after** loading the session but **before** executing the state handler:
 
-Buttons present 1-3 tappable buttons below a body message. Each button has:
+```
+Load Session
+   │
+   ▼
+Get State Input Schema
+   │
+   ▼
+Validate Incoming Message
+   │
+   ├── Success → Execute State Handler
+   │
+   └── Failure
+        ├── Increment invalidInputCount
+        ├── Return validation failure response
+        ├── Log validation error
+        └── Preserve current state (no transition)
+```
 
-- `id` — machine-readable identifier sent back to the FSM (e.g. `"yes"`, `"no"`)
-- `title` — button label (max 20 chars, text only — no emoji)
+**Examples:**
 
-### How Replies Are Parsed
+| State | Input Schema |
+|-------|-------------|
+| `DATA_COLLECTION` (NAME phase) | `string().min(5, "Name must be at least 5 characters")` |
+| `DATA_COLLECTION` (PHONE phase) | `PhoneNumberSchema` (E.164 Kenyan format) |
+| `SERVICE_SELECTION` | `string().regex(/^\d+$/)` + range check |
+| `DATE_SELECTION` | `z.coerce.number()` + availability check |
+| `TIME_SELECTION` | `z.coerce.number()` + slot availability check |
+| `BOOKING_CONFIRMATION` | `z.enum(["yes", "y", "1", "no", "n", "2"])` |
+| `AWAITING_PAYMENT_PHONE` | `PhoneNumberSchema` |
 
-When a customer taps a list row or button, WhatsApp sends an `interactive` webhook with `list_reply` or `button_reply`. The webhook controller extracts the `id` field and passes it as the message body to the FSM engine. This means the FSM receives the same values (`"1"`, `"yes"`, `"book"`, etc.) regardless of whether the customer typed the text or tapped an interactive element.
+### Outbound Validation
+
+Every outbound message is validated before contacting WhatsApp:
+
+```
+Generate Message
+   │
+   ▼
+Zod Validation (OutboundMessageSchema)
+   │
+   ├── Success → Transport Service → WhatsApp API
+   │
+   └── Failure
+        ├── Throw validation error
+        ├── Do not send request
+        ├── Stay in current state
+        └── Log invalid payload
+```
+
+**Validation Contract:**
+- Text: `body` max 4096 chars
+- Interactive header: max 60 chars
+- Interactive list rows: max 10 per section, max 10 sections
+- Interactive list row title: max 24 chars
+- Interactive list row description: max 72 chars
+- Button title: max 20 chars
+- Button count: max 3
+
+### Transactional State Changes
+
+State transitions are **not committed until outbound delivery succeeds**:
+
+```
+Current State
+   │
+   ▼
+Generate Message(s)
+   │
+   ▼
+Validate Message(s)
+   │
+   ▼
+Send via Transport Service
+   │
+   ▼
+Accepted by WhatsApp?
+   │
+   ├── Yes → Commit State Transition → Save Session
+   │
+   └── No
+        ├── Stay in Current State
+        ├── Log transport error
+        └── Return typed error to FSM
+```
+
+This prevents state corruption from partial failures.
+
+### WhatsApp Transport Service
+
+A dedicated transport service owns all outbound communication:
+
+**Responsibilities:**
+- Validate outbound payloads (Zod)
+- Serialize payloads to WhatsApp format
+- Send HTTP requests to WhatsApp Cloud API
+- Handle transport errors (network, 5xx)
+- Handle WhatsApp API errors (4xx, rate limits, invalid numbers)
+- Implement retries with exponential backoff
+- Log request/response metadata + correlation IDs
+- Return typed results (`SendMessageResult`)
+
+**Boundary:** No other module in the conversation worker calls WhatsApp Cloud API directly.
+
+### Typed Result Pattern
+
+Validation and transport failures return typed results instead of throwing exceptions:
+
+**Success:**
+```typescript
+{
+  ok: true,
+  messageId: "wamid:ABC123",
+  status: 200
+}
+```
+
+**Validation Failure:**
+```typescript
+{
+  ok: false,
+  type: "VALIDATION_ERROR",
+  errors: z.ZodError
+}
+```
+
+**Transport Failure (Network/5xx):**
+```typescript
+{
+  ok: false,
+  type: "TRANSPORT_ERROR",
+  status: 500,
+  retryable: true
+}
+```
+
+**WhatsApp API Failure:**
+```typescript
+{
+  ok: false,
+  type: "WHATSAPP_ERROR",
+  status: 400,
+  code: 131047,      // Unsupported message type
+  message: "...",
+  retryable: false
+}
+```
+
+### Logging Strategy
+
+**Validation Logs** (separate from transport logs):
+- Conversation ID (phone)
+- Current FSM state
+- Validation errors
+- Invalid payload (truncated)
+
+**Transport Logs**:
+- Request payload
+- Response status
+- WhatsApp error body
+- Retry attempts
+- Correlation IDs
 
 ---
 
@@ -147,20 +308,21 @@ interface ConversationSession {
     durationMinutes: number;
     priceKes: number;
   };
-  selectedDate?: string; // "2025-06-05" (EAT)
-  selectedTime?: string; // "14:00" (EAT)
+  selectedDate?: string; // "YYYY-MM-DD" (EAT)
+  selectedTime?: string; // "HH:MM" (EAT)
   appointmentAt?: string; // ISO UTC (computed after date+time selected)
   bookingId?: string;
   bookingRef?: string;
   paymentPhone?: string;
+  /** Selected service category filter — set during CATEGORY_SELECTION */
+  selectedCategory?: ServiceCategory;
+  /** Sub-phase within DATA_COLLECTION: "NAME" (collecting name) or "PHONE" (collecting phone) */
+  collectionPhase?: "NAME" | "PHONE";
+  /** Temp name stored during DATA_COLLECTION before DB record is created */
+  temporaryName?: string;
   invalidInputCount: number; // Increments on bad input; escalate at 3
   lastActivity: string; // ISO UTC
   flow?: "BOOKING" | "RESCHEDULE" | "CANCEL" | "LOOKUP";
-  aiContext?: Array<{
-    // Last 6 messages for Gemini conversation context
-    role: "user" | "model";
-    parts: [{ text: string }];
-  }>;
 }
 ```
 
@@ -175,6 +337,7 @@ type ConversationState =
   | "IDLE"
   | "GREETING"
   | "DATA_COLLECTION"
+  | "CATEGORY_SELECTION"
   | "SERVICE_SELECTION"
   | "DATE_SELECTION"
   | "TIME_SELECTION"
@@ -185,7 +348,6 @@ type ConversationState =
   | "RESCHEDULE_TIME"
   | "RESCHEDULE_CONFIRMATION"
   | "CANCEL_CONFIRMATION"
-  | "AI_FALLBACK"
   | "HUMAN_ESCALATION";
 ```
 
@@ -193,33 +355,36 @@ type ConversationState =
 
 ```mermaid
 stateDiagram-v2
-    [*] --> IDLE : Any message (new/expired session)
+    [*] --> IDLE : New customer or session expired
 
-    IDLE --> GREETING : Returning customer (phone in DB)
+    IDLE --> GREETING : Returning customer (phone in DB) — send main menu
     IDLE --> DATA_COLLECTION : New customer (phone not in DB)
 
-    DATA_COLLECTION --> DATA_COLLECTION : Invalid name / invalid email
-    DATA_COLLECTION --> GREETING : Name + email collected → customer created
+    DATA_COLLECTION --> DATA_COLLECTION : Invalid name / invalid phone
+    DATA_COLLECTION --> GREETING : Name + phone collected → customer created
 
-    GREETING --> SERVICE_SELECTION : "1" (Book)
-    GREETING --> LOOKUP : "2" (View appointment)
-    GREETING --> CANCEL_CONFIRMATION : "3" (Cancel) + booking found
-    GREETING --> RESCHEDULE_DATE : "4" (Reschedule) + booking found
-    GREETING --> AI_FALLBACK : Unrecognised input ×3
+    GREETING --> CATEGORY_SELECTION : "1" (Book)
+    GREETING --> GREETING : "2" (View appointment) — inline response with booking details
+    GREETING --> CANCEL_CONFIRMATION : "3" (Cancel) + active booking found
+    GREETING --> RESCHEDULE_DATE : "4" (Reschedule) + active booking found
+    GREETING --> HUMAN_ESCALATION : Invalid input ×3
+
+    CATEGORY_SELECTION --> SERVICE_SELECTION : Valid category selected
+    CATEGORY_SELECTION --> HUMAN_ESCALATION : Unrecognised input ×3
 
     SERVICE_SELECTION --> DATE_SELECTION : Valid service number selected
-    SERVICE_SELECTION --> AI_FALLBACK : Unrecognised input ×3
+    SERVICE_SELECTION --> HUMAN_ESCALATION : Unrecognised input ×3
 
     DATE_SELECTION --> TIME_SELECTION : Valid date selected
-    DATE_SELECTION --> AI_FALLBACK : Unrecognised input ×3
+    DATE_SELECTION --> HUMAN_ESCALATION : Unrecognised input ×3
 
     TIME_SELECTION --> BOOKING_CONFIRMATION : Valid time selected
-    TIME_SELECTION --> AI_FALLBACK : Unrecognised input ×3
+    TIME_SELECTION --> HUMAN_ESCALATION : Unrecognised input ×3
 
-    BOOKING_CONFIRMATION --> AWAITING_PAYMENT_PHONE : "YES" confirmed
-    BOOKING_CONFIRMATION --> GREETING : "NO" — restart
+    BOOKING_CONFIRMATION --> AWAITING_PAYMENT_PHONE : "yes" / "1" confirmed
+    BOOKING_CONFIRMATION --> GREETING : "no" / "2" — restart
 
-    AWAITING_PAYMENT_PHONE --> AWAITING_PAYMENT : Valid phone number provided
+    AWAITING_PAYMENT_PHONE --> AWAITING_PAYMENT : Valid Kenyan phone provided
 
     AWAITING_PAYMENT --> IDLE : Payment completed (Daraja callback)
     AWAITING_PAYMENT --> AWAITING_PAYMENT : Payment failed — retry offered
@@ -227,18 +392,12 @@ stateDiagram-v2
 
     RESCHEDULE_DATE --> RESCHEDULE_TIME : Valid date selected
     RESCHEDULE_TIME --> RESCHEDULE_CONFIRMATION : Valid time selected
-    RESCHEDULE_CONFIRMATION --> IDLE : "YES" — rescheduled
-    RESCHEDULE_CONFIRMATION --> GREETING : "NO" — cancelled
+    RESCHEDULE_CONFIRMATION --> IDLE : "yes" — rescheduled
+    RESCHEDULE_CONFIRMATION --> GREETING : "no" — cancelled
 
-    CANCEL_CONFIRMATION --> IDLE : "YES" — cancelled
-    CANCEL_CONFIRMATION --> GREETING : "NO" — kept
+    CANCEL_CONFIRMATION --> IDLE : "yes" — cancelled
+    CANCEL_CONFIRMATION --> GREETING : "no" — kept
 
-    AI_FALLBACK --> GREETING : AI detects booking intent\n("book", "appointment", "menu")
-    AI_FALLBACK --> AI_FALLBACK : Continues conversation
-    AI_FALLBACK --> HUMAN_ESCALATION : AI cannot resolve\nor customer asks for human
-
-    note right of AI_FALLBACK : Handles FAQ, complaints,\nopen questions.\nPowered by Gemini 2.0 Flash\n(free tier).
-    note right of HUMAN_ESCALATION : Only reached when AI\nalso cannot resolve.\nOwner notified via\nWeb Push / WhatsApp.
     HUMAN_ESCALATION --> IDLE : Session cleared after escalation
 ```
 
@@ -248,30 +407,45 @@ stateDiagram-v2
 
 ### State: IDLE / Session Expired
 
-**Entry condition:** No existing session or TTL expired.
+**Entry Condition:** No existing session or TTL expired (`loadSession` returns `null`).
 
-**Behaviour:**
+**Purpose:** Determine if customer is new or returning, and route accordingly.
 
-- Check if customer exists in DB by phone number
-- **Returning customer (phone in DB):** Load customer, transition to GREETING and send the interactive list menu
-- **New customer (phone not in DB):** Do NOT create record yet — transition to DATA_COLLECTION to collect name & email
+**Flow:**
+
+1. **Check DB:** Look up customer by phone number via `getByPhone()`
+2. **If found (returning customer):**
+   - Set session `customerId`, `customerName`
+   - Transition → `GREETING`
+   - Engine sends main menu interactive list
+3. **If not found (new customer):**
+   - Transition → `DATA_COLLECTION`
+   - Engine sends entry prompt: "Hi! Welcome to Wanny's Nails! 👋\n\nWe'd love to get to know you better.\nWhat's your name?"
+   - Set `collectionPhase: "NAME"`
+
+**Input:** Any message (used for global intent detection only — STOP/HUMAN/MENU)
+
+**Session Updates:** None (session is empty on entry)
+
+**Transition:** `GREETING` or `DATA_COLLECTION` (determined by DB lookup)
+
+**Notes:** The engine's entry-prompt logic (step 8b) sends the DATA_COLLECTION entry prompt when transitioning from IDLE to DATA_COLLECTION.
 
 ---
 
 ### State: DATA_COLLECTION
 
-**Entry condition:** IDLE handler detected a new customer (phone not in DB). `session.collectionPhase` is set to `"NAME"`.
+**Entry Condition:** IDLE handler detected a new customer (phone not in DB). `session.collectionPhase` is set to `"NAME"`.
 
-**Purpose:** Collect the new customer's name and optional email before creating their DB record and entering the main menu.
+**Purpose:** Collect the new customer's name and phone number before creating their DB record and entering the main menu.
 
-**Message type:** Plain text (free-text input required)
+**Message Type:** Text (free-text input required)
 
 **Sub-phases:** Tracked via `session.collectionPhase`:
 
 #### Phase: NAME
 
 **Bot message (on entry):**
-
 ```
 Hi! Welcome to Wanny's Nails! 👋
 
@@ -279,38 +453,43 @@ We'd love to get to know you better.
 What's your name?
 ```
 
+**Validation:** Name must be ≥ 5 characters.
+
 **Transitions:**
 
-| Input                      | Transition                                                            |
-| -------------------------- | --------------------------------------------------------------------- |
-| Valid name (≥2 characters) | Save to `temporaryName`, set phase → EMAIL, ask for email             |
-| Too short / empty          | "Please enter your full name (at least 2 characters)." — stay in NAME |
+| Input | Transition |
+|-------|------------|
+| Name ≥ 5 chars | Save to `temporaryName`, set phase → PHONE, ask for phone number |
+| < 5 chars or empty | Stay in NAME, show error message |
 
-#### Phase: EMAIL
+#### Phase: PHONE
 
 **Bot message:**
-
 ```
 Nice to meet you, [Name]! 😊
 
-Could you share your email address for your booking receipt? You can also type *skip* to continue without one.
+Could you share your WhatsApp phone number for automated reminders?
+(e.g., 0712 345 678)
 ```
+
+**Validation:** Must be valid Kenyan phone number (E.164 format: `254XXXXXXXXX`).
 
 **Transitions:**
 
-| Input                                  | Transition                                                                                                              |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Valid email                            | Create customer in DB (name + email), set `customerId` + `customerName` → GREETING                                      |
-| "skip" / "no" / "nah" / "none" / "n/a" | Create customer in DB (name only, email=null) → GREETING                                                                |
-| Invalid email format                   | "That doesn't look like a valid email address. Please enter a valid email, or type _skip_ to continue." — stay in EMAIL |
+| Input | Transition |
+|-------|------------|
+| Valid Kenyan phone after normalization | Create customer in DB (name + phone), set `customerId` + `customerName` → GREETING |
+| Invalid format | Stay in PHONE, show error message |
 
-**On DB creation failure:** Log error, proceed to GREETING with the collected name as fallback.
+**On validation failure:** Increment `invalidInputCount`. If count reaches 3, transition → `HUMAN_ESCALATION`.
+
+**On DB creation failure:** Log error and proceed to GREETING with collected name as fallback.
 
 ---
 
 ### State: GREETING
 
-**Message type:** 📋 Interactive List
+**Message Type:** 📋 Interactive List
 
 **Bot message:**
 
@@ -346,19 +525,19 @@ Section: Appointments
 
 **Transitions:**
 
-| Input (list row id) | Transition                                    | Notes                                                              |
-| ------------------- | --------------------------------------------- | ------------------------------------------------------------------ |
-| `"1"`               | → SERVICE_SELECTION                           |                                                                    |
-| `"2"`               | → LOOKUP (inline, no new state)               | Respond with booking details + action buttons                      |
-| `"3"`               | → Check for active booking                    | If found → CANCEL_CONFIRMATION; if not → "No active booking found" |
-| `"4"`               | → Check for active booking                    | If found → RESCHEDULE_DATE; if not → "No active booking"           |
-| Anything else       | Stay in GREETING, increment invalidInputCount | Show menu again                                                    |
+| Input (list row id / text) | Transition | Notes |
+| -------------------------- | ---------- | ----- |
+| `"1"` / `"book"` | → `CATEGORY_SELECTION` | |
+| `"2"` / `"view"` | Stay in `GREETING` | Inline response with booking details text + action buttons |
+| `"3"` / `"cancel"` | → `CANCEL_CONFIRMATION` | Requires active booking; else show "No active booking" |
+| `"4"` / `"reschedule"` | → `RESCHEDULE_DATE` | Requires active booking; else show "No active booking" |
+| Anything else | Stay in `GREETING`, increment `invalidInputCount` | Resend menu |
 
-#### View Appointment Result
+**View Appointment Response:**
 
-When the customer views an appointment, two messages are sent:
+When customer views an appointment, two messages are sent inline (no state change):
 
-1. **Text message** showing the booking details
+1. **Text message** showing booking details
 2. **Interactive button** with actions:
 
 ```
@@ -370,16 +549,58 @@ Button: Manage booking
 └─────────────┘ └─────────────┘
 ```
 
-| Button ID | Transition            |
-| --------- | --------------------- |
-| `"3"`     | → CANCEL_CONFIRMATION |
-| `"4"`     | → RESCHEDULE_DATE     |
+| Button ID | Action |
+| --------- | ------ |
+| `"3"` | Transition to `CANCEL_CONFIRMATION` |
+| `"4"` | Transition to `RESCHEDULE_DATE` |
+
+---
+
+### State: CATEGORY_SELECTION
+
+**Message Type:** 📋 Interactive List
+
+**Purpose:** Let the customer filter services by category before seeing individual services.
+
+**Bot message:**
+
+```
+Header:
+Choose Category
+
+Body:
+What type of service are you looking for?
+
+Button:
+Choose a category
+
+Section: Categories
+
+┌──────────────────────────────────────────┐
+│ Manicure                                │
+├──────────────────────────────────────────┤
+│ Pedicure                                │
+├──────────────────────────────────────────┤
+│ Enhancements                            │
+├──────────────────────────────────────────┤
+│ Nail Art                                │
+├──────────────────────────────────────────┤
+│ Extensions                              │
+└──────────────────────────────────────────┘
+```
+
+**Transitions:**
+
+| Input (list row id) | Transition |
+| ------------------- | ----------- |
+| Valid category (1–N) | Save to `selectedCategory` → `SERVICE_SELECTION` |
+| Invalid | Increment `invalidInputCount`, resend list |
 
 ---
 
 ### State: SERVICE_SELECTION
 
-**Message type:** 📋 Interactive List
+**Message Type:** 📋 Interactive List
 
 **Bot message:**
 
@@ -393,7 +614,7 @@ Which service would you like?
 Button:
 Choose a service
 
-Section: Available Services
+Section: [Selected Category]
 
 ┌──────────────────────────────────────────┐
 │ Gel Manicure                             │
@@ -404,26 +625,23 @@ Section: Available Services
 ├──────────────────────────────────────────┤
 │ Nail Art                                 │
 │ KES 2,000 — 75 min                      │
-├──────────────────────────────────────────┤
-│ Regular Manicure                         │
-│ KES 800 — 45 min                        │
 └──────────────────────────────────────────┘
 ```
 
-Services are fetched from DB (only `isActive=true`, ordered by `sortOrder`).
+Services are filtered by `selectedCategory` and only `isActive=true` services are shown, ordered by `sortOrder`.
 
 **Transitions:**
 
-| Input (list row id) | Transition                               |
-| ------------------- | ---------------------------------------- |
-| Valid number (1–N)  | Save service to session → DATE_SELECTION |
-| Invalid             | Increment invalidInputCount, resend list |
+| Input (list row id) | Transition |
+| ------------------- | ----------- |
+| Valid number (1–N) | Save service to `selectedService` → `DATE_SELECTION` |
+| Invalid | Increment `invalidInputCount`, resend list |
 
 ---
 
 ### State: DATE_SELECTION
 
-**Message type:** 📋 Interactive List
+**Message Type:** 📋 Interactive List
 
 **Bot message:**
 
@@ -457,23 +675,23 @@ Section: Available Dates
 └──────────────────────────────────────────┘
 ```
 
-Presents the next 7 business days. Fully booked days appear without a description (not selectable). Closed days are omitted.
+Presents the next 7 business days with available slots. Fully booked days appear without a description (not selectable). Closed days are omitted.
 
-**Slot count** is fetched from the availability engine. Available dates show "Available" in the description.
+**Slot count** is fetched from the availability engine.
 
 **Transitions:**
 
-| Input (list row id)                | Transition                                         |
-| ---------------------------------- | -------------------------------------------------- |
-| Valid number for an available date | Save date to session → TIME_SELECTION              |
-| Number for a full date             | "That day is fully booked. Please choose another." |
-| Invalid                            | Increment invalidInputCount, resend list           |
+| Input (list row id) | Transition |
+| ------------------- | ----------- |
+| Valid number for available date | Save to `selectedDate` → `TIME_SELECTION` |
+| Number for full date | "That day is fully booked. Please choose another." — stay in DATE_SELECTION |
+| Invalid | Increment `invalidInputCount`, resend list |
 
 ---
 
 ### State: TIME_SELECTION
 
-**Message type:** 📋 Interactive List
+**Message Type:** 📋 Interactive List
 
 **Bot message:**
 
@@ -502,16 +720,16 @@ Section: Available Times
 
 **Transitions:**
 
-| Input (list row id) | Transition                                  |
-| ------------------- | ------------------------------------------- |
-| Valid number        | Save time to session → BOOKING_CONFIRMATION |
-| Invalid             | Increment invalidInputCount, resend list    |
+| Input (list row id) | Transition |
+| ------------------- | ----------- |
+| Valid number | Save to `selectedTime`, compute `appointmentAt` → `BOOKING_CONFIRMATION` |
+| Invalid | Increment `invalidInputCount`, resend list |
 
 ---
 
 ### State: BOOKING_CONFIRMATION
 
-**Message type:** Text summary + 🔘 Interactive Buttons
+**Message Type:** Text summary + 🔘 Interactive Buttons
 
 **Bot messages:**
 
@@ -539,16 +757,16 @@ Button: Confirm booking
 
 **Transitions:**
 
-| Input (button id)                           | Transition                                                |
-| ------------------------------------------- | --------------------------------------------------------- |
-| `"yes"` / `"YES"` / `"Yes"` / `"y"` / `"1"` | Create PENDING booking in DB → AWAITING_PAYMENT_PHONE     |
-| `"no"` / `"NO"` / `"n"` / `"2"`             | Clear session context, "OK, let's start over." → GREETING |
+| Input (button id) | Transition | Action |
+| ----------------- | ---------- | ------ |
+| `"yes"` / `"y"` / `"1"` | → `AWAITING_PAYMENT_PHONE` | Create PENDING booking in DB |
+| `"no"` / `"n"` / `"2"` | → `GREETING` | Clear session context |
 
 ---
 
 ### State: AWAITING_PAYMENT_PHONE
 
-**Message type:** Text (free-text input for phone number)
+**Message Type:** Text (free-text input for phone number)
 
 **Bot message:**
 
@@ -561,12 +779,16 @@ What M-Pesa number should we send the payment request to?
 (e.g., 0712 345 678)
 ```
 
+**Validation:** Must be valid Kenyan phone number (E.164 format).
+
 **Transitions:**
 
-| Input              | Transition                                                                     |
-| ------------------ | ------------------------------------------------------------------------------ |
-| Valid Kenyan phone | Save paymentPhone → enqueue STK Push → AWAITING_PAYMENT                        |
-| Invalid            | "That doesn't look like a valid number. Please try again (e.g., 0712 345 678)" |
+| Input | Transition | Action |
+| ----- | ---------- | ------ |
+| Valid Kenyan phone | → `AWAITING_PAYMENT` | Save to `paymentPhone`, enqueue STK Push |
+| Invalid | Stay in `AWAITING_PAYMENT_PHONE` | Increment `invalidInputCount`, show error |
+
+If `invalidInputCount >= 3` → `HUMAN_ESCALATION`.
 
 ---
 
@@ -583,6 +805,16 @@ This request will expire in 5 minutes.
 
 This state is **asynchronously exited** — the FSM does not block waiting. The Daraja callback triggers the next step via the payment callback processor.
 
+**When customer replies while in AWAITING_PAYMENT:**
+
+| Input | Transition | Action |
+| ----- | ---------- | ------ |
+| `"1"` / `"retry"` | Stay in `AWAITING_PAYMENT` | Enqueue new STK Push |
+| `"2"` / `"cancel"` | → `GREETING` | Cancel PENDING booking, clear session flow |
+| Anything else | Stay in `AWAITING_PAYMENT` | Remind about pending payment, show action buttons |
+
+**On any other input while waiting:** Remind the customer about the pending payment and show the same action buttons.
+
 **When payment succeeds (triggered by Daraja callback):**
 
 ```
@@ -597,7 +829,7 @@ Payment received! ✅
 We'll send you a reminder 24 hours before. See you then! 💅
 ```
 
-Session cleared → IDLE
+Session cleared → `IDLE`
 
 **When payment fails (triggered by Daraja callback):**
 
@@ -618,18 +850,11 @@ Button: Choose an option
 └─────────────┘ └───────────────────┘
 ```
 
-**If customer replies while in AWAITING_PAYMENT:**
-
-- Button `"1"` or "retry" → enqueue new STK Push, stay in AWAITING_PAYMENT
-- Button `"2"` or "cancel" → cancel the PENDING booking → IDLE
-
-**On any other input while waiting:** Reminds the customer about the pending payment and shows the same action buttons.
-
 ---
 
 ### State: CANCEL_CONFIRMATION
 
-**Message type:** Text summary + 🔘 Interactive Buttons
+**Message Type:** Text summary + 🔘 Interactive Buttons
 
 **Bot messages:**
 
@@ -655,32 +880,47 @@ Button: Cancel appointment
 
 **Transitions:**
 
-| Input (button id) | Transition                                              |
-| ----------------- | ------------------------------------------------------- |
-| `"1"` / `"yes"`   | Cancel booking in DB → send confirmation → IDLE         |
-| `"2"` / `"no"`    | "Your appointment is still on! See you then. 💅" → IDLE |
+| Input | Transition | Action |
+| ----- | ---------- | ------ |
+| `"1"` / `"yes"` | → `GREETING` | Cancel booking in DB, send confirmation |
+| `"2"` / `"no"` | → `GREETING` | "Your appointment is still on!" |
 
 ---
 
 ### State: RESCHEDULE_DATE
 
-**Message type:** 📋 Interactive List
+**Message Type:** 📋 Interactive List
 
-Presents available dates for rescheduling, identical format to DATE_SELECTION but with the header "Pick a New Date" and button text "Choose a date".
+Presents available dates for rescheduling, identical format to `DATE_SELECTION` but with the header "Pick a New Date" and button text "Choose a date".
+
+**Transitions:**
+
+| Input (list row id) | Transition |
+| ------------------- | ----------- |
+| Valid number for available date | Save to `selectedDate` → `RESCHEDULE_TIME` |
+| Number for full date | "That day is fully booked. Please choose another." — stay in RESCHEDULE_DATE |
+| Invalid | Increment `invalidInputCount`, resend list |
 
 ---
 
 ### State: RESCHEDULE_TIME
 
-**Message type:** 📋 Interactive List
+**Message Type:** 📋 Interactive List
 
 Presents available times for the selected reschedule date, with header "Pick a New Time" and button text "Choose a time".
+
+**Transitions:**
+
+| Input (list row id) | Transition |
+| ------------------- | ----------- |
+| Valid number | Save to `selectedTime`, update `appointmentAt` → `RESCHEDULE_CONFIRMATION` |
+| Invalid | Increment `invalidInputCount`, resend list |
 
 ---
 
 ### State: RESCHEDULE_CONFIRMATION
 
-**Message type:** Text summary + 🔘 Interactive Buttons
+**Message Type:** Text summary + 🔘 Interactive Buttons
 
 **Bot messages:**
 
@@ -707,117 +947,10 @@ Button: Confirm reschedule
 
 **Transitions:**
 
-| Input (button id)       | Transition                                                                     |
-| ----------------------- | ------------------------------------------------------------------------------ |
-| `"yes"` / `"y"` / `"1"` | Reschedule booking in DB → send confirmation → IDLE                            |
-| `"no"` / `"n"` / `"2"`  | "Reschedule cancelled. Your original appointment remains unchanged. 💅" → IDLE |
-
----
-
-### State: AI_FALLBACK
-
-**Triggered by:**
-
-- `invalidInputCount >= 3` in any FSM state
-- Message received outside any active FSM flow (no current state / IDLE with unrecognised input)
-
-**What AI handles:**
-
-| Scenario                 | Example                                   |
-| ------------------------ | ----------------------------------------- |
-| FAQ                      | "Do you do eyelashes?"                    |
-| Location / directions    | "Where exactly are you located?"          |
-| Pricing questions        | "Is gel cheaper than acrylic?"            |
-| Complaints               | "I wasn't happy with my last visit"       |
-| Ambiguous booking intent | "I want something for my nails next week" |
-| General chat             | "What are your busiest hours?"            |
-
-**System prompt (sent with every Gemini request):**
-
-```
-You are a helpful assistant for Wanny's Nails salon in Nairobi, Kenya.
-
-RULES:
-- Answer questions about the salon only. Never discuss unrelated topics.
-- Keep all replies under 3 sentences. Be warm and friendly.
-- If the customer wants to book, cancel, or reschedule, reply with exactly:
-  "To manage your appointment, please type MENU."
-  Do not attempt to book on their behalf.
-- If you cannot confidently answer, reply with exactly:
-  "Let me connect you with our team — type HUMAN for personal assistance."
-- Never invent prices, availability, or service details.
-
-SALON INFO:
-Name:     Wanny's Nails
-Location: [Full address here]
-Hours:    Monday–Saturday, 9 AM – 6 PM EAT
-Phone:    +254 700 000 000
-Services: Gel Manicure KES 1,500 (60 min)
-          Acrylic Set KES 2,500 (90 min)
-          Nail Art KES 2,000 (75 min)
-          Regular Manicure KES 800 (45 min)
-```
-
-**Implementation:**
-
-```typescript
-async function handleAiFallback(
-  session: ConversationSession,
-  message: string,
-): Promise<{ reply: string; nextState: ConversationState }> {
-  // Keep last 6 messages as context (3 exchanges) — token efficient
-  const history = session.aiContext?.slice(-6) ?? [];
-
-  const response = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" +
-      process.env.GEMINI_API_KEY,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents: [...history, { role: "user", parts: [{ text: message }] }],
-        generationConfig: { maxOutputTokens: 150 }, // hard cap — keeps replies brief
-      }),
-    },
-  );
-
-  const data = await response.json();
-  const reply = data.candidates[0].content.parts[0].text;
-
-  // Detect handoff signals in AI reply
-  const wantsHuman = /HUMAN|connect you with|our team/i.test(reply);
-  const wantsMenu = /MENU|type menu/i.test(reply);
-
-  // Append to context window (capped at 6 messages)
-  session.aiContext = [
-    ...history,
-    { role: "user", parts: [{ text: message }] },
-    { role: "model", parts: [{ text: reply }] },
-  ].slice(-6);
-
-  const nextState: ConversationState = wantsHuman
-    ? "HUMAN_ESCALATION"
-    : wantsMenu
-      ? "GREETING"
-      : "AI_FALLBACK";
-
-  return { reply, nextState };
-}
-```
-
-**Transitions:**
-
-| Condition                                     | Next State                                   |
-| --------------------------------------------- | -------------------------------------------- |
-| AI reply contains "MENU"                      | → GREETING (customer re-enters booking flow) |
-| AI reply contains "HUMAN" / escalation signal | → HUMAN_ESCALATION                           |
-| Normal reply                                  | → AI_FALLBACK (continues conversation)       |
-| Gemini API error / timeout                    | → HUMAN_ESCALATION (fail safe)               |
-
-**Error handling:** If the Gemini API call fails for any reason (network error, rate limit, invalid response), fall through to `HUMAN_ESCALATION` immediately. Never leave the customer with no response.
-
-**Cost:** Gemini 2.0 Flash free tier allows 1,500 requests/day. At ~200 conversations/day with an estimated 5–10% AI fallback rate, expected usage is 10–20 calls/day — well within the free tier.
+| Input | Transition | Action |
+| ----- | ---------- | ------ |
+| `"yes"` / `"y"` / `"1"` | → `GREETING` | Reschedule booking in DB, send confirmation |
+| `"no"` / `"n"` / `"2"` | → `GREETING` | "Reschedule cancelled. Your original appointment remains unchanged." |
 
 ---
 
@@ -825,11 +958,10 @@ async function handleAiFallback(
 
 **Triggered by:**
 
-- Customer sends "human", "agent", "help me", or "talk to someone" from any state
-- AI_FALLBACK handler determines it cannot resolve the customer's issue
-- AI reply contains escalation signal (see AI_FALLBACK spec below)
+1. Customer sends "human" / "agent" / "help me" / "talk to someone" from any state
+2. `invalidInputCount` reaches 3 in any FSM state
 
-Note: `invalidInputCount >= 3` now triggers `AI_FALLBACK`, not `HUMAN_ESCALATION` directly.
+**Note:** There is no AI fallback state. Invalid input escalates directly to human support.
 
 **Bot message:**
 
@@ -840,7 +972,7 @@ Please wait a moment — someone will be with you shortly.
 You can also call us on +254 700 000 000.
 ```
 
-**System action:**
+**System Action:**
 
 1. Enqueue a notification job that sends a **Web Push notification** to the owner's installed PWA
 2. If Web Push permission not granted or PWA not installed: fall back to a WhatsApp message to the owner's personal number
@@ -859,32 +991,33 @@ You can also call us on +254 700 000 000.
 ```
 
 4. Clicking the notification opens the PWA directly to the customer's profile
-5. Session cleared → IDLE. Owner responds via their personal WhatsApp directly to the customer.
+5. Session cleared → `IDLE`. Owner responds via their personal WhatsApp directly to the customer.
 
 ---
 
 ## Interactive Message Summary by State
 
-| State                          | Message Type        | Details                                              |
-| ------------------------------ | ------------------- | ---------------------------------------------------- |
-| **IDLE → GREETING**            | 📋 Interactive list | Main menu with 4 options                             |
-| **DATA_COLLECTION**            | Text                | Free-text input for name and email                   |
-| **GREETING** (menu)            | 📋 Interactive list | Main menu re-displayed on invalid input              |
-| **GREETING** (view)            | Text + 🔘 Buttons   | Booking details text, then Cancel/Reschedule buttons |
-| **SERVICE_SELECTION**          | 📋 Interactive list | Service options with price and duration              |
-| **DATE_SELECTION**             | 📋 Interactive list | Available dates with slot info                       |
-| **TIME_SELECTION**             | 📋 Interactive list | Available time slots                                 |
-| **BOOKING_CONFIRMATION**       | Text + 🔘 Buttons   | Summary text, then Yes, Confirm / No, Start Over     |
-| **AWAITING_PAYMENT_PHONE**     | Text                | Free-text input for phone number                     |
-| **AWAITING_PAYMENT**           | Text + 🔘 Buttons   | Payment status, then Resend Request / Cancel Booking |
-| **CANCEL_CONFIRMATION**        | Text + 🔘 Buttons   | Summary text, then Yes, Cancel / No, Keep It         |
-| **RESCHEDULE_DATE**            | 📋 Interactive list | Available dates for rescheduling                     |
-| **RESCHEDULE_TIME**            | 📋 Interactive list | Available times for rescheduling                     |
-| **RESCHEDULE_CONFIRMATION**    | Text + 🔘 Buttons   | Summary text, then Yes, Reschedule / No, Cancel      |
-| **AI_FALLBACK**                | Text                | AI-generated responses                               |
-| **HUMAN_ESCALATION**           | Text                | Escalation notice                                    |
-| **Payment callback (success)** | Text                | Confirmation details                                 |
-| **Payment callback (fail)**    | Text + 🔘 Buttons   | Error text, then Try Again / Cancel Booking          |
+| State | Message Type | Details |
+| ----- | ----------- | ------- |
+| **IDLE → GREETING** | 📋 Interactive list | Main menu with 4 options |
+| **IDLE → DATA_COLLECTION** | Text | Name prompt |
+| **DATA_COLLECTION** | Text | Free-text input for name and phone |
+| **GREETING** (menu) | 📋 Interactive list | Main menu re-displayed on invalid input |
+| **GREETING** (view) | Text + 🔘 Buttons | Booking details text, then Cancel/Reschedule buttons |
+| **CATEGORY_SELECTION** | 📋 Interactive list | Service category options |
+| **SERVICE_SELECTION** | 📋 Interactive list | Service options with price, duration, category-filtered |
+| **DATE_SELECTION** | 📋 Interactive list | Available dates with slot info |
+| **TIME_SELECTION** | 📋 Interactive list | Available time slots for selected date |
+| **BOOKING_CONFIRMATION** | Text + 🔘 Buttons | Summary text, then Yes, Confirm / No, Start Over |
+| **AWAITING_PAYMENT_PHONE** | Text | Free-text input for M-Pesa phone number |
+| **AWAITING_PAYMENT** | Text + 🔘 Buttons | Payment status, then Resend Request / Cancel Booking |
+| **CANCEL_CONFIRMATION** | Text + 🔘 Buttons | Summary text, then Yes, Cancel / No, Keep It |
+| **RESCHEDULE_DATE** | 📋 Interactive list | Available dates for rescheduling |
+| **RESCHEDULE_TIME** | 📋 Interactive list | Available times for rescheduling |
+| **RESCHEDULE_CONFIRMATION** | Text + 🔘 Buttons | Summary text, then Yes, Reschedule / No, Cancel |
+| **HUMAN_ESCALATION** | Text | Escalation notice to customer |
+| **Payment callback (success)** | Text | Confirmation details |
+| **Payment callback (fail)** | Text + 🔘 Buttons | Error text, then Try Again / Cancel Booking |
 
 ---
 
@@ -908,9 +1041,9 @@ Let's start fresh! 😊
 Every state increments `invalidInputCount` on an unrecognised input.
 
 - Counts 1–2: Resend the interactive menu/options with the appropriate message type
-- Count 3: Transition to `AI_FALLBACK` — the AI attempts to understand what the customer needs and either answers, routes back to the menu, or escalates to human.
+- Count 3: Transition to `HUMAN_ESCALATION` — the customer is connected to the salon team
 
-The counter resets to 0 on any successful state transition.
+The counter resets to 0 on any successful state transition or global intent match (STOP/HUMAN/MENU).
 
 ---
 
@@ -918,14 +1051,95 @@ The counter resets to 0 on any successful state transition.
 
 Before processing a message with the current state's handler, the FSM checks for global intents that override the current flow:
 
-| Keyword                                        | Action                                                                   |
-| ---------------------------------------------- | ------------------------------------------------------------------------ |
-| "stop", "STOP", "unsubscribe"                  | Opt out of all messaging. Log consent withdrawal. Send farewell message. |
-| "human", "agent", "help me", "talk to someone" | → HUMAN_ESCALATION (skip AI — customer explicitly wants a person)        |
-| "menu", "start" (in non-IDLE states)           | → GREETING (restart flow — sends interactive list)                       |
-| Unrecognised in any FSM state ×3               | → AI_FALLBACK                                                            |
+| Keyword | Action |
+| ------- | ------ |
+| "stop", "STOP", "unsubscribe" | Opt out of all messaging. Log consent withdrawal. Send farewell message. Session deleted → IDLE. |
+| "human", "agent", "help me", "talk to someone" | → `HUMAN_ESCALATION` (skip to human immediately, customer explicitly wants a person) |
+| "menu", "start" (in non-IDLE states) | → `GREETING` (restart flow — resets `invalidInputCount`, clears flow data, sends interactive list) |
+| Unrecognised in any FSM state ×3 | → `HUMAN_ESCALATION` |
 
 Note: Global intent keywords also work when the customer types them instead of tapping interactive elements, providing a text-based escape hatch at any point.
+
+---
+
+## Validation Pipeline Architecture
+
+### Inbound Validation
+
+```
+InboundMessage
+   │
+   ▼
+validateInboundMessage()
+   │
+   ├── WebhookPayloadSchema validation
+   │   └── Ensure required fields: object, entry, changes
+   │
+   ├── Event type validation (messages only)
+   │   └── Reject unsupported event types
+   │
+   ├── Message type normalization
+   │   ├── Text messages → extract body
+   │   ├── Interactive replies → extract button/list_reply.id
+   │   └── Error message on unsupported type
+   │
+   └── InboundNormalizedEvent
+```
+
+### Outbound Validation
+
+```
+OutboundMessage
+   │
+   ▼
+WhatsAppTextMessageSchema / WhatsAppInteractiveMessageSchema
+   │
+   ├── Type field validation
+   ├── Body/header text length checks
+   ├── List section/row limits (10 max each)
+   ├── Button count limits (3 max)
+   └── Button title length (max 20 chars)
+```
+
+### State-Aware Input Validation
+
+Each state maps to a Zod schema:
+
+```typescript
+const STATE_INPUT_SCHEMAS: Partial<Record<ConversationState, z.ZodType>> = {
+  GREETING: z.enum(["1", "2", "3", "4", "book", "view", "cancel", "reschedule"]),
+  CATEGORY_SELECTION: z.coerce.number().min(1), // min checked against actual DB count
+  SERVICE_SELECTION: z.coerce.number().min(1),
+  DATE_SELECTION: z.coerce.number().min(1),
+  TIME_SELECTION: z.coerce.number().min(1),
+  BOOKING_CONFIRMATION: z.enum(["yes", "y", "1", "no", "n", "2"]),
+  AWAITING_PAYMENT_PHONE: KenyanPhoneSchema,
+  AWAITING_PAYMENT: z.enum(["1", "retry", "2", "cancel"]),
+  CANCEL_CONFIRMATION: z.enum(["yes", "y", "1", "no", "n", "2"]),
+  RESCHEDULE_DATE: z.coerce.number().min(1),
+  RESCHEDULE_TIME: z.coerce.number().min(1),
+  RESCHEDULE_CONFIRMATION: z.enum(["yes", "y", "1", "no", "n", "2"]),
+  DATA_COLLECTION: z.string(), // Sub-schema determined by collectionPhase
+};
+```
+
+Validation occurs in `engine.ts`:
+```typescript
+// 1. Get schema for current state
+const inputSchema = STATE_INPUT_SCHEMAS[session.state];
+
+// 2. Validate if schema exists
+if (inputSchema) {
+  const result = inputSchema.safeParse(message);
+  if (!result.success) {
+    incrementInvalidCount(session);
+    // Return validation failure response (no state transition)
+    return;
+  }
+}
+
+// 3. Execute state handler with validated input
+```
 
 ---
 
@@ -987,54 +1201,63 @@ We hope to see you again soon. Book a new appointment anytime by messaging us he
 
 ---
 
-## Interactive Message Payload Types
+## Outbound Message Types (Zod Schemas)
 
-The `OutboundMessage` type in `types.ts` supports three message formats:
+The `OutboundMessage` type is validated against these schemas before sending:
+
+### Text Message Schema
 
 ```typescript
-interface OutboundMessage {
-  type: "text" | "interactive_list" | "interactive_button";
-
-  // For "text" messages
-  text?: string;
-
-  // For "interactive_list" messages
-  listTitle?: string; // Header text (max 60 chars)
-  listButtonText?: string; // Trigger button label (max 20 chars)
-  listSections?: Array<{
-    title?: string; // Section heading
-    rows: Array<{
-      id: string; // Machine-readable ID sent back on tap
-      title: string; // Row label (max 24 chars)
-      description?: string; // Optional subtitle (max 72 chars)
-    }>;
-  }>;
-
-  // For "interactive_button" messages
-  buttonTitle?: string; // Hidden field for button group metadata
-  buttons?: Array<{
-    id: string; // Machine-readable ID sent back on tap
-    title: string; // Button label (max 20 chars, text only)
-  }>;
+{
+  type: "text",
+  text: string, // min 1 char, max 4096 chars
+  preview_url?: boolean // default false
 }
 ```
 
----
+### Interactive List Message Schema
 
-## AI Fallback Configuration
-
-```bash
-# Required environment variable
-GEMINI_API_KEY=your_gemini_api_key   # from aistudio.google.com — free, no card required
+```typescript
+{
+  type: "interactive_list",
+  text: string, // min 1 char, max 4096 chars
+  listTitle: string, // min 1 char, max 60 chars
+  listButtonText: string, // min 1 char, max 20 chars
+  listSections: [
+    {
+      title?: string, // max 24 chars
+      rows: [
+        {
+          id: string, // min 1 char, max 200 chars
+          title: string, // min 1 char, max 24 chars
+          description?: string // max 72 chars
+        }
+      ] // min 1 row, max 10 rows
+    }
+  ] // min 1 section, max 10 sections
+}
 ```
 
-The AI fallback is **opt-in via environment variable**. If `GEMINI_API_KEY` is not set, `invalidInputCount >= 3` falls through directly to `HUMAN_ESCALATION` — preserving backward compatibility with the original FSM-only behaviour.
+**WhatsApp Limits:**
+- Max 10 rows per section
+- Max 10 sections total
+- Max 250 total rows across all sections
 
-WhatsApp Cloud API has per-phone rate limits. The notification queue processor respects these:
+### Interactive Button Message Schema
 
-- Max 1 message per second per recipient
-- Queue processor uses a per-phone token bucket (Redis-based)
-- If rate limited: message is re-enqueued with a 2-second delay
+```typescript
+{
+  type: "interactive_button",
+  text: string, // min 1 char, max 4096 chars
+  buttonTitle?: string, // metadata field
+  buttons: [
+    {
+      id: string, // machine-readable ID
+      title: string  // min 1 char, max 20 chars, text only
+    }
+  ] // min 1 button, max 3 buttons
+}
+```
 
 ---
 
@@ -1042,6 +1265,90 @@ WhatsApp Cloud API has per-phone rate limits. The notification queue processor r
 
 WhatsApp Cloud API guarantees at-least-once delivery. The FSM is designed to be idempotent:
 
-- Message IDs (`wamid`) are stored in Redis with a 5-minute TTL
-- If a message with the same `wamid` is received twice, the second is discarded
+- **Message ID Deduplication:** `wamid` values are stored in Redis with a 5-minute TTL
+- **Deduplication Check:** If a message with the same `wamid` is received twice, the second is discarded
 - This prevents duplicate state transitions from WhatsApp retries
+
+```typescript
+// In inbound validation middleware
+const key = `wamid:${wamid}`;
+const exists = await redis.get(key);
+if (exists) {
+  log.warn({ wamid }, "Duplicate message — discarding");
+  return; // Skip processing
+}
+await redis.setex(key, 300, "1"); // 5 min TTL
+```
+
+---
+
+## Rate Limiting
+
+WhatsApp Cloud API has per-phone rate limits:
+
+- Max 1 message per second per recipient
+- The transport service respects this with a per-phone token bucket (Redis-based)
+- If rate limited (429): message is re-enqueued with a 2-second delay
+- Maximum retry attempts: 3
+
+---
+
+## Environment Variables
+
+### Required
+
+```bash
+# WhatsApp Cloud API
+WHATSAPP_PHONE_NUMBER_ID=1234567890
+WHATSAPP_ACCESS_TOKEN=EAAJ...
+```
+
+### Optional (for validation pipeline)
+
+No additional environment variables needed. Zod validation introduces zero runtime overhead when validation passes.
+
+---
+
+## Implementation Notes
+
+### Validation Boundaries
+
+Validation occurs at **every boundary**:
+
+1. **Inbound Webhook** → `validateInboundMessage()`
+2. **State Handler Input** → `validateInputForState()`
+3. **Outbound Messages** → `OutboundMessageSchema`
+4. **Transport Payload** → WhatsApp API schema validation
+
+### Transactional Guarantees
+
+State transitions follow this protocol:
+
+```
+1. Save original state
+2. Execute state handler (may fail validation)
+3. Generate outbound messages
+4. Validate outbound messages (Zod)
+5. Send via transport service (async)
+6. On success: commit state transition + save session
+7. On validation/transport failure: stay in original state, log error
+```
+
+### Idempotency
+
+- Session updates are atomic (single `SETEX` after all messages sent)
+- WAMID deduplication prevents double-processing
+- State transitions only commit after successful transport
+
+### Error Recovery
+
+- **Validation Errors:** Log + increment invalid count + stay in current state
+- **Transport Errors:** Log + stay in current state (retried by BullMQ)
+- **State Handler Errors:** Log + escalate to `HUMAN_ESCALATION` (fail safe)
+
+### Testing Strategy
+
+1. **Unit tests** for each Zod schema
+2. **Integration tests** for the full validation pipeline
+3. **FSM tests** for state transitions with invalid input
+4. **Transport tests** for retry logic and error handling
