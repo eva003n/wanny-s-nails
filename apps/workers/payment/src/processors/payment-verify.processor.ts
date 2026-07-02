@@ -1,8 +1,15 @@
 import { type Job } from "bullmq";
-import { log as logger, prisma, _config as config } from "../lib/index.js";
+import {
+  log as logger,
+  prisma,
+  type Prisma,
+  _config as config,
+} from "../lib/index.js";
 import { mpesaHttpClient } from "../lib/httpclient.js";
 import { notificationQueue } from "../lib/queues.js";
 import { HttpClientError, JOB_NAMES } from "@wannys-nails/packages";
+import { getFailureReason } from "../utils/index.js";
+import { number, unknown } from "zod";
 
 const log = logger.child({ module: "job:payment-verify" });
 
@@ -150,19 +157,43 @@ export async function paymentVerifyProcessor(
           where: { id: bookingId },
           data: { paymentStatus: "SUCCESS" },
         });
+
+        await tx.notification.create({
+          data: {
+            bookingId: payment.bookingId,
+            recipientId: payment.booking.customerId,
+            recipientType: "CLIENT",
+            type: "PAYMENT_SUCCESS",
+            channel: "WHATSAPP",
+            payload: {
+              phoneNumber: payment.phoneNumber,
+              bookingRef: payment.booking.reference,
+              amoutKes: payment.amountKes,
+            },
+            status: "PENDING",
+            idempotencyKey: `payment.${payment.id}`,
+          },
+        });
       });
 
-      // Notify customer
+      // side effects
+
+      const notification = await prisma.notification.findFirst({
+        where: {
+          bookingId: payment.bookingId,
+        },
+      });
+
       try {
-        await notificationQueue.add(
-          JOB_NAMES.PAYMENT_CONFIRMATION,
-          {
-            phone: payment.booking.customer.phone,
-            bookingRef: payment.booking.reference,
-            amountKes: payment.amountKes,
-          },
-          { attempts: 3, backoff: { type: "exponential", delay: 5000 } },
-        );
+        if (notification) {
+          await notificationQueue.add(
+            JOB_NAMES.WHATSAPP,
+            notification.payload,
+            {
+              jobId: notification?.idempotencyKey,
+            },
+          );
+        }
       } catch {
         // Non-fatal
       }
@@ -189,23 +220,14 @@ export async function paymentVerifyProcessor(
             failureReason: `Attempt ${retryCount + 1} failed: ${ResultDesc}`,
           },
         });
-
-        try {
-          // todo: process rery notification and send to user via whatsapp
-          await notificationQueue.add(
-            JOB_NAMES.PAYMENT_RETRY,
-            {
-              phone: payment.booking.customer.phone,
-              bookingRef: payment.booking.reference,
-              paymentId,
-            },
-            { attempts: 3, backoff: { type: "exponential", delay: 5000 } },
-          );
-        } catch {
-          // Non-fatal
-        }
       } else {
-        // Retries exhausted — mark as EXPIRED
+        // Retries exhausted — mark as EXPIRED/CANCELLED/FAILED(fallback)
+        const terminalStatus =
+          ResultCode === "1032"
+            ? "CANCELLED"
+            : ResultCode === "1037"
+              ? "EXPIRED"
+              : "FAILED";
         log.warn(
           {
             event: "payment_verify.job.expired",
@@ -214,34 +236,59 @@ export async function paymentVerifyProcessor(
           },
           "Payment retries exhausted — marking as EXPIRED",
         );
-        // update payment and booking status
-        await prisma.payment.update({
-          where: { id: paymentId },
-          data: {
-            status: "EXPIRED",
-            failureReason: `Retries exhausted. Last error: ${ResultDesc}`,
-          },
-        });
 
-        await prisma.booking.update({
-          where: {
-            id: payment.bookingId,
-          },
-          data: {
-            paymentStatus: "EXPIRED",
-          },
+        // update payment and booking status
+        await prisma.$transaction(async (tx) => {
+          await tx.payment.update({
+            where: { id: paymentId },
+            data: {
+              status: terminalStatus,
+              failureReason: `Retries exhausted. Last error: ${getFailureReason(Number(ResultCode))}`,
+            },
+          });
+
+          await tx.booking.update({
+            where: {
+              id: payment.bookingId,
+            },
+            data: {
+              paymentStatus: terminalStatus,
+            },
+          });
+
+          await tx.notification.create({
+            data: {
+              bookingId: payment.bookingId,
+              recipientId: payment.booking.customerId,
+              recipientType: "CLIENT",
+              type: "PAYMENT_FAILED",
+              channel: "WHATSAPP",
+              payload: {
+                phoneNumber: payment.phoneNumber,
+                bookingRef: payment.booking.reference,
+                amoutKes: payment.amountKes,
+                failureReason: getFailureReason(Number(ResultCode)),
+              },
+              status: "PENDING",
+              idempotencyKey: `payment.${payment.id}`,
+            },
+          });
         });
 
         try {
-          // todo: implement
-          await notificationQueue.add(
-            JOB_NAMES.PAYMENT_EXPIRED,
-            {
-              phone: payment.booking.customer.phone,
-              bookingRef: payment.booking.reference,
-            },
-            { attempts: 3, backoff: { type: "exponential", delay: 5000 } },
-          );
+          const notification = await prisma.notification.findFirst({
+            where: { bookingId: payment.bookingId },
+          });
+
+          if (notification) {
+            await notificationQueue.add(
+              JOB_NAMES.PAYMENT_EXPIRED,
+              notification.payload,
+              {
+                jobId: notification.idempotencyKey,
+              },
+            );
+          }
         } catch {
           // Non-fatal
         }
@@ -271,6 +318,12 @@ export async function paymentVerifyProcessor(
 // Run periodically (every 5-10 min) to catch payments stuck in
 // PENDING that never got a callback or timeout.
 
+const MAX_RECONCILIATION_ATTEMPTS = 5;
+
+type MetaData = {
+  reconciliationAttempts: number;
+};
+
 export async function reconcileStalePayments(): Promise<void> {
   // payments that were marked pending ten minutes ago
   const staleThreshold = new Date(Date.now() - 10 * 60 * 1000); // 10 min
@@ -280,142 +333,268 @@ export async function reconcileStalePayments(): Promise<void> {
     "Starting stale payment reconciliation sweep",
   );
 
-  // First pass: payments with a checkoutRequestId that are stuck in status pending
+  // First pass: payments with a checkoutRequestId that are stuck in  pending
   const stuckPayments = await prisma.payment.findMany({
     where: {
       status: "PENDING",
       createdAt: { lt: staleThreshold },
       checkoutRequestId: { not: null },
+      metadata: {
+        reconciliationAttempts: { lt: MAX_RECONCILIATION_ATTEMPTS },
+      } as unknown as Record<string, unknown>,
     },
+    include: { booking: true },
   });
 
-  for (const payment of stuckPayments) {
-    try {
-      const timestamp = generateTimestamp();
-      const password = generatePassword(timestamp);
+  if (stuckPayments.length === 0) {
+    log.info(
+      { event: "reconciliation.sweep.stop", staleThreshold },
+      "No stuck payments found, stopping stale payment reconciliation sweep",
+    );
+  } else {
+    for (const payment of stuckPayments) {
+      try {
+        // fresh  password/timestamp per payment
+        const timestamp = generateTimestamp();
+        const password = generatePassword(timestamp);
 
-      // transition payment status to reconciliation state
-      await prisma.payment.update({
-        where: { id: payment.id },
-        data: { status: "RECONCILING" },
-      });
+        const response = await mpesaHttpClient.post<DarajaQueryResponse>(
+          "/mpesa/stkpushquery/v1/query",
+          {
+            BusinessShortCode: config.DARAJA_SHORTCODE,
+            Password: password,
+            Timestamp: timestamp,
+            CheckoutRequestID: payment.checkoutRequestId,
+          },
+        );
 
-      await prisma.booking.update({
-        where: {
-          id: payment.bookingId,
-        },
-        data: {
-          paymentStatus: "RECONCILING",
-        },
-      });
+        // handles db related logic nothing else, so that anything db related fails it rolls back
+        const { ResultCode } = response.data;
 
-      const response = await mpesaHttpClient.post<DarajaQueryResponse>(
-        "/mpesa/stkpushquery/v1/query",
-        {
-          BusinessShortCode: config.DARAJA_SHORTCODE,
-          Password: password,
-          Timestamp: timestamp,
-          CheckoutRequestID: payment.checkoutRequestId,
-        },
-      );
-
-      const { ResultCode } = response.data;
-
-      if (ResultCode === "0") {
-        // Payment succeeded but we missed the callback
         await prisma.$transaction(async (tx) => {
-          const attemptCount = await tx.paymentTransaction.count({
-            where: { paymentId: payment.id },
-          });
+          // transition payment status to reconciliation state
+          // guard against race when real webhook callback lands while this sweep is in fright
 
-          await tx.paymentTransaction.create({
+          const metadata = payment.metadata as unknown as {
+            reconciliationAttempts: number;
+          };
+
+          const updatedMetaData = {
+            ...metadata,
+            reconciliationAttempts: metadata.reconciliationAttempts + 1,
+          };
+          const claimed = await tx.payment.updateMany<{
+            data: { metadata: { reconciliationAttempts: number } };
+          }>({
+            where: { id: payment.id },
             data: {
-              paymentId: payment.id,
-              attemptNumber: attemptCount + 1,
-              checkoutRequestId: payment.checkoutRequestId,
-              resultCode: 0,
-              resultDesc: "Reconciled via sweep",
+              status: "RECONCILING",
+              metadata: updatedMetaData,
             },
           });
 
-          await tx.payment.update({
-            where: { id: payment.id },
-            data: { status: "SUCCESS", completedAt: new Date() },
-          });
-
+          // prevent race condition when reconciliation sweep and stk callback occur concurrently
+          if (claimed.count === 0) {
+            log.info(
+              { event: "reconciliation.sweep.skipped", paymentId: payment.id },
+              "Payment no longer PENDING, likely resolved by webhook — skipping",
+            );
+            return;
+          }
+          // sync booking payment status state with payment
           await tx.booking.update({
-            where: { id: payment.bookingId },
-            data: { paymentStatus: "SUCCESS" },
+            where: {
+              id: payment.bookingId,
+            },
+            data: {
+              paymentStatus: "RECONCILING",
+            },
           });
+
+          if (ResultCode === "0") {
+            // Payment succeeded but we missed the callback
+            const attemptCount = await tx.paymentTransaction.count({
+              where: { paymentId: payment.id },
+            });
+
+            await tx.paymentTransaction.create({
+              data: {
+                paymentId: payment.id,
+                attemptNumber: attemptCount + 1,
+                checkoutRequestId: payment.checkoutRequestId,
+                resultCode: 0,
+                resultDesc: "Reconciled via sweep",
+              },
+            });
+
+            // sync payment and booking payment state machines
+            await tx.payment.update({
+              where: { id: payment.id },
+              data: { status: "SUCCESS", completedAt: new Date() },
+            });
+
+            await tx.booking.update({
+              where: { id: payment.bookingId },
+              data: { paymentStatus: "SUCCESS" },
+            });
+
+            // Record the notification
+            await tx.notification.create({
+              data: {
+                bookingId: payment.bookingId,
+                recipientId: payment.booking.customerId,
+                recipientType: "CLIENT",
+                type: "PAYMENT_SUCCESS",
+                channel: "WHATSAPP",
+                payload: {
+                  phoneNumber: payment.phoneNumber,
+                  bookingRef: payment.booking.reference,
+                  amoutKes: payment.amountKes,
+                },
+                status: "PENDING",
+                idempotencyKey: `payment.${payment.id}`,
+              },
+            });
+
+            log.info(
+              { event: "reconciliation.sweep.resolved", paymentId: payment.id },
+              "Stale payment resolved as SUCCESS via reconciliation",
+            );
+          } else {
+            // Payment status failed/cancelled/expired
+            const terminalStatus =
+              ResultCode === "1032"
+                ? "CANCELLED"
+                : ResultCode === "1037"
+                  ? "EXPIRED"
+                  : "FAILED";
+
+            await tx.payment.update({
+              where: { id: payment.id },
+              data: {
+                status: terminalStatus,
+                failureReason: `Reconciled via sweep — ${getFailureReason(Number(ResultCode))}`,
+              },
+            });
+            await tx.booking.update({
+              where: {
+                id: payment.bookingId,
+              },
+              data: {
+                paymentStatus: terminalStatus,
+              },
+            });
+
+            // Record the notification
+            await tx.notification.create({
+              data: {
+                bookingId: payment.bookingId,
+                recipientId: payment.booking.customerId,
+                recipientType: "CLIENT",
+                type: "PAYMENT_FAILED",
+                channel: "WHATSAPP",
+                payload: {
+                  phoneNumber: payment.phoneNumber,
+                  bookingRef: payment.booking.reference,
+                  amoutKes: payment.amountKes,
+                },
+                status: "PENDING",
+                idempotencyKey: `payment.${payment.id}`,
+              },
+            });
+
+            log.info(
+              { event: "reconciliation.sweep.failed", paymentId: payment.id },
+              "Stale payment marked as FAILED via reconciliation",
+            );
+          }
         });
 
-        log.info(
-          { event: "reconciliation.sweep.resolved", paymentId: payment.id },
-          "Stale payment resolved as SUCCESS via reconciliation",
-        );
-      } else {
-        // Payment status failed — mark as FAILED
-        await prisma.payment.update({
-          where: { id: payment.id },
-          data: {
-            status: "FAILED",
-            failureReason: "Reconciled via sweep — payment not found on Daraja",
-          },
-        });
-        await prisma.booking.update({
+        // side effects
+        const notification = await prisma.notification.findFirst({
           where: {
-            id: payment.bookingId,
-          },
-          data: {
-            paymentStatus: "FAILED",
+            bookingId: payment.bookingId,
           },
         });
 
-        log.info(
-          { event: "reconciliation.sweep.failed", paymentId: payment.id },
-          "Stale payment marked as FAILED via reconciliation",
+        try {
+          if (ResultCode === "0" && notification) {
+            await notificationQueue.add(
+              JOB_NAMES.PAYMENT_CONFIRMATION,
+              notification.payload,
+              {
+                jobId: notification.idempotencyKey,
+              },
+            );
+          } else if (ResultCode !== "0" && notification) {
+            await notificationQueue.add(
+              JOB_NAMES.PAYMENT_FAILURE,
+              notification.payload,
+              {
+                jobId: notification.idempotencyKey,
+                attempts: 3,
+                backoff: { type: "exponential", delay: 5000 },
+              },
+            );
+          }
+        } catch {
+          // non critical
+        }
+      } catch (error) {
+        const err = error as unknown as HttpClientError;
+        log.error(
+          {
+            event: "reconciliation.sweep.error",
+            response: err instanceof HttpClientError ? err.responseBody : err,
+            error: err.message,
+          },
+          "Reconciliation query failed — will retry next sweep",
         );
+        // don't rethrow - one bad payment should not bock the others in batch
+        continue;
       }
-    } catch (err) {
-      log.error(
-        {
-          event: "reconciliation.sweep.error",
-          paymentId: payment.id,
-          error: String(err),
-        },
-        "Reconciliation query failed — will retry next sweep",
-      );
     }
   }
 
   // Second pass: payments stuck without ever getting a checkoutRequestId
   // (process crashed between Payment.create and the Daraja call)
-  const deadPayments = await prisma.payment.updateMany({
+  const deadPayments = await prisma.payment.findMany({
     where: {
       status: "PENDING",
       checkoutRequestId: null,
       createdAt: { lt: staleThreshold },
     },
-    data: {
-      status: "EXPIRED",
-      failureReason: "No checkout request ID — push never sent",
-    },
-  });
-  // sync booking payment status
-  await prisma.booking.updateMany({
-    where: {
-      paymentStatus: "PENDING",
-    },
-    data: {
-      paymentStatus: "FAILED",
+    select: {
+      id: true,
+      bookingId: true,
     },
   });
 
-  if (deadPayments.count > 0) {
+  if (deadPayments.length === 0) {
     log.info(
-      { event: "reconciliation.sweep.dead", count: deadPayments.count },
-      "Payments with no checkoutRequestId marked as EXPIRED",
+      { event: "reconciliation.sweep.dead", count: deadPayments.length },
+      "No payments found with missing CheckoutRequestId",
     );
+  } else {
+    await prisma.$transaction(async (tx) => {
+      await tx.booking.updateMany({
+        where: {
+          id: {
+            in: deadPayments.map((p) => p.bookingId),
+          },
+        },
+        data: {
+          paymentStatus: "EXPIRED",
+        },
+      });
+
+      if (deadPayments.length > 0) {
+        log.info(
+          { event: "reconciliation.sweep.dead", count: deadPayments.length },
+          "Payments with no checkoutRequestId marked as EXPIRED",
+        );
+      }
+    });
   }
 
   log.info(
