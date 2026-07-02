@@ -19,6 +19,7 @@ export const PaymentStatusSchema = z.enum([
   "CANCELLED",
   "EXPIRED",
   "REFUNDED",
+  "RECONCILING"
 ]);
 export type PaymentStatus = z.infer<typeof PaymentStatusSchema>;
 

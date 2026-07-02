@@ -27,3 +27,5 @@ try {
     err.message,
   );
 }
+
+export type {Prisma} from "@wannys-nails/packages"

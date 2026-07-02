@@ -35,6 +35,9 @@ export const paymentsService = {
           bookingId,
           amountKes: booking.priceKes,
           status: "PENDING",
+          metadata: {
+            reconciliationAttempts: 0
+          }
         },
       });
     } else if (["FAILED", "CANCELLED", "EXPIRED"].includes(payment.status)) {

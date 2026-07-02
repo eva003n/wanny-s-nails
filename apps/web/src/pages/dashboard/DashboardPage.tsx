@@ -144,7 +144,7 @@ export default function DashboardPage() {
             <StatCard
               icon={CalendarX}
               value={String(stats.pendingCount)}
-              label="Pending"
+              label="Pending approvals"
               tone={stats.pendingCount > 0 ? "warning" : "default"}
               onClick={() => navigate("/bookings")}
             />
