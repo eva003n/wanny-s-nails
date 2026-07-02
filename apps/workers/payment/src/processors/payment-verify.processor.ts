@@ -2,7 +2,7 @@ import { type Job } from "bullmq";
 import { log as logger, prisma, _config as config } from "../lib/index.js";
 import { mpesaHttpClient } from "../lib/httpclient.js";
 import { notificationQueue } from "../lib/queues.js";
-import { JOB_NAMES } from "@wannys-nails/packages";
+import { HttpClientError, JOB_NAMES } from "@wannys-nails/packages";
 
 const log = logger.child({ module: "job:payment-verify" });
 
@@ -99,7 +99,7 @@ export async function paymentVerifyProcessor(
 
   try {
     const response = await mpesaHttpClient.post<DarajaQueryResponse>(
-      "/mpesa/stkpushquery/v3/query",
+      "/mpesa/stkpushquery/v1/query",
       {
         BusinessShortCode: config.DARAJA_SHORTCODE,
         Password: password,
@@ -191,6 +191,7 @@ export async function paymentVerifyProcessor(
         });
 
         try {
+          // todo: process rery notification and send to user via whatsapp
           await notificationQueue.add(
             JOB_NAMES.PAYMENT_RETRY,
             {
@@ -213,7 +214,7 @@ export async function paymentVerifyProcessor(
           },
           "Payment retries exhausted — marking as EXPIRED",
         );
-
+        // update payment and booking status
         await prisma.payment.update({
           where: { id: paymentId },
           data: {
@@ -222,7 +223,17 @@ export async function paymentVerifyProcessor(
           },
         });
 
+        await prisma.booking.update({
+          where: {
+            id: payment.bookingId,
+          },
+          data: {
+            paymentStatus: "EXPIRED",
+          },
+        });
+
         try {
+          // todo: implement
           await notificationQueue.add(
             JOB_NAMES.PAYMENT_EXPIRED,
             {
@@ -237,18 +248,21 @@ export async function paymentVerifyProcessor(
       }
     }
   } catch (error: unknown) {
-    const err = error as { response?: { status?: number; data?: unknown }; message?: string };
-    log.error(
-      {
-        event: "payment_verify.job.failed",
-        jobId: job.id,
-        paymentId,
-        status: err.response?.status,
-        response: err.response?.data,
-        error: err.message,
-      },
-      "Payment verification query failed — will retry",
-    );
+    const err = error as HttpClientError;
+    if (err instanceof HttpClientError) {
+      log.error(
+        {
+          event: "payment_verify.job.failed",
+          jobId: job.id,
+          paymentId,
+          status: err.status,
+          response: err.responseBody,
+          error: err.message,
+        },
+        "Payment verification query failed — will retry",
+      );
+    }
+
     throw error; // BullMQ will retry
   }
 }
@@ -258,7 +272,7 @@ export async function paymentVerifyProcessor(
 // PENDING that never got a callback or timeout.
 
 export async function reconcileStalePayments(): Promise<void> {
-  // payments that were marked pending ten minites ago
+  // payments that were marked pending ten minutes ago
   const staleThreshold = new Date(Date.now() - 10 * 60 * 1000); // 10 min
 
   log.info(
@@ -266,7 +280,7 @@ export async function reconcileStalePayments(): Promise<void> {
     "Starting stale payment reconciliation sweep",
   );
 
-  // First pass: payments with a checkoutRequestId that are stuck
+  // First pass: payments with a checkoutRequestId that are stuck in status pending
   const stuckPayments = await prisma.payment.findMany({
     where: {
       status: "PENDING",
@@ -280,14 +294,23 @@ export async function reconcileStalePayments(): Promise<void> {
       const timestamp = generateTimestamp();
       const password = generatePassword(timestamp);
 
-      // transition payment to reconciliation state
+      // transition payment status to reconciliation state
       await prisma.payment.update({
         where: { id: payment.id },
-            data: { status: "RECONCILING", }
-      })
-      
+        data: { status: "RECONCILING" },
+      });
+
+      await prisma.booking.update({
+        where: {
+          id: payment.bookingId,
+        },
+        data: {
+          paymentStatus: "RECONCILING",
+        },
+      });
+
       const response = await mpesaHttpClient.post<DarajaQueryResponse>(
-        "/mpesa/stkpushquery/v3/query",
+        "/mpesa/stkpushquery/v1/query",
         {
           BusinessShortCode: config.DARAJA_SHORTCODE,
           Password: password,
@@ -331,12 +354,20 @@ export async function reconcileStalePayments(): Promise<void> {
           "Stale payment resolved as SUCCESS via reconciliation",
         );
       } else {
-        // Payment failed — mark as FAILED
+        // Payment status failed — mark as FAILED
         await prisma.payment.update({
           where: { id: payment.id },
           data: {
             status: "FAILED",
             failureReason: "Reconciled via sweep — payment not found on Daraja",
+          },
+        });
+        await prisma.booking.update({
+          where: {
+            id: payment.bookingId,
+          },
+          data: {
+            paymentStatus: "FAILED",
           },
         });
 
@@ -347,7 +378,11 @@ export async function reconcileStalePayments(): Promise<void> {
       }
     } catch (err) {
       log.error(
-        { event: "reconciliation.sweep.error", paymentId: payment.id, error: String(err) },
+        {
+          event: "reconciliation.sweep.error",
+          paymentId: payment.id,
+          error: String(err),
+        },
         "Reconciliation query failed — will retry next sweep",
       );
     }
@@ -364,6 +399,15 @@ export async function reconcileStalePayments(): Promise<void> {
     data: {
       status: "EXPIRED",
       failureReason: "No checkout request ID — push never sent",
+    },
+  });
+  // sync booking payment status
+  await prisma.booking.updateMany({
+    where: {
+      paymentStatus: "PENDING",
+    },
+    data: {
+      paymentStatus: "FAILED",
     },
   });
 
