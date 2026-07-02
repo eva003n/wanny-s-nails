@@ -68,7 +68,7 @@ export const paymentsService = {
       },
       {
         jobId: payment.id, // idempotency
-        attempts: 2,
+        attempts: 3,
         backoff: { type: "fixed", 
           delay: 30000 // stk timeout
 

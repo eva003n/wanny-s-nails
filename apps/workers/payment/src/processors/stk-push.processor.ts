@@ -155,8 +155,6 @@ export async function stkPushProcessor(
       {
         delay: 90_000, // Daraja's STK prompt expires ~60-90s on the handset
         jobId: `timeout:${paymentId}`,
-        removeOnComplete: true,
-        removeOnFail: false,// Dead letter queue
       },
     );
 
