@@ -35,9 +35,6 @@ export const paymentsService = {
           bookingId,
           amountKes: booking.priceKes,
           status: "PENDING",
-          metadata: {
-            reconciliationAttempts: 0
-          }
         },
       });
     } else if (["FAILED", "CANCELLED", "EXPIRED"].includes(payment.status)) {
@@ -71,9 +68,9 @@ export const paymentsService = {
       },
       {
         jobId: payment.id, // idempotency
-        attempts: 3,
+        attempts: 2,
         backoff: { type: "fixed", 
-          delay: 30000 // stk timeout
+          delay: 30000 
 
         },
       },
