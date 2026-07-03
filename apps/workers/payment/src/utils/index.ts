@@ -7,6 +7,7 @@ export function getFailureReason(code: number): string {
     2026: "Amount less than minimum",
     17: "Insufficient funds",
     26: "System busy",
+    4999: "Still processing transaction"
   };
   return reasons[code] ?? `Daraja error code: ${code}`;
 }
