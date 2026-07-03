@@ -4,7 +4,7 @@
 /**/**/*.env.production
 /**/**/*.env.staging
 /**/**/node_modules
-/**/**/generated
+# /**/**/generated
 /**/**/dist
 /**/**/logs
 /**/**/coverage
