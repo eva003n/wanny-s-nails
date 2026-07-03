@@ -379,9 +379,10 @@ export const handleWhatsApp = asyncHandler(
 );
 
 
-export const handleDaraja = asyncHandler(
+export const handleDaraja = 
   async (req: Request, res: Response, _next: NextFunction) => {
-    log.info(
+   try {
+     log.info(
       { event: "payment.callback.received" },
       "M-Pesa callback received",
     );
@@ -414,8 +415,6 @@ export const handleDaraja = asyncHandler(
       },
       {
         jobId: CheckoutRequestID, // idempotency: Daraja may redeliver
-        attempts: 3,
-        backoff: { type: "exponential", delay: 5000 },
       },
     );
 
@@ -423,5 +422,12 @@ export const handleDaraja = asyncHandler(
       { event: "payment.callback.enqueued", checkoutRequestId: CheckoutRequestID, resultCode: ResultCode },
       "Payment callback enqueued for processing",
     );
+   }catch(error) {
+    const err = error as unknown as Error
+    log.error({
+      event: "Payment.callback.error",
+      error,
+    }, err.message)
+   }
   }
-);
+
