@@ -152,6 +152,7 @@ export async function stkPushProcessor(
         checkoutRequestId: CheckoutRequestID,
       },
       {
+        attempts: 2,
         delay: 90_000, // Daraja's STK prompt expires ~60-90s on the handset
         jobId: `timeout.${paymentId}`,
       },

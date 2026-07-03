@@ -142,6 +142,12 @@ export async function paymentVerifyProcessor(
             checkoutRequestId,
             resultCode: 0,
             resultDesc: "Confirmed via status query",
+            rawRequest: {
+              BusinessShortCode: config.DARAJA_SHORTCODE,
+              Password: password,
+              Timestamp: timestamp,
+              CheckoutRequestID: checkoutRequestId,
+            },
           },
         });
 
@@ -158,42 +164,42 @@ export async function paymentVerifyProcessor(
           data: { paymentStatus: "SUCCESS" },
         });
 
-        await tx.notification.create({
-          data: {
-            bookingId: payment.bookingId,
-            recipientId: payment.booking.customerId,
-            recipientType: "CLIENT",
-            type: "PAYMENT_SUCCESS",
-            channel: "WHATSAPP",
-            payload: {
-              phoneNumber: payment.phoneNumber,
-              bookingRef: payment.booking.reference,
-              amountKes: payment.amountKes,
-            },
-            status: "PENDING",
-            idempotencyKey: `payment.${payment.id}`, // bever use ':' bullmq will not allow it
-          },
-        });
+        // await tx.notification.create({
+        //   data: {
+        //     bookingId: payment.bookingId,
+        //     recipientId: payment.booking.customerId,
+        //     recipientType: "CLIENT",
+        //     type: "PAYMENT_SUCCESS",
+        //     channel: "WHATSAPP",
+        //     payload: {
+        //       phoneNumber: payment.phoneNumber,
+        //       bookingRef: payment.booking.reference,
+        //       amountKes: payment.amountKes,
+        //     },
+        //     status: "PENDING",
+        //     idempotencyKey: `payment.${payment.id}`, // bever use ':' bullmq will not allow it
+        //   },
+        // });
       });
 
       // side effects
 
-      const notification = await prisma.notification.findFirst({
-        where: {
-          bookingId: payment.bookingId,
-        },
-      });
+      // const notification = await prisma.notification.findFirst({
+      //   where: {
+      //     bookingId: payment.bookingId,
+      //   },
+      // });
 
       try {
-        if (notification) {
-          await notificationQueue.add(
-            JOB_NAMES.WHATSAPP,
-            notification.payload,
-            {
-              jobId: notification.idempotencyKey,
-            },
-          );
-        }
+        // if (notification) {
+        //   await notificationQueue.add(
+        //     JOB_NAMES.WHATSAPP,
+        //     notification.payload,
+        //     {
+        //       jobId: notification.idempotencyKey,
+        //     },
+        //   );
+        // }
       } catch {
         // Non-fatal
       }
@@ -256,42 +262,42 @@ export async function paymentVerifyProcessor(
             },
           });
 
-          await tx.notification.create({
-            data: {
-              bookingId: payment.bookingId,
-              recipientId: payment.booking.customerId,
-              recipientType: "CLIENT",
-              type: "PAYMENT_FAILED",
-              channel: "WHATSAPP",
-              payload: {
-                phoneNumber: payment.phoneNumber,
-                bookingRef: payment.booking.reference,
-                amoutKes: payment.amountKes,
-                failureReason: getFailureReason(Number(ResultCode)),
-              },
-              status: "PENDING",
-              idempotencyKey: `payment.${payment.id}`,
-            },
-          });
+          // await tx.notification.create({
+          //   data: {
+          //     bookingId: payment.bookingId,
+          //     recipientId: payment.booking.customerId,
+          //     recipientType: "CLIENT",
+          //     type: "PAYMENT_FAILED",
+          //     channel: "WHATSAPP",
+          //     payload: {
+          //       phoneNumber: payment.phoneNumber,
+          //       bookingRef: payment.booking.reference,
+          //       amoutKes: payment.amountKes,
+          //       failureReason: getFailureReason(Number(ResultCode)),
+          //     },
+          //     status: "PENDING",
+          //     idempotencyKey: `payment.${payment.id}`,
+          //   },
+          // });
         });
 
-        try {
-          const notification = await prisma.notification.findFirst({
-            where: { bookingId: payment.bookingId },
-          });
+        // try {
+        //   const notification = await prisma.notification.findFirst({
+        //     where: { bookingId: payment.bookingId },
+        //   });
 
-          if (notification) {
-            await notificationQueue.add(
-              JOB_NAMES.PAYMENT_EXPIRED,
-              notification.payload,
-              {
-                jobId: notification.idempotencyKey,
-              },
-            );
-          }
-        } catch {
-          // Non-fatal
-        }
+        //   if (notification) {
+        //     await notificationQueue.add(
+        //       JOB_NAMES.PAYMENT_EXPIRED,
+        //       notification.payload,
+        //       {
+        //         jobId: notification.idempotencyKey,
+        //       },
+        //     );
+        //   }
+        // } catch {
+        //   // Non-fatal
+        // }
       }
     }
   } catch (error: unknown) {
@@ -319,8 +325,6 @@ export async function paymentVerifyProcessor(
 
 const MAX_RECONCILIATION_ATTEMPTS = 5;
 
-
-
 export async function reconcileStalePayments(): Promise<void> {
   // payments that were marked pending ten minutes ago
   const staleThreshold = new Date(Date.now() - 10 * 60 * 1000); // 10 min
@@ -336,8 +340,7 @@ export async function reconcileStalePayments(): Promise<void> {
       status: "PENDING",
       createdAt: { lt: staleThreshold },
       checkoutRequestId: { not: null },
-      reconciliationAttempts: {lt: MAX_RECONCILIATION_ATTEMPTS}
-      
+      reconciliationAttempts: { lt: MAX_RECONCILIATION_ATTEMPTS },
     },
     include: { booking: true },
   });
@@ -371,12 +374,11 @@ export async function reconcileStalePayments(): Promise<void> {
           // transition payment status to reconciliation state
           // guard against race when real webhook callback lands while this sweep is in fright
 
-
           const claimed = await tx.payment.updateMany({
             where: { id: payment.id },
             data: {
               status: "RECONCILING",
-              reconciliationAttempts: {increment: 1}
+              reconciliationAttempts: { increment: 1 },
             },
           });
 
@@ -404,8 +406,6 @@ export async function reconcileStalePayments(): Promise<void> {
               where: { paymentId: payment.id },
             });
 
-
-
             await tx.paymentTransaction.create({
               data: {
                 paymentId: payment.id,
@@ -413,6 +413,12 @@ export async function reconcileStalePayments(): Promise<void> {
                 checkoutRequestId: payment.checkoutRequestId,
                 resultCode: 0,
                 resultDesc: "Reconciled via sweep",
+                rawRequest: {
+                  BusinessShortCode: config.DARAJA_SHORTCODE,
+                  Password: password,
+                  Timestamp: timestamp,
+                  CheckoutRequestID: payment.checkoutRequestId,
+                },
               },
             });
 
@@ -428,22 +434,23 @@ export async function reconcileStalePayments(): Promise<void> {
             });
 
             // Record the notification
-            await tx.notification.create({
-              data: {
-                bookingId: payment.bookingId,
-                recipientId: payment.booking.customerId,
-                recipientType: "CLIENT",
-                type: "PAYMENT_SUCCESS",
-                channel: "WHATSAPP",
-                payload: {
-                  phoneNumber: payment.phoneNumber,
-                  bookingRef: payment.booking.reference,
-                  amoutKes: payment.amountKes,
-                },
-                status: "PENDING",
-                idempotencyKey: `payment.${payment.id}`,
-              },
-            });
+            // await tx.notification.upsert({
+            //   where: {},
+            //   data: {
+            //     bookingId: payment.bookingId,
+            //     recipientId: payment.booking.customerId,
+            //     recipientType: "CLIENT",
+            //     type: "PAYMENT_SUCCESS",
+            //     channel: "WHATSAPP",
+            //     payload: {
+            //       phoneNumber: payment.phoneNumber,
+            //       bookingRef: payment.booking.reference,
+            //       amoutKes: payment.amountKes,
+            //     },
+            //     status: "PENDING",
+            //     idempotencyKey: `payment.${payment.id}`,
+            //   },
+            // });
 
             log.info(
               { event: "reconciliation.sweep.resolved", paymentId: payment.id },
@@ -451,6 +458,21 @@ export async function reconcileStalePayments(): Promise<void> {
             );
           } else {
             // Payment status failed/cancelled/expired
+
+                 const attemptCount = await tx.paymentTransaction.count({
+                   where: { paymentId: payment.id },
+                 });
+
+                 await tx.paymentTransaction.create({
+                   data: {
+                     paymentId: payment.id,
+                     attemptNumber: attemptCount,
+                     checkoutRequestId: payment.checkoutRequestId,
+                     resultCode: Number(ResultCode),
+                     resultDesc: `Reconciled via sweep — ${getFailureReason(Number(ResultCode))}`,
+                   },
+                 });
+
             const terminalStatus =
               ResultCode === "1032"
                 ? "CANCELLED"
@@ -475,60 +497,62 @@ export async function reconcileStalePayments(): Promise<void> {
             });
 
             // Record the notification
-            await tx.notification.create({
-              data: {
-                bookingId: payment.bookingId,
-                recipientId: payment.booking.customerId,
-                recipientType: "CLIENT",
-                type: "PAYMENT_FAILED",
-                channel: "WHATSAPP",
-                payload: {
-                  phoneNumber: payment.phoneNumber,
-                  bookingRef: payment.booking.reference,
-                  amoutKes: payment.amountKes,
-                },
-                status: "PENDING",
-                idempotencyKey: `payment.${payment.id}`,
-              },
-            });
+            // await tx.notification.create({
+            //   data: {
+            //     bookingId: payment.bookingId,
+            //     recipientId: payment.booking.customerId,
+            //     recipientType: "CLIENT",
+            //     type: "PAYMENT_FAILED",
+            //     channel: "WHATSAPP",
+            //     payload: {
+            //       phoneNumber: payment.phoneNumber,
+            //       bookingRef: payment.booking.reference,
+            //       amoutKes: payment.amountKes,
+            //     },
+            //     status: "PENDING",
+            //     idempotencyKey: `payment.${payment.id}`,
+            //   },
+            // });
 
             log.info(
-              { event: "reconciliation.sweep.failed", paymentId: payment.id, terminalStatus },
-                `Stale payment marked as ${terminalStatus} via reconciliation `,
+              {
+                event: "reconciliation.sweep.failed",
+                paymentId: payment.id,
+                terminalStatus,
+              },
+              `Stale payment marked as ${terminalStatus} via reconciliation `,
             );
           }
         });
 
         // side effects
-        const notification = await prisma.notification.findFirst({
-          where: {
-            bookingId: payment.bookingId,
-          },
-        });
+        // const notification = await prisma.notification.findFirst({
+        //   where: {
+        //     bookingId: payment.bookingId,
+        //   },
+        // });
 
-        try {
-          if (ResultCode === "0" && notification) {
-            await notificationQueue.add(
-              JOB_NAMES.PAYMENT_CONFIRMATION,
-              notification.payload,
-              {
-                jobId: notification.idempotencyKey,
-              },
-            );
-          } else if (ResultCode !== "0" && notification) {
-            await notificationQueue.add(
-              JOB_NAMES.PAYMENT_FAILURE,
-              notification.payload,
-              {
-                jobId: notification.idempotencyKey,
-                attempts: 3,
-                backoff: { type: "exponential", delay: 5000 },
-              },
-            );
-          }
-        } catch {
-          // non critical
-        }
+        // try {
+        //   if (ResultCode === "0" && notification) {
+        //     await notificationQueue.add(
+        //       JOB_NAMES.PAYMENT_CONFIRMATION,
+        //       notification.payload,
+        //       {
+        //         jobId: notification.idempotencyKey,
+        //       },
+        //     );
+        //   } else if (ResultCode !== "0" && notification) {
+        //     await notificationQueue.add(
+        //       JOB_NAMES.PAYMENT_FAILURE,
+        //       notification.payload,
+        //       {
+        //         jobId: notification.idempotencyKey,
+        //       },
+        //     );
+        //   }
+        // } catch {
+        //   // non critical
+        // }
       } catch (error) {
         const err = error as unknown as HttpClientError;
         log.error(
