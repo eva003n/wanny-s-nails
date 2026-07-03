@@ -58,7 +58,7 @@ export const DarajaCallbackFailureSchema = DarajaCallbackBaseSchema.extend({
 /**
  * Union schema that validates both success and failure callbacks.
  */
-export const DarajaCallbackSchema = z.discriminatedUnion("Body", [
+export const DarajaCallbackSchema = z.union([
   DarajaCallbackSuccessSchema,
   DarajaCallbackFailureSchema,
 ]);
