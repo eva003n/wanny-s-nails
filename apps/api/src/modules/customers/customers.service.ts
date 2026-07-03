@@ -1,6 +1,4 @@
-
 import { prisma } from "../../shared/lib/index.js";
-
 
 import {
   CustomerNotFoundError,
@@ -119,7 +117,9 @@ export const customersService = {
     const existingPhone = await prisma.customer.findUnique({
       where: { phone: data.phone },
     });
-    if (existingPhone) {
+    const isDeleted = existingPhone?.deletedAt;
+
+    if (!isDeleted && !existingPhone) {
       throw new PhoneAlreadyExistsError();
     }
 
@@ -128,9 +128,18 @@ export const customersService = {
       const existingEmail = await prisma.customer.findFirst({
         where: { email: data.email },
       });
-      if (existingEmail) {
+      if (!isDeleted && !existingEmail) {
         throw new EmailAlreadyExistsError();
       }
+    }
+    // restore deleted customer
+    if (isDeleted) {
+      return prisma.customer.update({
+        where: { phone: data.phone },
+        data: {
+          deletedAt: null,
+        },
+      });
     }
 
     return prisma.customer.create({
