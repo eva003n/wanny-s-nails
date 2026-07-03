@@ -9,7 +9,6 @@ import { mpesaHttpClient } from "../lib/httpclient.js";
 import { notificationQueue } from "../lib/queues.js";
 import { HttpClientError, JOB_NAMES } from "@wannys-nails/packages";
 import { getFailureReason } from "../utils/index.js";
-import { number, unknown } from "zod";
 
 const log = logger.child({ module: "job:payment-verify" });
 
@@ -164,45 +163,11 @@ export async function paymentVerifyProcessor(
           data: { paymentStatus: "SUCCESS" },
         });
 
-        // await tx.notification.create({
-        //   data: {
-        //     bookingId: payment.bookingId,
-        //     recipientId: payment.booking.customerId,
-        //     recipientType: "CLIENT",
-        //     type: "PAYMENT_SUCCESS",
-        //     channel: "WHATSAPP",
-        //     payload: {
-        //       phoneNumber: payment.phoneNumber,
-        //       bookingRef: payment.booking.reference,
-        //       amountKes: payment.amountKes,
-        //     },
-        //     status: "PENDING",
-        //     idempotencyKey: `payment.${payment.id}`, // bever use ':' bullmq will not allow it
-        //   },
-        // });
       });
 
       // side effects
+     // TODO: Notification
 
-      // const notification = await prisma.notification.findFirst({
-      //   where: {
-      //     bookingId: payment.bookingId,
-      //   },
-      // });
-
-      try {
-        // if (notification) {
-        //   await notificationQueue.add(
-        //     JOB_NAMES.WHATSAPP,
-        //     notification.payload,
-        //     {
-        //       jobId: notification.idempotencyKey,
-        //     },
-        //   );
-        // }
-      } catch {
-        // Non-fatal
-      }
     } else {
       // Payment definitely failed — decide whether to retry or expire
       const retryCount = await prisma.paymentTransaction.count({
@@ -210,7 +175,38 @@ export async function paymentVerifyProcessor(
       });
 
       if (retryCount < MAX_PAYMENT_RETRIES) {
-        // TODO: Notify customer to retry rather than auto-retrying silently
+        // Record the failed attempt and notify customer to retry
+        await prisma.$transaction(async (tx) => {
+          const attemptCount = await tx.paymentTransaction.count({
+            where: { paymentId },
+          });
+
+          await tx.paymentTransaction.create({
+            data: {
+              paymentId,
+              attemptNumber: attemptCount + 1,
+              checkoutRequestId,
+              resultCode: Number(ResultCode),
+              resultDesc: `Attempt ${attemptCount + 1} failed: ${ResultDesc}`,
+              rawRequest: {
+                BusinessShortCode: config.DARAJA_SHORTCODE,
+                Password: password,
+                Timestamp: timestamp,
+                CheckoutRequestID: checkoutRequestId,
+              },
+            },
+          });
+
+          await tx.payment.update({
+            where: { id: paymentId },
+            data: {
+              failureReason: `Attempt ${retryCount + 1} failed: ${ResultDesc}`,
+            },
+          });
+
+          
+        });
+
         log.info(
           {
             event: "payment_verify.job.retry_prompt",
@@ -219,13 +215,6 @@ export async function paymentVerifyProcessor(
           },
           "Payment failed — prompting customer to retry",
         );
-
-        await prisma.payment.update({
-          where: { id: paymentId },
-          data: {
-            failureReason: `Attempt ${retryCount + 1} failed: ${ResultDesc}`,
-          },
-        });
       } else {
         // Retries exhausted — mark as EXPIRED/CANCELLED/FAILED(fallback)
         const terminalStatus =
@@ -240,11 +229,31 @@ export async function paymentVerifyProcessor(
             paymentId,
             retryCount,
           },
-          "Payment retries exhausted — marking as EXPIRED",
+          "Payment retries exhausted — marking as terminal",
         );
 
         // update payment and booking status
         await prisma.$transaction(async (tx) => {
+          const attemptCount = await tx.paymentTransaction.count({
+            where: { paymentId },
+          });
+
+          await tx.paymentTransaction.create({
+            data: {
+              paymentId,
+              attemptNumber: attemptCount + 1,
+              checkoutRequestId,
+              resultCode: Number(ResultCode),
+              resultDesc: `Retries exhausted. Last error: ${getFailureReason(Number(ResultCode))}`,
+              rawRequest: {
+                BusinessShortCode: config.DARAJA_SHORTCODE,
+                Password: password,
+                Timestamp: timestamp,
+                CheckoutRequestID: checkoutRequestId,
+              },
+            },
+          });
+
           await tx.payment.update({
             where: { id: paymentId },
             data: {
@@ -262,42 +271,9 @@ export async function paymentVerifyProcessor(
             },
           });
 
-          // await tx.notification.create({
-          //   data: {
-          //     bookingId: payment.bookingId,
-          //     recipientId: payment.booking.customerId,
-          //     recipientType: "CLIENT",
-          //     type: "PAYMENT_FAILED",
-          //     channel: "WHATSAPP",
-          //     payload: {
-          //       phoneNumber: payment.phoneNumber,
-          //       bookingRef: payment.booking.reference,
-          //       amoutKes: payment.amountKes,
-          //       failureReason: getFailureReason(Number(ResultCode)),
-          //     },
-          //     status: "PENDING",
-          //     idempotencyKey: `payment.${payment.id}`,
-          //   },
-          // });
+         
         });
 
-        // try {
-        //   const notification = await prisma.notification.findFirst({
-        //     where: { bookingId: payment.bookingId },
-        //   });
-
-        //   if (notification) {
-        //     await notificationQueue.add(
-        //       JOB_NAMES.PAYMENT_EXPIRED,
-        //       notification.payload,
-        //       {
-        //         jobId: notification.idempotencyKey,
-        //       },
-        //     );
-        //   }
-        // } catch {
-        //   // Non-fatal
-        // }
       }
     }
   } catch (error: unknown) {
@@ -311,7 +287,7 @@ export async function paymentVerifyProcessor(
           response: err.responseBody,
           error: err.message,
         },
-        "Payment verification query failed — will retry",
+        "Payment verification query failed, will retry",
       );
     }
 
@@ -334,7 +310,7 @@ export async function reconcileStalePayments(): Promise<void> {
     "Starting stale payment reconciliation sweep",
   );
 
-  // First pass: payments with a checkoutRequestId that are stuck in  pending
+  // First pass: payments with a checkoutRequestId that are stuck in pending
   const stuckPayments = await prisma.payment.findMany({
     where: {
       status: "PENDING",
@@ -342,18 +318,18 @@ export async function reconcileStalePayments(): Promise<void> {
       checkoutRequestId: { not: null },
       reconciliationAttempts: { lt: MAX_RECONCILIATION_ATTEMPTS },
     },
-    include: { booking: true },
+    include: { booking: { include: { customer: true } } },
   });
 
   if (stuckPayments.length === 0) {
     log.info(
-      { event: "reconciliation.sweep.stop", staleThreshold },
+      { event: "reconciliation.sweep.stop" },
       "No stuck payments found, stopping stale payment reconciliation sweep",
     );
   } else {
     for (const payment of stuckPayments) {
       try {
-        // fresh  password/timestamp per payment
+        // fresh password/timestamp per payment
         const timestamp = generateTimestamp();
         const password = generatePassword(timestamp);
 
@@ -372,10 +348,9 @@ export async function reconcileStalePayments(): Promise<void> {
 
         await prisma.$transaction(async (tx) => {
           // transition payment status to reconciliation state
-          // guard against race when real webhook callback lands while this sweep is in fright
-
+          // guard against race when real webhook callback lands while this sweep is in flight
           const claimed = await tx.payment.updateMany({
-            where: { id: payment.id },
+            where: { id: payment.id, status: "PENDING" },
             data: {
               status: "RECONCILING",
               reconciliationAttempts: { increment: 1 },
@@ -390,6 +365,7 @@ export async function reconcileStalePayments(): Promise<void> {
             );
             return;
           }
+
           // sync booking payment status state with payment
           await tx.booking.update({
             where: {
@@ -433,24 +409,7 @@ export async function reconcileStalePayments(): Promise<void> {
               data: { paymentStatus: "SUCCESS" },
             });
 
-            // Record the notification
-            // await tx.notification.upsert({
-            //   where: {},
-            //   data: {
-            //     bookingId: payment.bookingId,
-            //     recipientId: payment.booking.customerId,
-            //     recipientType: "CLIENT",
-            //     type: "PAYMENT_SUCCESS",
-            //     channel: "WHATSAPP",
-            //     payload: {
-            //       phoneNumber: payment.phoneNumber,
-            //       bookingRef: payment.booking.reference,
-            //       amoutKes: payment.amountKes,
-            //     },
-            //     status: "PENDING",
-            //     idempotencyKey: `payment.${payment.id}`,
-            //   },
-            // });
+           
 
             log.info(
               { event: "reconciliation.sweep.resolved", paymentId: payment.id },
@@ -458,20 +417,19 @@ export async function reconcileStalePayments(): Promise<void> {
             );
           } else {
             // Payment status failed/cancelled/expired
+            const attemptCount = await tx.paymentTransaction.count({
+              where: { paymentId: payment.id },
+            });
 
-                 const attemptCount = await tx.paymentTransaction.count({
-                   where: { paymentId: payment.id },
-                 });
-
-                 await tx.paymentTransaction.create({
-                   data: {
-                     paymentId: payment.id,
-                     attemptNumber: attemptCount,
-                     checkoutRequestId: payment.checkoutRequestId,
-                     resultCode: Number(ResultCode),
-                     resultDesc: `Reconciled via sweep — ${getFailureReason(Number(ResultCode))}`,
-                   },
-                 });
+            await tx.paymentTransaction.create({
+              data: {
+                paymentId: payment.id,
+                attemptNumber: attemptCount + 1,
+                checkoutRequestId: payment.checkoutRequestId,
+                resultCode: Number(ResultCode),
+                resultDesc: `Reconciled via sweep — ${getFailureReason(Number(ResultCode))}`,
+              },
+            });
 
             const terminalStatus =
               ResultCode === "1032"
@@ -496,23 +454,7 @@ export async function reconcileStalePayments(): Promise<void> {
               },
             });
 
-            // Record the notification
-            // await tx.notification.create({
-            //   data: {
-            //     bookingId: payment.bookingId,
-            //     recipientId: payment.booking.customerId,
-            //     recipientType: "CLIENT",
-            //     type: "PAYMENT_FAILED",
-            //     channel: "WHATSAPP",
-            //     payload: {
-            //       phoneNumber: payment.phoneNumber,
-            //       bookingRef: payment.booking.reference,
-            //       amoutKes: payment.amountKes,
-            //     },
-            //     status: "PENDING",
-            //     idempotencyKey: `payment.${payment.id}`,
-            //   },
-            // });
+         
 
             log.info(
               {
@@ -520,39 +462,15 @@ export async function reconcileStalePayments(): Promise<void> {
                 paymentId: payment.id,
                 terminalStatus,
               },
-              `Stale payment marked as ${terminalStatus} via reconciliation `,
+              `Stale payment marked as ${terminalStatus} via reconciliation`,
             );
           }
         });
 
-        // side effects
-        // const notification = await prisma.notification.findFirst({
-        //   where: {
-        //     bookingId: payment.bookingId,
-        //   },
-        // });
+        // side effects (outside transaction)
+       
+        // TODO: notification
 
-        // try {
-        //   if (ResultCode === "0" && notification) {
-        //     await notificationQueue.add(
-        //       JOB_NAMES.PAYMENT_CONFIRMATION,
-        //       notification.payload,
-        //       {
-        //         jobId: notification.idempotencyKey,
-        //       },
-        //     );
-        //   } else if (ResultCode !== "0" && notification) {
-        //     await notificationQueue.add(
-        //       JOB_NAMES.PAYMENT_FAILURE,
-        //       notification.payload,
-        //       {
-        //         jobId: notification.idempotencyKey,
-        //       },
-        //     );
-        //   }
-        // } catch {
-        //   // non critical
-        // }
       } catch (error) {
         const err = error as unknown as HttpClientError;
         log.error(
@@ -561,9 +479,9 @@ export async function reconcileStalePayments(): Promise<void> {
             response: err instanceof HttpClientError ? err.responseBody : err,
             error: err.message,
           },
-          "Reconciliation query failed — will retry next sweep",
+          "Reconciliation query failed will retry next sweep",
         );
-        // don't rethrow - one bad payment should not bock the others in batch
+        // don't rethrow - one bad payment should not block the others in batch
         continue;
       }
     }
@@ -583,31 +501,37 @@ export async function reconcileStalePayments(): Promise<void> {
     },
   });
 
-  if (deadPayments.length === 0) {
-    log.info(
-      { event: "reconciliation.sweep.dead", count: deadPayments.length },
-      "No payments found with missing CheckoutRequestId",
-    );
-  } else {
+  if (deadPayments.length > 0) {
     await prisma.$transaction(async (tx) => {
+      await tx.payment.updateMany({
+        where: {
+          id: { in: deadPayments.map((p) => p.id) },
+        },
+        data: {
+          status: "EXPIRED",
+          failureReason: "No checkout request ID — push never sent",
+        },
+      });
+
       await tx.booking.updateMany({
         where: {
-          id: {
-            in: deadPayments.map((p) => p.bookingId),
-          },
+          id: { in: deadPayments.map((p) => p.bookingId) },
         },
         data: {
           paymentStatus: "EXPIRED",
         },
       });
-
-      if (deadPayments.length > 0) {
-        log.info(
-          { event: "reconciliation.sweep.dead", count: deadPayments.length },
-          "Payments with no checkoutRequestId marked as EXPIRED",
-        );
-      }
     });
+
+    log.info(
+      { event: "reconciliation.sweep.dead", count: deadPayments.length },
+      "Payments with no checkoutRequestId marked as EXPIRED",
+    );
+  } else {
+    log.info(
+      { event: "reconciliation.sweep.dead", count: 0 },
+      "No payments found with missing CheckoutRequestId",
+    );
   }
 
   log.info(

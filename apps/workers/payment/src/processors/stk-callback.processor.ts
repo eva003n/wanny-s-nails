@@ -81,14 +81,14 @@ export async function processStkCallback(
 
   // 3. Terminal-state guard: never let a late/duplicate callback
   //    overwrite an already-resolved payment
-  if (["SUCCESS", "FAILED", "CANCELLED", "EXPIRED"].includes(payment.status)) {
+  if (["SUCCESS", "FAILED", "CANCELLED", "EXPIRED", "RECONCILING"].includes(payment.status)) {
     log.info(
       {
         event: "stk_callback.job.already_terminal",
         paymentId: payment.id,
         status: payment.status,
       },
-      "Payment already in terminal state, ignoring callback",
+      "Payment already in terminal or reconciling state, ignoring callback",
     );
     return;
   }
@@ -172,24 +172,7 @@ export async function processStkCallback(
         data: { paymentStatus: "SUCCESS" },
       });
 
-      // Record the notification
-      await tx.notification.create({
-        data: {
-          bookingId: payment.bookingId,
-          recipientId: payment.booking.customerId,
-          recipientType: "CLIENT",
-          type: "PAYMENT_SUCCESS",
-          channel: "WHATSAPP",
-          payload: {
-            phoneNumber: payment.phoneNumber,
-            bookingRef: payment.booking.reference,
-            amoutKes: payment.amountKes
-          },
-          status: "PENDING",
-          idempotencyKey: `payment.${payment.id}`
-
-        },
-      });
+     
       log.info(
         {
           event: "stk_callback.job.success",
@@ -234,23 +217,7 @@ export async function processStkCallback(
           },
         });
 
-         await tx.notification.create({
-           data: {
-             bookingId: payment.bookingId,
-             recipientId: payment.booking.customerId,
-             recipientType: "CLIENT",
-             type: "PAYMENT_FAILED",
-             channel: "WHATSAPP",
-             payload: {
-               phoneNumber: payment.phoneNumber,
-               bookingRef: payment.booking.reference,
-               amoutKes: payment.amountKes,
-               failureReason: getFailureReason(resultCode)
-             },
-             status: "PENDING",
-             idempotencyKey: `payment.${payment.id}`,
-           },
-         });
+      
       log.info(
         {
           event: "stk_callback.job.failed",
@@ -268,34 +235,5 @@ export async function processStkCallback(
   //    These run after the DB transaction commits, so a notification
   //    failure never rolls back a payment.
 
-  const notification = await prisma.notification.findFirst({where:{
-    bookingId: payment.bookingId
-  }})
-  
-  try {
-    if (resultCode === 0 && notification) {
-      await notificationQueue.add(
-        JOB_NAMES.PAYMENT_CONFIRMATION,
-         notification.payload,
-        {
-          jobId: notification.idempotencyKey,
-          attempts: 3,
-        },
-      );
-    } else if(resultCode > 0 && notification) {
-      await notificationQueue.add(
-        JOB_NAMES.PAYMENT_FAILURE,
-        notification.payload,
-        {
-          jobId: notification.idempotencyKey,
-        },
-      );
-    }
-  } catch (err) {
-    // Notification failure is non-fatal — don't throw
-    log.error(
-      { event: "stk_callback.job.notification_failed", paymentId: payment.id, error: String(err) },
-      "Failed to enqueue payment notification",
-    );
-  }
+  // TODO: notifications
 }
