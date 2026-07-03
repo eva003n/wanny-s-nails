@@ -454,13 +454,13 @@ export async function reconcileStalePayments(): Promise<void> {
               },
             });
 
-         
-
             log.info(
               {
                 event: "reconciliation.sweep.failed",
                 paymentId: payment.id,
                 terminalStatus,
+                ResultCode
+
               },
               `Stale payment marked as ${terminalStatus} via reconciliation`,
             );
