@@ -37,6 +37,23 @@ export const paymentsService = {
           status: "PENDING",
         },
       });
+
+      // await prisma.notification.create({
+      //   data: {
+      //     bookingId: payment.bookingId,
+      //     recipientId: booking.customerId,
+      //     recipientType: "CLIENT",
+      //     type: "PAYMENT_REQUEST",
+      //     channel: "WHATSAPP",
+      //     payload: {
+      //       phoneNumber: payment.phoneNumber,
+      //       bookingRef: booking.reference,
+      //       amountKes: payment.amountKes,
+      //     },
+      //     status: "PENDING",
+      //     idempotencyKey: `payment.${payment.id}.request`,
+      //   },
+      // });
     } else if (["FAILED", "CANCELLED", "EXPIRED"].includes(payment.status)) {
       // Reset for retry
       payment = await prisma.payment.update({
