@@ -246,6 +246,7 @@ model PaymentTransaction {
   id                 String   @id @default(uuid())
   paymentId          String   @map("payment_id")
   attemptNumber      Int      @map("attempt_number")
+  reconciliationAttempts      Int      @map("reconciliation_attempts")
   checkoutRequestId  String?  @map("checkout_request_id")
   resultCode         Int?     @map("result_code")
   resultDesc         String?  @map("result_desc")
