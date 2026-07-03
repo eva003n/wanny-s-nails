@@ -134,6 +134,7 @@ CREATE TABLE "payment_transactions" (
     "id" TEXT NOT NULL,
     "payment_id" TEXT NOT NULL,
     "attempt_number" INTEGER NOT NULL,
+    "reconciliation_attempts" INTEGER NOT NULL,
     "checkout_request_id" TEXT,
     "result_code" INTEGER,
     "result_desc" TEXT,
