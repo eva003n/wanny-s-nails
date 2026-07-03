@@ -230,6 +230,8 @@ model Payment {
   phoneNumber        String?       @map("phone_number")
   completedAt        DateTime?     @map("completed_at")
   failureReason      String?       @map("failure_reason")
+  reconciliationAttempts      Int      @map("reconciliation_attempts") @default(0)
+
   metadata           Json?          @default("{}")    
 
   createdAt          DateTime      @default(now()) @map("created_at")
@@ -246,7 +248,6 @@ model PaymentTransaction {
   id                 String   @id @default(uuid())
   paymentId          String   @map("payment_id")
   attemptNumber      Int      @map("attempt_number")
-  reconciliationAttempts      Int      @map("reconciliation_attempts")
   checkoutRequestId  String?  @map("checkout_request_id")
   resultCode         Int?     @map("result_code")
   resultDesc         String?  @map("result_desc")

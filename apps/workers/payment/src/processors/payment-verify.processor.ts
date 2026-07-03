@@ -168,10 +168,10 @@ export async function paymentVerifyProcessor(
             payload: {
               phoneNumber: payment.phoneNumber,
               bookingRef: payment.booking.reference,
-              amoutKes: payment.amountKes,
+              amountKes: payment.amountKes,
             },
             status: "PENDING",
-            idempotencyKey: `payment.${payment.id}`,
+            idempotencyKey: `payment.${payment.id}`, // bever use ':' bullmq will not allow it
           },
         });
       });
@@ -190,7 +190,7 @@ export async function paymentVerifyProcessor(
             JOB_NAMES.WHATSAPP,
             notification.payload,
             {
-              jobId: notification?.idempotencyKey,
+              jobId: notification.idempotencyKey,
             },
           );
         }
@@ -300,7 +300,6 @@ export async function paymentVerifyProcessor(
       log.error(
         {
           event: "payment_verify.job.failed",
-          jobId: job.id,
           paymentId,
           status: err.status,
           response: err.responseBody,
@@ -320,9 +319,7 @@ export async function paymentVerifyProcessor(
 
 const MAX_RECONCILIATION_ATTEMPTS = 5;
 
-type MetaData = {
-  reconciliationAttempts: number;
-};
+
 
 export async function reconcileStalePayments(): Promise<void> {
   // payments that were marked pending ten minutes ago
@@ -339,9 +336,8 @@ export async function reconcileStalePayments(): Promise<void> {
       status: "PENDING",
       createdAt: { lt: staleThreshold },
       checkoutRequestId: { not: null },
-      metadata: {
-        reconciliationAttempts: { lt: MAX_RECONCILIATION_ATTEMPTS },
-      } as unknown as Record<string, unknown>,
+      reconciliationAttempts: {lt: MAX_RECONCILIATION_ATTEMPTS}
+      
     },
     include: { booking: true },
   });
@@ -375,21 +371,12 @@ export async function reconcileStalePayments(): Promise<void> {
           // transition payment status to reconciliation state
           // guard against race when real webhook callback lands while this sweep is in fright
 
-          const metadata = payment.metadata as unknown as {
-            reconciliationAttempts: number;
-          };
 
-          const updatedMetaData = {
-            ...metadata,
-            reconciliationAttempts: metadata.reconciliationAttempts + 1,
-          };
-          const claimed = await tx.payment.updateMany<{
-            data: { metadata: { reconciliationAttempts: number } };
-          }>({
+          const claimed = await tx.payment.updateMany({
             where: { id: payment.id },
             data: {
               status: "RECONCILING",
-              metadata: updatedMetaData,
+              reconciliationAttempts: {increment: 1}
             },
           });
 
@@ -416,6 +403,8 @@ export async function reconcileStalePayments(): Promise<void> {
             const attemptCount = await tx.paymentTransaction.count({
               where: { paymentId: payment.id },
             });
+
+
 
             await tx.paymentTransaction.create({
               data: {
@@ -504,8 +493,8 @@ export async function reconcileStalePayments(): Promise<void> {
             });
 
             log.info(
-              { event: "reconciliation.sweep.failed", paymentId: payment.id },
-              "Stale payment marked as FAILED via reconciliation",
+              { event: "reconciliation.sweep.failed", paymentId: payment.id, terminalStatus },
+                `Stale payment marked as ${terminalStatus} via reconciliation `,
             );
           }
         });
