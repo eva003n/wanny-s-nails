@@ -1,9 +1,9 @@
 import { type Job } from "bullmq";
-import { log as logger, prisma, _config as config } from "../lib/index.js";
-import { notificationQueue } from "../lib/queues.js";
+import { log as logger, prisma, _config as config, notificationQueue } from "../lib/index.js";
+
 import { parseStkCallbackBody, extractCallbackMetadata, isStkCallbackSuccess } from "../lib/schemas.js";
 import { JOB_NAMES } from "@wannys-nails/packages";
-import { getFailureReason } from "../utils/index.js";
+import { getFailureReason, getTerminalStatus } from "../utils/index.js";
 
 const log = logger.child({ module: "job:stk-callback" });
 
@@ -65,7 +65,7 @@ export async function processStkCallback(
   if (!payment) {
     log.warn(
       { event: "stk_callback.job.payment_not_found", checkoutRequestId },
-      "Callback for unknown CheckoutRequestID — skipping",
+      "Callback for unknown CheckoutRequestID,  skipping",
     );
     return;
   }
@@ -74,7 +74,7 @@ export async function processStkCallback(
   if (payment.completedAt || payment.status === "SUCCESS" || payment.status === "REFUNDED") {
     log.info(
       { event: "stk_callback.job.duplicate", paymentId: payment.id },
-      "Duplicate callback — payment already completed",
+      "Duplicate callback, payment already completed",
     );
     return;
   }
@@ -129,7 +129,7 @@ export async function processStkCallback(
             expected: payment.amountKes,
             received: amount,
           },
-          "Payment amount mismatch — flagging as disputed",
+          "Payment amount mismatch, flagging as disputed",
         );
 
         await tx.payment.update({
@@ -185,11 +185,7 @@ export async function processStkCallback(
       );
     } else {
       // --- Failed/cancelled/expired payment ---
-      const terminalStatus =  
-          resultCode === 1032 ? "CANCELLED" :
-          resultCode === 1037?
-           "EXPIRED": "FAILED"
-
+      const terminalStatus =  getTerminalStatus(resultCode)
       await tx.paymentTransaction.create({
         data: {
           paymentId: payment.id,

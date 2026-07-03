@@ -4,6 +4,7 @@ import { parsePhoneToE164, formatTime12h, formatDateEAT } from "../helpers.js";
 import { log as logger, paymentQueue } from "../../../lib/index.js";
 
 import { prisma } from "../../../lib/prisma.js";
+import { JOB_NAMES } from "@wannys-nails/packages";
 
 const log = logger.child({ module: "fsm-payment-phone" });
 
@@ -133,7 +134,7 @@ export async function handleAwaitingPaymentPhone(
 
     // Enqueue STK Push job
     await paymentQueue.add(
-      "stk-push",
+      JOB_NAMES.STK_PUSH,
       {
         bookingId,
         paymentId: payment.id,
@@ -143,7 +144,7 @@ export async function handleAwaitingPaymentPhone(
       },
       {
         attempts: 2,
-        backoff: { type: "fixed", delay: 30000 },
+        backoff: { type: "fixed", delay: 30000 }, // total delay ~90s in time for timeout handling routine
       },
     );
 

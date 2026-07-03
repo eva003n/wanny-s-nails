@@ -55,8 +55,8 @@ export const refreshRateLimit = rateLimit({
  * STK Push rate limiter: 5 requests per 5 minutes per booking.
  */
 export const stkPushRateLimit = rateLimit({
-  windowMs: 5 * 60 * 1000,
-  max: 5,
+  windowMs: 5 * 60 * 1000, // per 5 minutes
+  max: 3, // attempts
   standardHeaders: true,
   legacyHeaders: true,
   // keyGenerator: (req) => {

@@ -8,7 +8,7 @@ import {
 import { mpesaHttpClient } from "../lib/httpclient.js";
 import { notificationQueue } from "../lib/queues.js";
 import { HttpClientError, JOB_NAMES } from "@wannys-nails/packages";
-import { getFailureReason } from "../utils/index.js";
+import { getFailureReason, getTerminalStatus } from "../utils/index.js";
 
 const log = logger.child({ module: "job:payment-verify" });
 
@@ -80,11 +80,12 @@ export async function paymentVerifyProcessor(
   if (!payment) {
     log.warn(
       { event: "payment_verify.job.payment_not_found", paymentId },
-      "Payment not found",
+      "Payment not found, skipping",
     );
     return;
   }
 
+  // check if payment was resolved by the callback
   if (payment.status !== "PENDING") {
     log.info(
       {
@@ -92,14 +93,14 @@ export async function paymentVerifyProcessor(
         paymentId,
         status: payment.status,
       },
-      "Payment already resolved by callback — skipping",
+      "Payment already resolved by callback, skipping",
     );
     return;
   }
 
   // 2. Query Daraja for the actual transaction status
   //    The absence of a callback is NOT proof the payment failed —
-  //    it's proof the *notification* failed. Ask Daraja directly.
+  //    it's proof the *notification* failed in transist. Ask Daraja directly.
   const timestamp = generateTimestamp();
   const password = generatePassword(timestamp);
 
@@ -431,12 +432,7 @@ export async function reconcileStalePayments(): Promise<void> {
               },
             });
 
-            const terminalStatus =
-              ResultCode === "1032"
-                ? "CANCELLED"
-                : ResultCode === "1037"
-                  ? "EXPIRED"
-                  : "FAILED";
+            const terminalStatus = getTerminalStatus(ResultCode)
 
             await tx.payment.update({
               where: { id: payment.id },

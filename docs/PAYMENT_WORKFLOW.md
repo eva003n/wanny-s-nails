@@ -39,7 +39,7 @@ This document describes the **system as it should behave in production** — cor
 
 A payment system fails quietly if you let it. Three rules drive every decision below:
 
-- **The callback is the source of truth, not the STK push response.** Daraja's synchronous STK push response only confirms the *prompt was sent* — it says nothing about whether the customer paid. Never mark a booking as paid from that response.
+- **The callback is the source of truth, not the STK push response.** Daraja's synchronous STK push response only confirms the _prompt was sent_ — it says nothing about whether the customer paid. Never mark a booking as paid from that response.
 - **Every write that can be retried, will be retried — by Safaricom, by your own queue, by a customer double-tapping a WhatsApp button.** Every payment-mutating operation must be idempotent.
 - **Money state and booking state are separate state machines that must stay reconciled, not merged.** A booking can be `CONFIRMED` while a payment is `PENDING` (cash on arrival) — don't conflate "booking confirmed" with "payment received."
 
@@ -91,7 +91,7 @@ sequenceDiagram
     API->>DB: UPDATE Payment SET checkoutRequestId
 
     Daraja->>Customer: M-Pesa STK Push prompt on phone
-    
+
     alt Customer approves
         Customer->>Daraja: Enters M-Pesa PIN ✓
         Daraja->>API: POST /payments/mpesa-callback\n{ResultCode: 0, MpesaReceiptNumber}
@@ -164,7 +164,7 @@ model PaymentTransaction {
   rawRequest         Json?    @map("raw_request")
   rawCallback        Json?    @map("raw_callback")
   metadata           Json?    @default("{}")
-  
+
   createdAt          DateTime @default(now()) @map("created_at")
 
   payment Payment @relation(fields: [paymentId], references: [id])
@@ -201,12 +201,12 @@ export async function getAccessToken(): Promise<string> {
   if (cached) return cached;
 
   const credentials = Buffer.from(
-    `${process.env.DARAJA_CONSUMER_KEY}:${process.env.DARAJA_CONSUMER_SECRET}`
+    `${process.env.DARAJA_CONSUMER_KEY}:${process.env.DARAJA_CONSUMER_SECRET}`,
   ).toString("base64");
 
   const response = await fetch(
     `${process.env.DARAJA_BASE_URL}/oauth/v1/generate?grant_type=client_credentials`,
-    { headers: { Authorization: `Basic ${credentials}` } }
+    { headers: { Authorization: `Basic ${credentials}` } },
   );
 
   if (!response.ok) {
@@ -220,7 +220,7 @@ export async function getAccessToken(): Promise<string> {
     TOKEN_CACHE_KEY,
     access_token,
     "EX",
-    Number(expires_in) - TOKEN_TTL_BUFFER_SECONDS
+    Number(expires_in) - TOKEN_TTL_BUFFER_SECONDS,
   );
 
   return access_token;
@@ -243,7 +243,7 @@ export async function initiateStkPush(params: {
   const token = await getAccessToken();
   const timestamp = generateDarajaTimestamp(); // YYYYMMDDHHmmss
   const password = Buffer.from(
-    `${process.env.DARAJA_SHORTCODE}${process.env.DARAJA_PASSKEY}${timestamp}`
+    `${process.env.DARAJA_SHORTCODE}${process.env.DARAJA_PASSKEY}${timestamp}`,
   ).toString("base64");
 
   // Create the Payment row BEFORE calling Daraja — if the process crashes
@@ -276,7 +276,7 @@ export async function initiateStkPush(params: {
           AccountReference: `WANNY-${bookingId.slice(-8).toUpperCase()}`,
           TransactionDesc: "Nail appointment booking",
         }),
-      }
+      },
     );
 
     const data = await response.json();
@@ -315,11 +315,14 @@ export async function initiateStkPush(params: {
 function normalisePhone(phone: string): string {
   // Accepts: 0712345678, +254712345678, 254712345678, 0112345678
   // Returns: 254712345678 (Daraja format — no leading +)
-  const digits = phone.replace(/\D/g, '');
-  if (digits.startsWith('0')) return '254' + digits.slice(1);
-  if (digits.startsWith('+254')) return digits.slice(1);
-  if (digits.startsWith('254')) return digits;
-  throw new ValidationError('INVALID_PHONE', 'Phone number must be a valid Kenyan number');
+  const digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("0")) return "254" + digits.slice(1);
+  if (digits.startsWith("+254")) return digits.slice(1);
+  if (digits.startsWith("254")) return digits;
+  throw new ValidationError(
+    "INVALID_PHONE",
+    "Phone number must be a valid Kenyan number",
+  );
 }
 ```
 
@@ -327,17 +330,17 @@ function normalisePhone(phone: string): string {
 
 ```typescript
 interface StkPushRequest {
-  BusinessShortCode: string;     // Paybill/Till number
-  Password: string;               // Base64(shortcode + passkey + timestamp)
-  Timestamp: string;              // YYYYMMDDHHMMSS (EAT)
-  TransactionType: 'CustomerPayBillOnline' | 'CustomerBuyGoodsOnline';
-  Amount: number;                 // Whole KES, no decimals
-  PartyA: string;                 // Customer's phone: 2547XXXXXXXX
-  PartyB: string;                 // Same as BusinessShortCode
-  PhoneNumber: string;            // Same as PartyA
-  CallBackURL: string;            // https://api.nailbook.co.ke/api/v1/payments/mpesa-callback
-  AccountReference: string;       // Booking reference: NB-2025-00123 (max 12 chars)
-  TransactionDesc: string;        // Max 13 chars: "Nail booking"
+  BusinessShortCode: string; // Paybill/Till number
+  Password: string; // Base64(shortcode + passkey + timestamp)
+  Timestamp: string; // YYYYMMDDHHMMSS (EAT)
+  TransactionType: "CustomerPayBillOnline" | "CustomerBuyGoodsOnline";
+  Amount: number; // Whole KES, no decimals
+  PartyA: string; // Customer's phone: 2547XXXXXXXX
+  PartyB: string; // Same as BusinessShortCode
+  PhoneNumber: string; // Same as PartyA
+  CallBackURL: string; // https://api.nailbook.co.ke/api/v1/payments/mpesa-callback
+  AccountReference: string; // Booking reference: NB-2025-00123 (max 12 chars)
+  TransactionDesc: string; // Max 13 chars: "Nail booking"
 }
 ```
 
@@ -353,154 +356,36 @@ Hand off to a queue instead of processing inline. The HTTP handler's only job is
 
 ### Callback Endpoint
 
-`POST /api/v1/payments/mpesa-callback`
+`POST /api/v1/webhooks/daraja`
 
 This endpoint is public (no JWT) but protected by:
+
 1. IP allowlist — only accepts requests from Safaricom's Daraja IP ranges
 2. Request body structure validation
 
 ### Processing Logic
 
-```typescript
-// apps/workers/payment/src/processors/stk-callback.processor.ts
-export async function processStkCallback(job: Job<StkCallbackJobData>) {
-  const { callback } = job.data;
-  const { CheckoutRequestID, ResultCode, ResultDesc, CallbackMetadata } = callback;
+Side effects (WhatsApp confirmation, slot release) happen AFTER the
+transaction commits, in a separate job — never inside the DB
+transaction. Keeps the transaction short and avoids holding a row
+lock while waiting on an external API.
 
-  await prisma.$transaction(async (tx) => {
-    const payment = await tx.payment.findUnique({
-      where: { checkoutRequestId: CheckoutRequestID },
-    });
-
-    if (!payment) {
-      // Callback arrived for a CheckoutRequestID we don't recognize —
-      // either a race with the STK push write, or a stale/replayed
-      // callback from a previous deploy/environment. Don't throw;
-      // throwing triggers a BullMQ retry that will never succeed.
-      logger.error({ CheckoutRequestID }, "Callback for unknown payment");
-      return;
-    }
-
-    // Idempotency guard: if we've already processed this exact callback
-    // (e.g. Daraja redelivered, or our own job retried after a crash
-    // post-DB-write but pre-acknowledgment), skip side effects entirely.
-    if (payment.completedAt) {
-      logger.info({ paymentId: payment.id }, "Duplicate callback ignored");
-      return;
-    }
-
-    // Also terminal-state guard: never let a late/duplicate FAILED
-    // callback overwrite an already-SUCCESS payment.
-    if (["SUCCESS", "FAILED", "CANCELLED", "EXPIRED"].includes(payment.status)) {
-      logger.info({ paymentId: payment.id, status: payment.status }, "Payment already terminal, ignoring callback");
-      return;
-    }
-
-    if (ResultCode === 0) {
-      const amount = extractMetadata(CallbackMetadata, 'Amount');
-      const receiptNumber = extractMetadata(CallbackMetadata, 'MpesaReceiptNumber');
-      const transactionDate = extractMetadata(CallbackMetadata, 'TransactionDate');
-
-      // Amount verification
-      if (amount !== payment.amountKes) {
-        // Flag as disputed, alert owner
-        await tx.payment.update({
-          where: { id: payment.id },
-          data: {
-            status: "FAILED",
-            failureReason: `Amount mismatch: expected ${payment.amountKes}, received ${amount}`,
-          },
-        });
-        await alertOwner('PAYMENT_AMOUNT_MISMATCH', payment);
-        return;
-      }
-
-      // Successful payment
-      await tx.paymentTransaction.create({
-        data: {
-          paymentId: payment.id,
-          attemptNumber: await getAttemptNumber(payment.id),
-          checkoutRequestId: CheckoutRequestID,
-          resultCode: 0,
-          resultDesc: ResultDesc,
-          mpesaReceiptNumber: receiptNumber,
-          rawCallback: callback as any,
-        },
-      });
-
-      await tx.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: "SUCCESS",
-          mpesaReceiptNumber: receiptNumber,
-          completedAt: parseDarajaDate(transactionDate),
-        },
-      });
-
-      await tx.booking.update({
-        where: { id: payment.bookingId },
-        data: { paymentStatus: "SUCCESS" },
-      });
-    } else {
-      // Failed payment — ResultCode 1032 = user cancelled, 1037 = timeout on user end, etc.
-      const terminalStatus = ResultCode === 1032 ? "CANCELLED" : "FAILED";
-
-      await tx.paymentTransaction.create({
-        data: {
-          paymentId: payment.id,
-          attemptNumber: await getAttemptNumber(payment.id),
-          checkoutRequestId: CheckoutRequestID,
-          resultCode: ResultCode,
-          resultDesc: ResultDesc,
-          rawCallback: callback as any,
-        },
-      });
-
-      await tx.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: terminalStatus,
-          failureReason: `ResultCode ${ResultCode}: ${ResultDesc}`,
-        },
-      });
-    }
-  });
-
-  // Side effects (WhatsApp confirmation, slot release) happen AFTER the
-  // transaction commits, in a separate job — never inside the DB
-  // transaction. Keeps the transaction short and avoids holding a row
-  // lock while waiting on an external API.
-  if (ResultCode === 0) {
-    await notificationQueue.add('whatsapp-payment-confirmed', {
-      phone: payment.booking.customer.phone,
-      bookingRef: payment.booking.reference,
-      amountKes: payment.amountKes,
-    });
-  } else {
-    await notificationQueue.add('whatsapp-payment-failed', {
-      phone: payment.booking.customer.phone,
-      resultCode: ResultCode,
-      bookingRef: payment.booking.reference,
-    });
-  }
-}
-```
 
 **Why acknowledge before processing, and why queue instead of inline:** Safaricom's callback delivery has its own timeout and retry behavior. If your handler is slow (DB transaction + WhatsApp API call + Redis update, all synchronously, on the request thread), you risk Daraja timing out and redelivering — which without the idempotency guards above would have caused you to process the same payment twice concurrently.
 
-**Why the DB transaction matters here specifically:** updating `Payment.status` and `Booking.paymentStatus` must be atomic. A crash between the two writes is exactly how you get a `SUCCESS` payment attached to a `PENDING` booking — money taken, slot not confirmed.
+**Why the DB transaction matters here specifically:** updating `Payment.status` and `Booking.paymentStatus` must be atomic. A crash between the two writes is exactly how gyou get a `SUCCESS` payment attached to a `PENDING` booking — money taken, slot not confirmed.
 
 ### M-Pesa Result Codes
 
-| Code | Meaning | Handling |
-|---|---|---|
-| 0 | Success | Mark SUCCESS |
-| 1 | Insufficient funds | Mark FAILED — notify customer to top up |
-| 1032 | Request cancelled (timeout or customer cancelled) | Mark CANCELLED — offer retry |
-| 1037 | DS timeout (customer did not respond) | Mark FAILED — offer retry |
-| 2001 | Invalid credentials | Mark FAILED — alert sysadmin |
-| 17 | Limit exceeded | Mark FAILED — notify customer |
-| 26 | System busy | Mark FAILED with retry — re-enqueue STK Push job |
+| Code | Meaning                                           | Handling                                         |
+| ---- | ------------------------------------------------- | ------------------------------------------------ |
+| 0    | Success                                           | Mark SUCCESS                                     |
+| 1    | Insufficient funds                                | Mark FAILED — notify customer to top up          |
+| 1032 | Request cancelled (timeout or customer cancelled) | Mark CANCELLED — offer retry                     |
+| 1037 | DS timeout (customer did not respond)             | Mark FAILED — offer retry                        |
+| 2001 | Invalid credentials                               | Mark FAILED — alert sysadmin                     |
+| 17   | Limit exceeded                                    | Mark FAILED — notify customer                    |
+| 26   | System busy                                       | Mark FAILED with retry — re-enqueue STK Push job |
 
 ---
 
@@ -509,70 +394,12 @@ export async function processStkCallback(job: Job<StkCallbackJobData>) {
 Not every STK push gets a callback. Customers close WhatsApp, lock their phone before entering their PIN, or lose signal. You need a deterministic way to give up.
 
 ### Timeout Scheduling
-
-```typescript
-// apps/workers/payment/src/processors/stk-push.processor.ts
-export async function scheduleStkTimeout(paymentId: string) {
-  await paymentTimeoutQueue.add(
-    "stk-timeout-check",
-    { paymentId },
-    {
-      delay: 90_000, // Daraja's own STK prompt expires ~60-90s on the handset
-      jobId: `timeout:${paymentId}`,
-      removeOnComplete: true,
-    }
-  );
-}
-```
+Daraja's own STK prompt expires ~60-90s on the handset
 
 ### Timeout Processing
+-  Check if Callback already resolved it — nothing to do. This is the common case.
 
-```typescript
-// apps/workers/payment/src/processors/payment-verify.processor.ts
-export async function processStkTimeout(job: Job<{ paymentId: string }>) {
-  const payment = await prisma.payment.findUnique({ where: { id: job.data.paymentId } });
-
-  if (!payment || payment.status !== "PENDING") {
-    // Callback already resolved it — nothing to do. This is the common case.
-    return;
-  }
-
-  // The callback never arrived (or hasn't yet). Don't assume failure —
-  // ask Daraja directly via the Transaction Status Query API. This
-  // catches the case where the callback was lost in transit but the
-  // payment actually succeeded.
-  const queryResult = await queryStkPushStatus(payment.checkoutRequestId!);
-
-  if (queryResult.ResultCode === "0") {
-    // Payment actually succeeded; we just never got the callback.
-    // Route through the same handler the callback would have used,
-    // so all the same idempotency/transaction logic applies.
-    await processStkCallback({
-      data: { callback: queryResult.toCallbackShape() },
-    } as Job<StkCallbackJobData>);
-    return;
-  }
-
-  if (payment.retryCount < MAX_PAYMENT_RETRIES) {
-    await prisma.payment.update({
-      where: { id: payment.id },
-      data: { retryCount: { increment: 1 } },
-    });
-    // Re-prompt the customer via WhatsApp rather than auto-retrying
-    // the STK push silently — a second unsolicited prompt without
-    // context is confusing and looks like a glitch.
-    await notificationQueue.add("payment-retry-prompt", { paymentId: payment.id });
-  } else {
-    await prisma.payment.update({
-      where: { id: payment.id },
-      data: { status: "EXPIRED" },
-    });
-    await notificationQueue.add("payment-expired-notification", { paymentId: payment.id });
-  }
-}
-```
-
-**Why query Daraja instead of just marking it `EXPIRED`:** the absence of a callback is not proof the payment failed — it's proof the *notification* failed. Treating "no callback" as "no payment" without checking is how customers get charged and never receive their confirmed slot.
+**Why query Daraja instead of just marking it `EXPIRED`:** the absence of a callback is not proof the payment failed — it's proof the _notification_ failed. Treating "no callback" as "no payment" without checking is how customers get charged and never receive their confirmed slot.
 
 ### Failure Paths
 
@@ -603,9 +430,9 @@ Daraja callback arrives (ResultCode 1032)
 #### Path C: Callback never arrives
 
 ```
-Background job runs every 15 minutes
+Background job runs every 10 minutes
 → Queries payments in PENDING older than 30 minutes
-→ For each stale payment: query Daraja /stkpush/v3/query endpoint
+→ For each stale payment: query Daraja /stkpush/v1/query endpoint
 → If Daraja confirms failure: mark FAILED
 → If Daraja confirms success but we missed callback: process as success
 → Notify customer accordingly
@@ -630,10 +457,10 @@ Each retry creates a new `PaymentTransaction` record with an incremented `attemp
 
 Three distinct duplicate-delivery scenarios need handling, and they need different mechanisms:
 
-| Scenario | Mechanism |
-|---|---|
-| Daraja redelivers the same callback | BullMQ `jobId: checkoutRequestId` dedup at enqueue time |
-| Callback processed but job crashes before ack, BullMQ retries | `payment.completedAt` check inside the transaction |
+| Scenario                                                           | Mechanism                                                                                                   |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| Daraja redelivers the same callback                                | BullMQ `jobId: checkoutRequestId` dedup at enqueue time                                                     |
+| Callback processed but job crashes before ack, BullMQ retries      | `payment.completedAt` check inside the transaction                                                          |
 | Two different callbacks somehow both claim success for one payment | DB-level unique constraint on `mpesaReceiptNumber` — second write fails at the DB, not in application logic |
 
 Always prefer a database constraint as the last line of defense. Application-level idempotency checks have race windows; a `UNIQUE` constraint does not.
@@ -648,7 +475,10 @@ A booking slot must not be sellable to two customers while one of them has an ST
 // apps/api/src/modules/slots/slots.service.ts
 const SLOT_LOCK_TTL_SECONDS = 120; // slightly longer than the STK timeout window
 
-export async function lockSlotForPayment(slotId: string, bookingId: string): Promise<boolean> {
+export async function lockSlotForPayment(
+  slotId: string,
+  bookingId: string,
+): Promise<boolean> {
   // SET NX = atomic "acquire lock only if free". This is the same
   // primitive used for distributed locks generally — Redis guarantees
   // the check-and-set happens as one operation, so two concurrent
@@ -656,13 +486,17 @@ export async function lockSlotForPayment(slotId: string, bookingId: string): Pro
   const acquired = await redis.set(
     `slot-lock:${slotId}`,
     bookingId,
-    "EX", SLOT_LOCK_TTL_SECONDS,
-    "NX"
+    "EX",
+    SLOT_LOCK_TTL_SECONDS,
+    "NX",
   );
   return acquired === "OK";
 }
 
-export async function releaseSlotLock(slotId: string, bookingId: string): Promise<void> {
+export async function releaseSlotLock(
+  slotId: string,
+  bookingId: string,
+): Promise<void> {
   // Only release if we still own the lock — prevents a slow/delayed
   // release call from clearing a lock that a *different* booking has
   // since legitimately acquired after this one expired.
@@ -684,7 +518,7 @@ The lock is released on three paths: payment `SUCCESS` (slot is now permanently 
 
 Callbacks and timeouts handle the vast majority of cases. A nightly reconciliation sweep catches what slips through both.
 
-### Stale Payment Reconciliation (every 5-10 minutes)
+### Stale Payment Reconciliation (every 10 - 15 minutes)
 
 ```typescript
 // apps/workers/payment/src/processors/payment-verify.processor.ts
@@ -708,7 +542,10 @@ export async function reconcileStalePayments() {
         data: { callback: result.toCallbackShape() },
       } as Job<StkCallbackJobData>);
     } catch (err) {
-      logger.error({ err, paymentId: payment.id }, "Reconciliation query failed");
+      logger.error(
+        { err, paymentId: payment.id },
+        "Reconciliation query failed",
+      );
       // Don't mark as failed on a query error — try again next sweep.
     }
   }
@@ -723,7 +560,10 @@ export async function reconcileStalePayments() {
       checkoutRequestId: null,
       createdAt: { lt: staleThreshold },
     },
-    data: { status: "EXPIRED", failureReason: "No checkout request ID — push never sent" },
+    data: {
+      status: "EXPIRED",
+      failureReason: "No checkout request ID — push never sent",
+    },
   });
 }
 ```
@@ -793,15 +633,15 @@ Minimum metrics to alert on, not just collect:
 
 ## 13. Failure Modes & How the System Survives Them
 
-| Failure | What happens | Why it's safe |
-|---|---|---|
-| API process crashes between `Payment.create()` and the Daraja HTTP call | Row stuck `PENDING` with no `checkoutRequestId` | Caught by reconciliation §9, second pass |
-| Daraja redelivers the same callback 3 times | First call processes normally | `jobId` dedup + `completedAt` guard + unique constraint on receipt number — three independent layers |
-| Callback never arrives at all | Timeout job fires at 90s | Queries Daraja directly via Transaction Status API instead of guessing |
-| Worker crashes mid-transaction (after `Payment` update, before `Booking` update) | Prisma transaction rolls back fully | Atomicity guarantee — no partial state possible |
-| Two customers try to book the same slot simultaneously | One gets the Redis `NX` lock, the other is rejected immediately | Atomic check-and-set, no race window |
-| Network partition between API and Daraja during STK initiation | Push request throws; `Payment` row stays `PENDING` with no `checkoutRequestId` | Same path as crash scenario above — reconciliation resolves it |
-| WhatsApp confirmation message fails to send after successful payment | Booking is still `CONFIRMED` in the DB; notification job retries independently | Payment/booking state and notification delivery are decoupled — a notification failure never rolls back a payment |
+| Failure                                                                          | What happens                                                                   | Why it's safe                                                                                                     |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| API process crashes between `Payment.create()` and the Daraja HTTP call          | Row stuck `PENDING` with no `checkoutRequestId`                                | Caught by reconciliation §9, second pass                                                                          |
+| Daraja redelivers the same callback 3 times                                      | First call processes normally                                                  | `jobId` dedup + `completedAt` guard + unique constraint on receipt number — three independent layers              |
+| Callback never arrives at all                                                    | Timeout job fires at 90s                                                       | Queries Daraja directly via Transaction Status API instead of guessing                                            |
+| Worker crashes mid-transaction (after `Payment` update, before `Booking` update) | Prisma transaction rolls back fully                                            | Atomicity guarantee — no partial state possible                                                                   |
+| Two customers try to book the same slot simultaneously                           | One gets the Redis `NX` lock, the other is rejected immediately                | Atomic check-and-set, no race window                                                                              |
+| Network partition between API and Daraja during STK initiation                   | Push request throws; `Payment` row stays `PENDING` with no `checkoutRequestId` | Same path as crash scenario above — reconciliation resolves it                                                    |
+| WhatsApp confirmation message fails to send after successful payment             | Booking is still `CONFIRMED` in the DB; notification job retries independently | Payment/booking state and notification delivery are decoupled — a notification failure never rolls back a payment |
 
 ---
 
