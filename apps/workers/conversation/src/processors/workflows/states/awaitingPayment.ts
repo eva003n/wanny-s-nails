@@ -106,7 +106,6 @@ export async function handleAwaitingPayment(
       return {
         messages: [
           {
-            to: phone as string,
             type: "text",
             text: "Sorry, something went wrong. Let's start over.",
           },
@@ -121,7 +120,6 @@ export async function handleAwaitingPayment(
       return {
         messages: [
           {
-            to: phone as string,
             type: "text",
             text: "We've sent a new payment request. Please check your phone and enter your M-Pesa PIN. 📲\n\nThis request will expire in 5 minutes.",
           },
@@ -137,12 +135,10 @@ export async function handleAwaitingPayment(
       return {
         messages: [
           {
-            to: ctx.phone,
             type: "text",
             text: "We couldn't send a new payment request.",
           },
           {
-            to: ctx.phone,
             type: "interactive_button",
             text: "What would you like to do?",
             buttonTitle: "Choose an option",
@@ -165,8 +161,7 @@ export async function handleAwaitingPayment(
       return {
         messages: [
           {
-            to: ctx.phone,
-            type: "text",
+                type: "text",
             text: "Sorry, something went wrong. Let's start over.",
           },
         ],

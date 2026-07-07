@@ -112,7 +112,7 @@ export default function DashboardPage() {
     );
   }
 
-  const greetingName = user?.name || "Wann";
+  const greetingName = user?.name || "Wanny";
   const todayLabel = formatDate(new Date().toISOString());
   const hour = new Date().getHours();
   const greeting =
@@ -156,7 +156,7 @@ export default function DashboardPage() {
             <StatCard
               icon={CreditCard}
               value={formatKes(stats.unpaidKes)}
-              label="Unpaid"
+              label="Unpaid payments"
               tone={stats.unpaidKes > 0 ? "warning" : "default"}
               onClick={() => navigate("/payments")}
             />

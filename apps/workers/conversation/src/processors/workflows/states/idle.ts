@@ -19,7 +19,7 @@ export async function handleIdle(
     messages: [],
     sessionUpdates: {
       state: "GREETING",
-      customerName: existingCustomer?.name ?? "there",
+      customerName: existingCustomer?.name ? existingCustomer.name : ctx.session.customerName || "there",
       customerId: existingCustomer?.id ?? undefined,
       isNewCustomer: existingCustomer == null,
       collectionPhase: undefined,
