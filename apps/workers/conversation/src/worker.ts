@@ -10,9 +10,9 @@ import {
   createWorker,
   InboundMessage,
   JOB_NAMES,
+  NormalisedEvent,
   OutboundMessage,
   registerGracefulShutdown,
-  type WhatsAppConversationPayload,
 } from "@wannys-nails/packages";
 
 
@@ -22,17 +22,16 @@ import { conversationWorkerRedisConn, log } from "./lib/index.js";
 import { processMessage } from "./processors/workflows/engine.js";
 import { whatsappProcessor } from "./processors/whatsapp.processor.js";
 
-type ConversationJobData = WhatsAppConversationPayload
 
 
 async function handleWhatsappJob(
-  job: Job<ConversationJobData>,
+  job: Job<NormalisedEvent | OutboundMessage>,
 ) {
   switch (job.name) {
     // — Inbound WhatsApp messages (enqueued by webhook controller → FSM) —
 
     case JOB_NAMES.FSM_IN:
-      return processMessage(job.data as InboundMessage, job.id as string);
+      return processMessage(job.data as NormalisedEvent);
     // Outbound Whatsapp messages (enqueued by FSM)
     case JOB_NAMES.FSM_OUT:
       return await whatsappProcessor(job as unknown as Job<OutboundMessage>);
@@ -51,9 +50,9 @@ async function handleWhatsappJob(
 // ─── Conversation Worker ─────────────────────────────────────────
 
 
-const worker = createWorker<WhatsAppConversationPayload>(
+const worker = createWorker<NormalisedEvent | OutboundMessage>(
   { queueName: Queue_Names.CONVERSATIONS, workerName: "conversation", concurrency: 1 },
-  async (job: Job<ConversationJobData>) => {
+  async (job: Job<NormalisedEvent | OutboundMessage>) => {
     await handleWhatsappJob(job as any)
   },
   conversationWorkerRedisConn.options,

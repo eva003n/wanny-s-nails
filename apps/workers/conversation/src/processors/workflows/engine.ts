@@ -31,7 +31,7 @@ import {
   handleRescheduleConfirmation,
 } from "./states/reschedule.js";
 import { handleHumanEscalation } from "./states/humanEscalation.js";
-import type { InboundMessage, OutboundMessage } from "@wannys-nails/packages";
+import { maskKenyanPhone, type NormalisedEvent } from "@wannys-nails/packages";
 import { getByPhone } from "./helpers.js";
 import { prisma } from "../../lib/prisma.js";
 
@@ -82,11 +82,11 @@ const STATE_HANDLERS: Record<ConversationState, StateHandler> = {
  *  6. Outbound message sending
  */
 
-export async function processMessage(message: InboundMessage, messageId: string): Promise<void> {
-  const { from: phone, text: messageText } = message;
+export async function processMessage(message: NormalisedEvent): Promise<void> {
+  const { phone, body, customerName } = message;
 
   log.info(
-    { event: "fsm.process.start", phone },
+    { event: "fsm.process.start", phone: maskKenyanPhone(phone) },
     "Processing WhatsApp message(inbound)",
   );
 
@@ -96,7 +96,7 @@ export async function processMessage(message: InboundMessage, messageId: string)
   let isNewSession = false;
 
   if (!session) {
-    session = createNewSession();
+    session = createNewSession(customerName);
     isNewSession = true;
   }
   // set current state since last conversation
@@ -104,18 +104,16 @@ export async function processMessage(message: InboundMessage, messageId: string)
 
   // ── 2. Global intent detection (before state handler) ──
 
-  const trimmedMessage = messageText.trim();
 
   // STOP — opt out
-  if (STOP_KEYWORDS.test(trimmedMessage)) {
+  if (STOP_KEYWORDS.test(body)) {
     log.info({ event: "fsm.global.stop", phone }, "Customer opted out");
     await deleteSession(phone);
 
-    await sendMessage({
-      to: phone,
+    await sendMessage(phone, {
       type: "text",
       text: "You've been unsubscribed from messages. If you'd like to re-subscribe, just send us a message. Take care! 👋",
-    }, messageId);
+    });
 
     // Log consent withdrawal
     try {
@@ -138,7 +136,7 @@ export async function processMessage(message: InboundMessage, messageId: string)
 
   // HUMAN — explicit request for human (skip AI, go directly to escalation)
   if (
-    HUMAN_KEYWORDS.test(trimmedMessage) &&
+    HUMAN_KEYWORDS.test(body) &&
     session.state !== "IDLE" &&
     session.state !== "HUMAN_ESCALATION"
   ) {
@@ -151,12 +149,12 @@ export async function processMessage(message: InboundMessage, messageId: string)
 
   // MENU / START — restart flow (only in non-IDLE states)
   if (
-    MENU_KEYWORDS.test(trimmedMessage) &&
+    MENU_KEYWORDS.test(body) &&
     session.state !== "IDLE" &&
     session.state !== "GREETING"
   ) {
     log.info(
-      { event: "fsm.global.menu", phone },
+      { event: "fsm.global.menu", phone : maskKenyanPhone(phone)},
       "Customer requested menu restart",
     );
     session.state = "GREETING";
@@ -170,12 +168,12 @@ export async function processMessage(message: InboundMessage, messageId: string)
     session.invalidInputCount = 0;
   }
 
-  // 3. Handle IDLE state → transition to GREETING or DATA_COLLECTION(new customer)
+  // 3. Handle IDLE state → transition to GREETING 
 
   if (session.state === "IDLE") {
     const ctx: StateHandlerContext = {
-      message: trimmedMessage.toLowerCase(),
-      rawMessage: messageText,
+      message: body.toLowerCase(),
+      rawMessage: body,
       session,
       phone,
     };
@@ -199,7 +197,7 @@ export async function processMessage(message: InboundMessage, messageId: string)
 
     // If the IDLE handler returned messages, send them
     for (const msg of result.messages) {
-      await sendMessage({ ...msg, to: phone }, messageId);
+      await sendMessage(phone,  msg );
     }
 
     // Reload session after IDLE handler(Avois staleness after an update)
@@ -219,7 +217,7 @@ export async function processMessage(message: InboundMessage, messageId: string)
           };
           const entryResult = await entryHandler(entryCtx);
           for (const msg of entryResult.messages) {
-            await sendMessage({ ...msg, to: phone }, messageId);
+            await sendMessage(phone, msg);
           }
         } catch (error) {
           log.error(
@@ -241,7 +239,7 @@ export async function processMessage(message: InboundMessage, messageId: string)
     session.state = "GREETING";
 
     const name = session.customerName || "there";
-    await sendMessage({ ...buildMainMenuMessage(name), to: phone }, messageId);
+    await sendMessage(phone, { ...buildMainMenuMessage(name)});
 
     await saveSession(phone, session);
     return;
@@ -265,8 +263,8 @@ export async function processMessage(message: InboundMessage, messageId: string)
 
   // provides context or state to each handler
   const ctx: StateHandlerContext = {
-    message: trimmedMessage.toLowerCase(),// processed message
-    rawMessage: messageText, // direct message from user
+    message: body.toLowerCase(),// processed message
+    rawMessage: body, // direct message from user
     session: { ...session }, // Clone to avoid mutation during processing
     phone,
   };
@@ -313,7 +311,7 @@ export async function processMessage(message: InboundMessage, messageId: string)
   // ── 7. Send outbound messages ──
 
   for (const msg of result.messages) {
-    await sendMessage({ ...msg, to: phone }, messageId);
+    await sendMessage(phone, msg);
   }
 
   // ── 8b. Send initial prompt if transitioning to a new state with no messages ──
@@ -335,7 +333,7 @@ export async function processMessage(message: InboundMessage, messageId: string)
         };
         const entryResult = await nextHandler(entryCtx);
         for (const msg of entryResult.messages) {
-          await sendMessage({ ...msg, to: phone }, messageId);
+          await sendMessage(phone, msg );
         }
       } catch (error) {
         log.error(

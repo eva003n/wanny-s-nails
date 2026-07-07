@@ -1,5 +1,5 @@
 // ─── Conversation States ───
-import type { OutboundMessage } from "@wannys-nails/packages";
+import type { Message } from "@wannys-nails/packages";
 export type ConversationState =
   | "IDLE"
   | "GREETING"
@@ -73,7 +73,7 @@ export interface ConversationSession {
 
 export interface StateTransitionResult {
   /** Outbound WhatsApp messages to send (in order) */
-  messages: OutboundMessage[];
+  messages: Message[];
   /** Session updates to persist */
   sessionUpdates: Partial<ConversationSession>;
   /** New state to transition to (undefined = keep current) */

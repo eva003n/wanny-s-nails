@@ -4,7 +4,7 @@ import { log as logger, whatsappHttpClient } from "../lib/index.js";
 import {
   HttpClientError,
   OutboundMessage,
-  WhatsAppMessagePayload,
+
   WhatsAppTemplatePayload,
 } from "@wannys-nails/packages";
 import { _config as config } from "../lib/config.js";
@@ -17,12 +17,29 @@ const MAX_LIST_ROWS = 10; // WhatsApp Cloud API limit for interactive list messa
  * Send a single outbound WhatsApp message via the Cloud API.
  */
 
+// Last for 25 seconds or until u respond which must be < 25 seconds
+// function sendTypingIndicator(wamId: string) {
+//   const phoneNumberId = config.WHATSAPP_PHONE_NUMBER_ID;
+
+//   whatsappHttpClient.post(
+//     `/${phoneNumberId}/messages`,
+//     {
+//       messaging_product: "whatsapp",
+//       status: "read",
+//       message_id: wamId,
+//       typing_indicator: {
+//         type: "text",
+//       },
+//     },
+//   ).catch((err) => log.warn(`Typing indicator: ${err.message}`));
+// }
+
 async function sendText(message: OutboundMessage): Promise<void> {
 
   const phoneNumberId = config.WHATSAPP_PHONE_NUMBER_ID
   try {
     await whatsappHttpClient.post(
-     `${phoneNumberId}/messages`,
+     `/${phoneNumberId}/messages`,
       {
         messaging_product: "whatsapp",
         to: message.to,
@@ -76,7 +93,7 @@ function truncateListSections(
 /**
  * Send an interactive list message via WhatsApp Cloud API.
  */
-async function sendInteractiveListMessage(message: OutboundMessage) {
+async function sendInteractiveListMessage( message: OutboundMessage) {
   let sections: NonNullable<OutboundMessage["listSections"]> =
     message.listSections || [];
 
@@ -99,6 +116,7 @@ async function sendInteractiveListMessage(message: OutboundMessage) {
   }
 
   try {
+
     await whatsappHttpClient.post(
       `/${phoneNumberId}/messages`,
       {
@@ -118,12 +136,6 @@ async function sendInteractiveListMessage(message: OutboundMessage) {
             })),
           },
         },
-      },
-      {
-        // headers: {
-        //   Authorization: `Bearer ${config.WHATSAPP_ACCESS_TOKEN}`,
-        //   "Content-Type": "application/json",
-        // },
       },
     );
   } catch (error: unknown) {
@@ -153,6 +165,7 @@ async function sendInteractiveButtonMessage(message: OutboundMessage) {
   const phoneNumberId = config.WHATSAPP_PHONE_NUMBER_ID;
 
   try {
+
     await whatsappHttpClient.post(
       `/${phoneNumberId}/messages`,
       {
@@ -196,6 +209,7 @@ async function sendTemplate(template: WhatsAppTemplatePayload): Promise<void> {
   const url = `/${phoneNumberId}/messages`;
   // const { default: axios } = await import("axios");
   try {
+
     await whatsappHttpClient.post(
       url,
       {
@@ -262,11 +276,11 @@ export async function whatsappProcessor(
         return await sendInteractiveButtonMessage(job.data);
 
       case "template":
-        return await sendTemplate(job.data as WhatsAppTemplatePayload);
+        return await sendTemplate(job.data as any);
 
       default:
         log.warn(
-          { event: "whatsapp.conversation.unknown_type", to },
+          { event: "whatsapp.conversation.unknown_type", to, type: type },
           "Unknown message type",
         );
     }

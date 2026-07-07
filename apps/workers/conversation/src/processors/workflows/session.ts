@@ -55,9 +55,10 @@ export async function deleteSession(phone: string): Promise<void> {
 /**
  * Create a brand-new session in IDLE state.
  */
-export function createNewSession(): ConversationSession {
+export function createNewSession(name: string): ConversationSession {
   return {
     state: "IDLE",
+    customerName:name,
     invalidInputCount: 0,
     lastActivity: new Date().toISOString(),
   };
