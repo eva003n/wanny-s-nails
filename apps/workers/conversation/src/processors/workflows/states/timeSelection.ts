@@ -2,6 +2,7 @@ import type { StateHandlerContext, StateTransitionResult } from "../types.js";
 import { resetInvalidCount, incrementInvalidCount } from "../session.js";
 import { prisma } from "../../../lib/prisma.js";
 import { formatTime12h } from "../helpers.js";
+import { getAvailableSlots } from "@wannys-nails/packages";
 
 /** WhatsApp interactive list max rows */
 const MAX_LIST_ROWS = 10;
@@ -9,12 +10,12 @@ const MAX_LIST_ROWS = 10;
 // Cache available time slots per session
 const timeSlotsCache = new Map<
   string,
-  Array<{ time: string; appointmentAt: string; available: boolean }>
+  Array<{ time: string; appointmentAt: string }>
 >();
 
 export function setTimeSlotsCache(
   key: string,
-  slots: Array<{ time: string; appointmentAt: string; available: boolean }>,
+  slots: Array<{ time: string; appointmentAt: string }>,
 ) {
   timeSlotsCache.set(key, slots);
   setTimeout(() => timeSlotsCache.delete(key), 5 * 60 * 1000);
@@ -95,71 +96,21 @@ export async function handleTimeSelection(
   // Get or build available slots
   let slots = getTimeSlotsCache(customerId);
   if (!slots) {
-    // Get business hours and compute available slots
-    const targetDate = new Date(selectedDate + "T00:00:00.000Z");
-    const dayOfWeek = targetDate.getDay();
-    const businessHours = await prisma.businessHours.findUnique({
-      where: { dayOfWeek },
-    });
-    if (!businessHours || !businessHours.isActive) {
+    try {
+      const slotData = await getAvailableSlots(prisma, selectedDate, serviceId);
+      slots = slotData.slots.filter((s) => s.available).map((s) => ({
+        time: s.time,
+        appointmentAt: s.appointmentAt,
+      }));
+      setTimeSlotsCache(customerId, slots);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Something went wrong";
       return {
-        messages: [{ type: "text", text: "The salon is closed on the selected date." }],
+        messages: [{ type: "text", text: message }],
         sessionUpdates: resetInvalidCount(ctx.session),
         nextState: "GREETING",
       };
     }
-
-    const service = await prisma.nailService.findUnique({
-      where: { id: serviceId },
-    });
-    if (!service) {
-      return {
-        messages: [{ type: "text", text: "Service not found. Let's start over." }],
-        sessionUpdates: resetInvalidCount(ctx.session),
-        nextState: "GREETING",
-      };
-    }
-
-    const durationMinutes = service.durationMinutes;
-    const openParts = businessHours.openTime.split(":");
-    const closeParts = businessHours.closeTime.split(":");
-    const openHour = Number(openParts[0]);
-    const openMin = Number(openParts[1]);
-    const closeHour = Number(closeParts[0]);
-    const closeMin = Number(closeParts[1]);
-
-    const dayStart = new Date(targetDate);
-    dayStart.setHours(openHour, openMin, 0, 0);
-    const dayEnd = new Date(targetDate);
-    dayEnd.setHours(closeHour, closeMin, 0, 0);
-
-    const existingBookings = await prisma.booking.findMany({
-      where: {
-        appointmentAt: { gte: dayStart, lt: dayEnd },
-        status: { notIn: ["CANCELLED", "NO_SHOW"] },
-      },
-      select: { appointmentAt: true, durationMinutes: true },
-    });
-
-    const generatedSlots: Array<{ time: string; appointmentAt: string; available: boolean }> = [];
-    const current = new Date(dayStart);
-    while (current.getTime() + durationMinutes * 60 * 1000 <= dayEnd.getTime()) {
-      const slotEnd = new Date(current.getTime() + durationMinutes * 60 * 1000);
-      const isAvailable = !existingBookings.some((b: any) => {
-        const bStart = new Date(b.appointmentAt).getTime();
-        const bEnd = bStart + b.durationMinutes * 60 * 1000;
-        return current.getTime() < bEnd && slotEnd.getTime() > bStart;
-      });
-
-      const eatHour = (current.getUTCHours() + 3) % 24;
-      const eatMin = current.getUTCMinutes();
-      const timeStr = `${String(eatHour).padStart(2, "0")}:${String(eatMin).padStart(2, "0")}`;
-      generatedSlots.push({ time: timeStr, available: isAvailable, appointmentAt: current.toISOString() });
-      current.setMinutes(current.getMinutes() + durationMinutes);
-    }
-
-    slots = generatedSlots.filter((s) => s.available);
-    setTimeSlotsCache(customerId, slots);
   }
 
   if (slots.length === 0) {
