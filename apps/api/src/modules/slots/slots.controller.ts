@@ -7,7 +7,7 @@ import { asyncHandler } from "../../shared/utils/asyncHandler.js";
 // --- Validation schemas (exported for use in routes) ---
 
 export const availabilitySchema = z.object({
-  serviceId: z.uuid(),
+  serviceId: z.uuid("Invalid UUID"),
   date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD format"),

@@ -1,4 +1,5 @@
-import {prisma} from "../../shared/lib/index.js"
+import type { Booking } from "@wannys-nails/packages";
+import { prisma } from "../../shared/lib/index.js";
 
 import { BusinessClosedError } from "../../shared/types/errors.js";
 
@@ -11,8 +12,36 @@ interface Slot {
 /**
  * Compute available time slots for a given date and service.
  * Pure function — no side effects. Reads from DB but does not mutate.
- * Since the minimum duration per service is 60 minutes at max 90 minutes the maximum available slots is 12, minimum 8((closeTime - openTime) / duration in hours)
+ * Candidates are generated every `slotIntervalMinutes`, then filtered to
+ * ones where the full service duration fits before closing, respects the
+ * minimum notice period, and doesn't overlap an existing booking (padded
+ * with `bufferBetweenAppointmentsMinutes` on both sides).
  */
+
+const BOOKING_CONFIG = {
+  slotIntervalMinutes: 15,
+  minimumNoticeMinutes: 30,
+  maxAdvanceDays: 30,
+  bufferBetweenAppointmentsMinutes: 10,
+};
+
+const roundUp = (
+  date: Date,
+  intervalMinutes: number = BOOKING_CONFIG.slotIntervalMinutes,
+) => {
+  const intervalMs = intervalMinutes * 60 * 1000;
+  return new Date(Math.ceil(date.getTime() / intervalMs) * intervalMs);
+};
+
+const isToday = (someDate: Date) => {
+  const today = new Date();
+  return (
+    someDate.getDate() === today.getDate() &&
+    someDate.getMonth() === today.getMonth() &&
+    someDate.getFullYear() === today.getFullYear()
+  );
+};
+
 export const slotsService = {
   async getAvailableSlots(
     date: string,
@@ -26,16 +55,16 @@ export const slotsService = {
     availableSlots: number;
     slots: Slot[];
   }> {
-    //YYYY_MM_DD  T(delimiter/seperator)  HH:mm:ss.sssZ(UTC timezone)
-    const targetDate = new Date(date + "T00:00:00.000Z"); // data obj for current target
+    // YYYY-MM-DD  T (delimiter/separator)  HH:mm:ss.sssZ (UTC timezone)
+    const targetDate = new Date(date + "T00:00:00.000Z"); // ISO format for the target date in UTC
     const dayOfWeek = targetDate.getDay(); // sunday(0) -> saturday(6)
 
-    // Get business hours for this day
+    // Get business hours for target day of the week
     const businessHours = await prisma.businessHours.findUnique({
       where: { dayOfWeek },
     });
 
-    // no business hours or not a working day(mostly sunday)
+    // no business hours or not a working day (mostly sunday)
     if (!businessHours || !businessHours.isActive) {
       throw new BusinessClosedError();
     }
@@ -49,16 +78,17 @@ export const slotsService = {
       throw new Error("Service not found");
     }
 
-    const durationMinutes = service.durationMinutes; // 60 -90
+    const durationMinutes = service.durationMinutes; // 60 - 90
 
     // Parse open/close times
-    const openParts = businessHours.openTime.split(":");
-    const closeParts = businessHours.closeTime.split(":");
-    const openHour = Number(openParts[0]);
-    const openMin = Number(openParts[1]);
-    const closeHour = Number(closeParts[0]);
-    const closeMin = Number(closeParts[1]);
+    const openParts = businessHours.openTime.split(":"); // ["07", "00"]
+    const closeParts = businessHours.closeTime.split(":"); // ["19", "00"]
+    const openHour = Number(openParts[0]); // 7
+    const openMin = Number(openParts[1]); // 0
+    const closeHour = Number(closeParts[0]); // 19
+    const closeMin = Number(closeParts[1]); // 0
 
+    // day start and day end
     const dayStart = new Date(targetDate);
     dayStart.setHours(openHour, openMin, 0, 0);
 
@@ -80,33 +110,44 @@ export const slotsService = {
       },
     });
 
-    // Generate all possible slots (service-duration intervals)
+    // Timing constants (in ms)
+    const minimumNoticeMs = BOOKING_CONFIG.minimumNoticeMinutes * 60 * 1000;
+    const bufferMs =
+      BOOKING_CONFIG.bufferBetweenAppointmentsMinutes * 60 * 1000;
+    const intervalMs = BOOKING_CONFIG.slotIntervalMinutes * 60 * 1000;
+    const durationMs = durationMinutes * 60 * 1000;
+
+    // First candidate start time: today respects minimum notice, future days start at open
+    let current = isToday(dayStart)
+      ? roundUp(new Date(Date.now() + minimumNoticeMs))
+      : roundUp(dayStart);
+
+    // Pre-pad existing bookings with the buffer on both sides, once, outside the loop
+    const paddedBookings = existingBookings.map((booking: any) => {
+      const bookingStart = new Date(booking.appointmentAt).getTime();
+      const bookingEnd = bookingStart + booking.durationMinutes * 60 * 1000;
+      return {
+        start: bookingStart - bufferMs,
+        end: bookingEnd + bufferMs,
+      };
+    });
+
+    // Generate all candidate slots at slotIntervalMinutes granularity
     const slots: Slot[] = [];
-    const current = new Date(dayStart);
-    // get available slots for a particular day by working in millisecods
-    const totalSlotsCount = Math.floor(
-      (dayEnd.getTime() - dayStart.getTime()) / (durationMinutes * 60 * 1000),
-    );
 
-    while (
-      current.getTime() + durationMinutes * 60 * 1000 <=
-      dayEnd.getTime()
-    ) {
-      const slotEnd = new Date(current.getTime() + durationMinutes * 60 * 1000);
+    while (current.getTime() + durationMs <= dayEnd.getTime()) {
+      const slotEndMs = current.getTime() + durationMs;
 
-      // Check if slot overlaps with any existing booking
-      const isAvailable = !existingBookings.some((booking: any) => {
-        const bookingStart = new Date(booking.appointmentAt).getTime();
-        const bookingEnd = bookingStart + booking.durationMinutes * 60 * 1000;
-        return (
-          current.getTime() < bookingEnd && slotEnd.getTime() > bookingStart
-        );
-      });
+      // Check if slot overlaps with any existing (buffer-padded) booking
+      const isAvailable = !paddedBookings.some(
+        (booking) =>
+          current.getTime() < booking.end && slotEndMs > booking.start,
+      );
 
       // Convert to EAT display time (UTC+3)
       const eatHour = (current.getUTCHours() + 3) % 24;
       const eatMin = current.getUTCMinutes();
-      const timeStr = `${String(eatHour).padStart(2, "0")}:${String(eatMin).padStart(2, "0")}`;
+      const timeStr = `${String(eatHour).padStart(2, "0")}:${String(eatMin).padStart(2, "0")}`; // "00:00"
 
       slots.push({
         time: timeStr,
@@ -114,8 +155,8 @@ export const slotsService = {
         appointmentAt: current.toISOString(),
       });
 
-      // Move to next slot (service-duration intervals)
-      current.setMinutes(current.getMinutes() + durationMinutes);
+      // Move to next candidate (step by granularity, not by service duration)
+      current = new Date(current.getTime() + intervalMs);
     }
 
     const availableCount = slots.filter((s) => s.available).length;
@@ -125,7 +166,7 @@ export const slotsService = {
       serviceId,
       serviceName: service.name,
       durationMinutes,
-      totalSlots: totalSlotsCount,
+      totalSlots: slots.length,
       availableSlots: availableCount,
       slots,
     };
