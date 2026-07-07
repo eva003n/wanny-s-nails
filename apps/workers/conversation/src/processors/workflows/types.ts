@@ -7,10 +7,12 @@ export type ConversationState =
   | "CATEGORY_SELECTION"
   | "SERVICE_SELECTION"
   | "DATE_SELECTION"
+  | "TIME_PERIOD_SELECTION"
   | "TIME_SELECTION"
   | "BOOKING_CONFIRMATION"
   | "AWAITING_PAYMENT_PHONE"
   | "AWAITING_PAYMENT"
+  | "THANK_YOU"
   | "RESCHEDULE_DATE"
   | "RESCHEDULE_TIME"
   | "RESCHEDULE_CONFIRMATION"
@@ -38,7 +40,8 @@ export type ServiceCategory =
 export interface ConversationSession {
   state: ConversationState;
   customerId?: string | undefined;
-  customerName?: string | undefined;
+  customerName?:string | undefined;
+  customerPhone?: string | undefined;
   selectedService?:
     | {
         id: string;
@@ -54,8 +57,12 @@ export interface ConversationSession {
   // bookings?: Booking[] | undefined
   bookingRef?: string | undefined;
   paymentPhone?: string | undefined;
+  /** Selected time period preference — set during TIME_PERIOD_SELECTION */
+  selectedTimePeriod?: "morning" | "afternoon" | "evening" | undefined;
   /** Selected service category filter — set during CATEGORY_SELECTION */
   selectedCategory?: ServiceCategory | undefined;
+  /** Current page offset for paginated time slot selection (0-based) */
+  slotPage?: number | undefined;
   /** Sub-phase within DATA_COLLECTION: "NAME" (collecting name) or "EMAIL" (collecting email) */
   collectionPhase?: "NAME" | "PHONE" | undefined;
   /** Temp name stored during DATA_COLLECTION before DB record is created */

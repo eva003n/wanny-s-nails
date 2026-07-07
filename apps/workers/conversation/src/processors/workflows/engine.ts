@@ -21,9 +21,11 @@ import { handleCategorySelection } from "./states/categorySelection.js";
 import { handleServiceSelection } from "./states/serviceSelection.js";
 import { handleDateSelection } from "./states/dateSelection.js";
 import { handleTimeSelection } from "./states/timeSelection.js";
+import { handleTimePeriodSelection } from "./states/timePeriodSelection.js";
 import { handleBookingConfirmation } from "./states/bookingConfirmation.js";
 import { handleAwaitingPaymentPhone } from "./states/awaitingPaymentPhone.js";
 import { handleAwaitingPayment } from "./states/awaitingPayment.js";
+import { handleThankYou } from "./states/thankYou.js";
 import { handleCancelConfirmation } from "./states/cancelConfirmation.js";
 import {
   handleRescheduleDate,
@@ -56,10 +58,12 @@ const STATE_HANDLERS: Record<ConversationState, StateHandler> = {
   CATEGORY_SELECTION: handleCategorySelection,
   SERVICE_SELECTION: handleServiceSelection,
   DATE_SELECTION: handleDateSelection,
+  TIME_PERIOD_SELECTION: handleTimePeriodSelection,
   TIME_SELECTION: handleTimeSelection,
   BOOKING_CONFIRMATION: handleBookingConfirmation,
   AWAITING_PAYMENT_PHONE: handleAwaitingPaymentPhone,
   AWAITING_PAYMENT: handleAwaitingPayment,
+  THANK_YOU: handleThankYou,
   RESCHEDULE_DATE: handleRescheduleDate,
   RESCHEDULE_TIME: handleRescheduleTime,
   RESCHEDULE_CONFIRMATION: handleRescheduleConfirmation,

@@ -1,26 +1,52 @@
 import type { StateHandlerContext, StateTransitionResult } from "../types.js";
 import { resetInvalidCount, incrementInvalidCount } from "../session.js";
-import { parsePhoneToE164, formatTime12h, formatDateEAT } from "../helpers.js";
-import { log as logger, paymentQueue } from "../../../lib/index.js";
-
+import { parsePhoneToE164 } from "../helpers.js";
+import { log as logger } from "../../../lib/index.js";
 import { prisma } from "../../../lib/prisma.js";
-import { JOB_NAMES } from "@wannys-nails/packages";
+import { maskKenyanPhone } from "@wannys-nails/packages";
 
 const log = logger.child({ module: "fsm-payment-phone" });
+
+/** Keywords that indicate the customer wants to pay by cash at the salon */
+const CASH_KEYWORDS = /^(cash|skip|no|pay at salon|pay later|mpesa|none|n\/a)$/i;
 
 /**
  * AWAITING_PAYMENT_PHONE
  *
- * Customer provides M-Pesa phone number for STK Push.
+ * Collects an M-Pesa phone number from the customer — but makes it optional.
+ * Customers who want to pay by cash can reply with "cash", "skip", etc.
  *
  * Transitions:
- *  Valid Kenyan phone → Enqueue STK Push → AWAITING_PAYMENT
- *  invalid            → resend prompt
+ *  Valid Kenyan phone → save paymentPhone → THANK_YOU
+ *  Cash/skip keywords  → THANK_YOU (no phone saved, pay at salon)
+ *  Invalid             → stay here with error prompt
  */
 export async function handleAwaitingPaymentPhone(
   ctx: StateHandlerContext,
 ): Promise<StateTransitionResult> {
   const input = ctx.message.trim();
+
+  // ── Cash / skip flow ──
+  if (CASH_KEYWORDS.test(input)) {
+    log.info(
+      { event: "fsm.payment_phone.cash", phone: maskKenyanPhone(ctx.phone) },
+      "Customer opted to pay by cash at salon",
+    );
+
+    // // Approve the booking if it's PENDING
+    // await approveBookingIfPending(ctx);
+
+    return {
+      messages: [],
+      sessionUpdates: {
+        ...resetInvalidCount(ctx.session),
+        paymentPhone: undefined,
+      },
+      nextState: "THANK_YOU",
+    };
+  }
+
+  // ── M-Pesa phone number flow ──
   const phone = parsePhoneToE164(input);
 
   if (!phone) {
@@ -29,7 +55,7 @@ export async function handleAwaitingPaymentPhone(
       messages: [
         {
           type: "text",
-          text: "That doesn't look like a valid number. Please try again (e.g., 0712 345 678)",
+          text: "That doesn't look like a valid number. Please try again (e.g., 0712 XXX XXX)\n\nOr type 'cash' to pay at the salon.",
         },
       ],
       sessionUpdates: newSession,
@@ -37,34 +63,46 @@ export async function handleAwaitingPaymentPhone(
     };
   }
 
-  // Initiate STK Push
+  log.info(
+    { event: "fsm.payment_phone.collected", phone: ctx.phone },
+    "M-Pesa phone number collected",
+  );
+
+  // Approve the booking if it's PENDING
+  // await approveBookingIfPending(ctx);
+
+  return {
+    messages: [],
+    sessionUpdates: {
+      ...resetInvalidCount(ctx.session),
+      paymentPhone: phone,
+    },
+    nextState: "THANK_YOU",
+  };
+}
+
+/**
+ * If the booking is in PENDING status, approve it.
+ * This runs before transitioning to THANK_YOU regardless of payment method.
+ */
+async function approveBookingIfPending(
+  ctx: StateHandlerContext,
+): Promise<void> {
   const bookingId = ctx.session.bookingId;
   if (!bookingId) {
-    return {
-      messages: [
-        {
-          type: "text",
-          text: "Sorry, something went wrong. Let's start over.",
-        },
-      ],
-      sessionUpdates: resetInvalidCount(ctx.session),
-      nextState: "GREETING",
-    };
+    log.warn(
+      { event: "fsm.payment_phone.no_booking_id", phone: ctx.phone },
+      "No booking ID in session — skipping approval",
+    );
+    return;
   }
 
   try {
-    // Approve the booking so the payment can be initiated
-    const existingBooking = await prisma.booking.findUnique({
+    const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
-      include: { payment: true },
     });
 
-    if (!existingBooking) {
-      throw new Error("Booking not found");
-    }
-
-    // Approve PENDING booking
-    if (existingBooking.status === "PENDING") {
+    if (booking && booking.status === "PENDING") {
       await prisma.booking.update({
         where: { id: bookingId },
         data: {
@@ -78,118 +116,15 @@ export async function handleAwaitingPaymentPhone(
           },
         },
       });
+      log.info(
+        { event: "fsm.payment_phone.booking_approved", bookingId, phone: ctx.phone },
+        "Booking approved after payment phone collection",
+      );
     }
-
-    // Initiate STK Push logic (recreate paymentsService.initiateStkPush)
-    const refreshedBooking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-      include: { payment: true },
-    });
-
-    if (!refreshedBooking) {
-      throw new Error("Booking not found");
-    }
-
-    if (refreshedBooking.status !== "APPROVED") {
-      throw new Error("Booking must be in APPROVED status to initiate payment");
-    }
-
-    if (refreshedBooking.payment?.status === "SUCCESS" || refreshedBooking.payment?.status === "REFUNDED") {
-      throw new Error("Booking already has a completed payment");
-    }
-
-    // Ensure payment record exists
-    let payment = refreshedBooking.payment;
-    if (!payment) {
-      payment = await prisma.payment.create({
-        data: {
-          bookingId,
-          amountKes: refreshedBooking.priceKes,
-          status: "PENDING",
-        },
-      });
-    } else if (
-      refreshedBooking.payment &&
-      ["FAILED", "CANCELLED", "EXPIRED"].includes(
-        refreshedBooking.payment.status,
-      )
-    ) {
-      // Reset for retry
-      payment = await prisma.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: "PENDING",
-          phoneNumber: phone,
-          checkoutRequestId: null,
-          failureReason: null,
-        },
-      });
-    } else {
-      // Already PENDING — update phone number
-      await prisma.payment.update({
-        where: { id: payment.id },
-        data: { phoneNumber: phone },
-      });
-    }
-
-    // Enqueue STK Push job
-    await paymentQueue.add(
-      JOB_NAMES.STK_PUSH,
-      {
-        bookingId,
-        paymentId: payment.id,
-        phoneNumber: phone,
-        amount: refreshedBooking.priceKes,
-        accountReference: refreshedBooking.reference,
-      },
-      {
-        attempts: 2,
-        backoff: { type: "fixed", delay: 30000 }, // total delay ~90s in time for timeout handling routine
-      },
-    );
-
-    log.info(
-      { event: "stk_push.enqueued", bookingId, paymentId: payment.id },
-      "STK Push job enqueued",
-    );
-
-    const price = ctx.session.selectedService?.priceKes || 0;
-    const reference = ctx.session.bookingRef || "";
-
-    const paymentText = [
-      "We've sent an M-Pesa payment request to help secure your booking.",
-      "",
-      `📋 Reference: ${reference}`,
-      `💰 Amount: KES ${price.toLocaleString()}`,
-      `📱 Sent to: ${phone}`,
-      "",
-      "Please check your phone and enter your M-Pesa PIN to confirm. 📲",
-      "",
-      "This request will expire in 5 minutes.",
-    ].join("\n");
-
-    return {
-      messages: [{ type: "text", text: paymentText }],
-      sessionUpdates: {
-        ...resetInvalidCount(ctx.session),
-        paymentPhone: phone,
-      },
-      nextState: "AWAITING_PAYMENT",
-    };
   } catch (error) {
     log.error(
-      { event: "fsm.stk_push.failed", error, phone: ctx.phone },
-      "Failed to initiate STK Push",
+      { event: "fsm.payment_phone.approve_failed", error, bookingId, phone: ctx.phone },
+      "Failed to approve booking",
     );
-    return {
-      messages: [
-        {
-          type: "text",
-          text: "We couldn't send the payment request. Please try again or reply 2 to cancel the booking.",
-        },
-      ],
-      sessionUpdates: incrementInvalidCount(ctx.session),
-      nextState: "AWAITING_PAYMENT_PHONE",
-    };
   }
 }

@@ -118,6 +118,6 @@ export async function handleDateSelection(
       ...resetInvalidCount(ctx.session),
       selectedDate: selected.date,
     },
-    nextState: "TIME_SELECTION",
+    nextState: "TIME_PERIOD_SELECTION",
   };
 }

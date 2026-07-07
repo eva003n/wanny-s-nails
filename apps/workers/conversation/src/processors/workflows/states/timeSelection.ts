@@ -2,10 +2,11 @@ import type { StateHandlerContext, StateTransitionResult } from "../types.js";
 import { resetInvalidCount, incrementInvalidCount } from "../session.js";
 import { prisma } from "../../../lib/prisma.js";
 import { formatTime12h } from "../helpers.js";
-import { getAvailableSlots } from "@wannys-nails/packages";
+import { getAvailableSlots, getRecommendedSlots } from "@wannys-nails/packages";
+import type { TimePeriod } from "@wannys-nails/packages";
 
-/** WhatsApp interactive list max rows */
-const MAX_LIST_ROWS = 10;
+/** Max recommended slots to show */
+const MAX_RECOMMENDED_SLOTS = 10;
 
 // Cache available time slots per session
 const timeSlotsCache = new Map<
@@ -26,50 +27,86 @@ export function getTimeSlotsCache(key: string) {
 }
 
 /**
- * Build the time selection message.
- * Uses interactive list when slots fit within WhatsApp's 10-row limit,
- * otherwise falls back to a text-based numbered list.
+ * Build an interactive list message for recommended time slots.
+ *
+ * All recommended slots are shown in a single list since the recommendation
+ * engine now randomises and limits the results. No pagination needed.
  */
-function buildTimeListMessage(
+function buildTimeListInteractive(
   serviceName: string,
-  selectedDate: string,
-  slots: Array<{ time: string }>,
+  durationMinutes: number,
+  slots: Array<{ time: string; appointmentAt: string }>,
 ): StateTransitionResult["messages"][0] {
-  if (slots.length <= MAX_LIST_ROWS) {
-    return {
+  const rows = slots.map((s) => ({
+    id: s.time,
+    title: formatTime12h(s.time),
+  }));
+
+  return {
+    type: "interactive_list",
+    text: `📅 Available Openings (${durationMinutes}-Min Sessions)`,
+    listTitle: `Pick a time for ${serviceName}`,
+    listButtonText: "Choose time",
+    listSections: [
+      {
+        title: "Available Times",
+        rows,
+      },
+    ],
+  };
+}
+
+/**
+ * Build a message offering the user to choose another time period or date
+ * when no slots are available in the selected period.
+ */
+function buildNoSlotsMessage(): StateTransitionResult["messages"] {
+  return [
+    {
+      type: "text",
+      text: "Sorry, no appointments are available during that time period. Would you like to choose another time period or a different date?",
+    },
+    {
       type: "interactive_list",
-      text: `Available times for ${serviceName} on ${selectedDate}:`,
-      listTitle: "Pick a Time",
-      listButtonText: "Choose a time",
+      text: "What would you like to do?",
+      listTitle: "Choose an option",
+      listButtonText: "Select option",
       listSections: [
         {
-          title: "Available Times",
-          rows: slots.map((s, i) => ({
-            id: String(i + 1),
-            title: formatTime12h(s.time),
-          })),
+          title: "Options",
+          rows: [
+            {
+              id: "CHANGE_PERIOD",
+              title: "Choose another time period",
+            },
+            {
+              id: "CHANGE_DATE",
+              title: "Choose another date",
+            },
+          ],
         },
       ],
-    };
-  }
-
-  // Too many slots for an interactive list — send a numbered text message
-  const lines = slots.map((s, i) => `${i + 1}. ${formatTime12h(s.time)}`);
-  return {
-    type: "text",
-    text: `Available times for ${serviceName} on ${selectedDate}:\n\n${lines.join("\n")}\n\nReply with a number to pick a time.`,
-  };
+    },
+  ];
 }
 
 /**
  * TIME_SELECTION
  *
- * Shows available time slots for the selected service and date.
- * User picks a time by tapping a row.
+ * Shows recommended time slots for the selected service, date, and time period
+ * as an interactive list. Slots are randomised by the recommendation engine.
+ *
+ * Flow:
+ *  1. Get all available slots from the Availability Engine (cached).
+ *  2. Pass through the Recommendation Engine using the user's selected time period.
+ *  3. If no slots in the selected period → inform user, offer to change period/date.
+ *  4. If slots exist → show them in a WhatsApp Interactive List.
  *
  * Transitions:
- *  Valid number   → BOOKING_CONFIRMATION (save selected time + computed appointmentAt)
- *  invalid        → stay, increment count
+ *  Valid time selection → BOOKING_CONFIRMATION
+ *  "CHANGE_PERIOD"     → TIME_PERIOD_SELECTION (clear selectedTimePeriod)
+ *  "CHANGE_DATE"       → DATE_SELECTION (clear selectedDate, selectedTimePeriod)
+ *  invalid             → stay, increment invalid count
  */
 export async function handleTimeSelection(
   ctx: StateHandlerContext,
@@ -78,6 +115,7 @@ export async function handleTimeSelection(
   const serviceId = ctx.session.selectedService?.id;
   const serviceName = ctx.session.selectedService?.name;
   const selectedDate = ctx.session.selectedDate;
+  const selectedTimePeriod = ctx.session.selectedTimePeriod;
   const customerId = ctx.session.customerId || ctx.phone;
 
   if (!serviceId || !selectedDate) {
@@ -93,16 +131,42 @@ export async function handleTimeSelection(
     };
   }
 
-  // Get or build available slots
-  let slots = getTimeSlotsCache(customerId);
-  if (!slots) {
+  // ── Handle navigation options ──
+
+  if (input === "CHANGE_PERIOD") {
+    return {
+      messages: [],
+      sessionUpdates: {
+        ...resetInvalidCount(ctx.session),
+        selectedTimePeriod: undefined,
+      },
+      nextState: "TIME_PERIOD_SELECTION",
+    };
+  }
+
+  if (input === "CHANGE_DATE") {
+    return {
+      messages: [],
+      sessionUpdates: {
+        ...resetInvalidCount(ctx.session),
+        selectedDate: undefined,
+        selectedTimePeriod: undefined,
+      },
+      nextState: "DATE_SELECTION",
+    };
+  }
+
+  // ── Get or build available slots from the Availability Engine ──
+
+  let allSlots = getTimeSlotsCache(customerId);
+  if (!allSlots) {
     try {
       const slotData = await getAvailableSlots(prisma, selectedDate, serviceId);
-      slots = slotData.slots.filter((s) => s.available).map((s) => ({
+      allSlots = slotData.slots.filter((s) => s.available).map((s) => ({
         time: s.time,
         appointmentAt: s.appointmentAt,
       }));
-      setTimeSlotsCache(customerId, slots);
+      setTimeSlotsCache(customerId, allSlots);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Something went wrong";
       return {
@@ -113,7 +177,7 @@ export async function handleTimeSelection(
     }
   }
 
-  if (slots.length === 0) {
+  if (allSlots.length === 0) {
     return {
       messages: [
         {
@@ -126,32 +190,64 @@ export async function handleTimeSelection(
     };
   }
 
-  const selectedIndex = parseInt(input, 10);
+  // ── Apply the Recommendation Engine ──
 
-  if (
-    isNaN(selectedIndex) ||
-    selectedIndex < 1 ||
-    selectedIndex > slots.length
-  ) {
+  // If no time period was selected (shouldn't happen in normal flow, but
+  // handle gracefully), default to showing all available slots.
+  let recommendedSlots: Array<{ time: string; appointmentAt: string }>;
+
+  if (selectedTimePeriod) {
+    const result = getRecommendedSlots({
+      slots: allSlots,
+      timePeriod: selectedTimePeriod as TimePeriod,
+      maxResults: MAX_RECOMMENDED_SLOTS,
+    });
+
+    recommendedSlots = result.slots;
+
+    // No slots in the selected period — offer alternatives
+    if (recommendedSlots.length === 0) {
+      return {
+        messages: buildNoSlotsMessage(),
+        sessionUpdates: resetInvalidCount(ctx.session),
+        nextState: "TIME_SELECTION",
+      };
+    }
+  } else {
+    // Fallback: no time period selected, show all available slots
+    recommendedSlots = allSlots;
+  }
+
+  // ── Try to match input as a time string (e.g. "14:00") ──
+
+  const selectedSlot = recommendedSlots.find((s) => s.time === input);
+
+  if (!selectedSlot) {
+    // Invalid input — re-send the list
     const newSession = incrementInvalidCount(ctx.session);
 
     return {
       messages: [
-        buildTimeListMessage(serviceName || "service", selectedDate, slots),
+        buildTimeListInteractive(
+          serviceName || "service",
+          ctx.session.selectedService?.durationMinutes ?? 60,
+          recommendedSlots,
+        ),
       ],
-      sessionUpdates: newSession,
+      sessionUpdates: {
+        ...newSession,
+      },
       nextState: "TIME_SELECTION",
     };
   }
 
-  const selected = slots[selectedIndex - 1]!;
-
+  // Valid time selected
   return {
     messages: [],
     sessionUpdates: {
       ...resetInvalidCount(ctx.session),
-      selectedTime: selected.time,
-      appointmentAt: selected.appointmentAt,
+      selectedTime: selectedSlot.time,
+      appointmentAt: selectedSlot.appointmentAt,
     },
     nextState: "BOOKING_CONFIRMATION",
   };

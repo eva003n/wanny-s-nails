@@ -209,9 +209,11 @@ export async function handleBookingConfirmation(
         `⏰ ${timeDisplay}`,
         `💰 KES ${price.toLocaleString()}`,
         "",
-        `To secure your slot, please pay KES ${price.toLocaleString()} via M-Pesa.`,
-        "What M-Pesa number should we send the payment request to?",
-        "(e.g., 0712 345 678)",
+        "To complete your booking, please tell me:",
+        "",
+        "If paying via 📱 M-Pesa — What number should we send the payment request to? (e.g., 07XX XXX XXX)",
+        "",
+        "If paying with 💵 cash — Just reply 'cash' and you can pay at the salon.",
       ].join("\n");
 
       return {
@@ -282,3 +284,4 @@ export async function handleBookingConfirmation(
     nextState: "BOOKING_CONFIRMATION",
   };
 }
+''

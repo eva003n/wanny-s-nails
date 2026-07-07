@@ -22,15 +22,13 @@ function buildMainMenuMessage(
     greeting = "Good Evening.";
   }
 
-  const greetingMessage =
-    name === "there"
-      ? `${greeting} there! 👋 Welcome to Wanny's Nails.`
-      : `${greeting} ${name}! 👋 Welcome to Wanny's Nails.`;
+  const greetingMessage =`${greeting} ${name}! 👋 Welcome to Nail's by Wanny`
+   
 
   return {
     type: "interactive_list",
     text: `${greetingMessage}\nHow can we help you today?`,
-    listTitle: "Wanny's Nails 💅",
+    listTitle: "Nail's by Wanny 💅",
     listButtonText: "Choose an option",
     listSections: [
       {
@@ -48,12 +46,12 @@ function buildMainMenuMessage(
           },
           {
             id: "3",
-            title: "Reschedule",
+            title: "Reschedule Appointment",
             description: "Change your appointment date or time",
           },
           {
             id: "4",
-            title: "Cancel",
+            title: "Cancel Appointment",
             description: "Cancel an existing appointment",
           },
         ],

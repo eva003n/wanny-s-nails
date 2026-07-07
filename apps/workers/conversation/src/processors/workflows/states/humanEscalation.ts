@@ -65,7 +65,7 @@ export async function handleHumanEscalation(
   ].join("\n");
 
   return {
-    messages: [{ to: phone, type: "text", text: customerMessage }],
+    messages: [{type: "text", text: customerMessage }],
     sessionUpdates: {
       ...resetInvalidCount(ctx.session),
       // Clear all flow-related data
