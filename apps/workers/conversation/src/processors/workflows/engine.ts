@@ -178,9 +178,13 @@ export async function processMessage(message: NormalisedEvent): Promise<void> {
       phone,
     };
 
+    ctx.session.customerName = customerName
+    ctx.session.customerPhone = phone
+    
+
     let result: StateTransitionResult;
     try {
-      result = await handleIdle(ctx); // -> GREETING or DATE_COLLECTION
+      result = await handleIdle(ctx); // -> GREETING 
     } catch (error) {
       log.error(
         { event: "fsm.idle.handler.error", error, phone },
