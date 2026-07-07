@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { dbClient } from "../../infra/db/index.js";
 import type { JwtPayload } from "jsonwebtoken";
+import type { WebhookEvent } from "../../../modules/webhooks/schemas.ts";
 
 declare global {
   namespace Express {
@@ -13,6 +14,7 @@ declare global {
         params?: unknown;
         query?: unknown;
       };
+      whatsappEvents: WebhookEvent[]
       // [key: string]: string
     }
     interface Response {

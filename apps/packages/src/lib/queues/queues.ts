@@ -27,7 +27,7 @@ export function createQueues(connection: Redis) {
       defaultJobOptions: {
         attempts: 3,
         backoff: { type: "exponential", delay: 1000 },
-        removeOnComplete: true,
+        removeOnComplete: false,
         removeOnFail: { age: 86400, count: 100 },
       },
     }),

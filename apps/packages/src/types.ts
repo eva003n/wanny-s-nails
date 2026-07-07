@@ -5,6 +5,8 @@
  * Workers should validate incoming job.data against these types using Zod at runtime.
  */
 
+import type { NormalisedEvent } from "./lib/index.js";
+
 // ─── Notification Job Payloads ────────────────────────────────
 
 export interface NotificationJobData {
@@ -29,7 +31,7 @@ export type WhatsAppTemplatePayload = {
   templateName: string;
   languageCode: string;
   params: string[];
-}
+};
 
 // Message (Incoming)
 export type InboundMessage = {
@@ -38,9 +40,25 @@ export type InboundMessage = {
   text: string;
 };
 
+export type Message = {
+  type: "text" | "interactive_list" | "interactive_button" | "template";
+  text?: string;
+  wamId?: string, 
+  /** For interactive_list */
+  listTitle?: string;
+  listButtonText?: string;
+  listSections?: Array<{
+    title?: string;
+    rows: Array<{ id: string; title: string; description?: string }>;
+  }>;
+  /** For interactive_button */
+  buttonTitle?: string;
+  buttons?: Array<{ id: string; title: string }>;
+};
+
 export type OutboundMessage = {
-  id?: string,
-  to?: string;
+  wamId: string;
+  to: string;
   type: "text" | "interactive_list" | "interactive_button" | "template";
   text?: string;
   /** For interactive_list */
@@ -56,20 +74,14 @@ export type OutboundMessage = {
 };
 
 
-export type WhatsAppMessagePayload =
-  | OutboundMessage
-  | WhatsAppTemplatePayload;
-
-export type WhatsAppConversationPayload =
-  | OutboundMessage
-  | InboundMessage;
+export type WhatsAppConversationPayload = OutboundMessage | InboundMessage;
 
 export type EmailNotificationPayload = {
   to: string;
   subject: string;
   html: string;
   text?: string;
-}
+};
 
 // ─── Payment Job Payloads ─────────────────────────────────────
 
@@ -96,7 +108,7 @@ export type Reminder1hPayload = {
   customerName: string;
   serviceName: string;
   appointmentAt: string; // ISO datetime
-}
+};
 
 export type Reminder24hPayload = {
   reminderId: string;
@@ -105,4 +117,4 @@ export type Reminder24hPayload = {
   customerName: string;
   serviceName: string;
   appointmentAt: string; // ISO datetime
-}
+};

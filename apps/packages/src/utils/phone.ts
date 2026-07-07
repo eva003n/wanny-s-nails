@@ -42,3 +42,19 @@ export function normalizeKenyanPhone(raw: string): string {
 export function isValidE164(phone: string): boolean {
   return /^\+[1-9]\d{6,14}$/.test(phone);
 }
+
+export function maskKenyanPhone(phone: string) {
+  // Remove all non-digit characters
+  const digits = phone.replace(/\D/g, '');
+  
+  if (digits.length < 9) return phone; // Invalid number
+  
+  // Extract the trailing 9 digits (handles 2547... or 07...)
+  const lastNine = digits.slice(-9);
+  const countryCode = digits.slice(0, -9);
+  
+  // Mask the middle digits and show the last 2
+  const masked = lastNine.slice(0, 3) + '***' + lastNine.slice(6);
+  
+  return countryCode ? `+${countryCode}${masked}` : `0${masked}`;
+}
