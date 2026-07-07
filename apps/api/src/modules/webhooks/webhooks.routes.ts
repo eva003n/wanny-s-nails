@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { webhookRateLimit } from "../../shared/middleware/rateLimit.middleware.js";
 import * as webhooksController from "./webhooks.controller.js";
+import { verifyWebhookSignature } from "./middleware/verify.middleware.js";
+import { validateWhatsappWebhook } from "./middleware/validate.middleware.js";
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -8,7 +10,13 @@ const router: ReturnType<typeof Router> = Router();
 router.get("/whatsapp", webhooksController.verifyWhatsApp);
 
 // POST /api/v1/webhooks/whatsapp — WhatsApp message events
-router.post("/whatsapp", webhookRateLimit, webhooksController.handleWhatsApp);
+router.post(
+  "/whatsapp",
+  verifyWebhookSignature,
+  webhookRateLimit,
+  validateWhatsappWebhook,
+  webhooksController.handleWhatsApp,
+);
 
 // POST /api/v1/webhooks/daraja — M-Pesa payment callback
 router.post("/daraja", webhooksController.handleDaraja);
