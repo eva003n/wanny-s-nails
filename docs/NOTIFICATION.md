@@ -477,12 +477,12 @@ export default defineConfig({
         short_name: "Wanny Admin",
         description: "Booking and operations dashboard",
         theme_color: "#1a1a2e",           // match your design tokens
-        background_color: "#ffffff",
+        background_color: "#FAFAFA",
         display: "standalone",
         orientation: "portrait",          // admin app is portrait-primary on mobile
-        start_url: "/admin",
-        scope: "/admin",
-        id: "/admin",                     // PWA identity — prevents duplicate installs
+        start_url: "/",
+        scope: "/",
+        id: "/",                     // PWA identity — prevents duplicate installs
         icons: [
           { src: "/icons/icon-192.png",  sizes: "192x192",  type: "image/png" },
           { src: "/icons/icon-512.png",  sizes: "512x512",  type: "image/png" },
@@ -1095,7 +1095,7 @@ export async function clearBadge(): Promise<void> {
 ## 8. Server: Push Sender (Fixed)
 
 ```typescript
-// apps/worker-notifications/src/processors/webPush.processor.ts
+// apps/workers/notifications/src/processors/webPush.processor.ts
 import webpush from "web-push";
 import type { Job } from "bullmq";
 
@@ -1491,7 +1491,7 @@ model NotificationPreference {
 ### Admin API Endpoints
 
 ```typescript
-// GET /api/v1/notification-preferences
+// GET /api/v1/notifications/notification-preferences
 router.get("/notification-preferences", requireAdminAuth, async (req, res) => {
   const prefs = await prisma.notificationPreference.findUnique({
     where: { adminUserId: req.admin.id },
@@ -1499,7 +1499,7 @@ router.get("/notification-preferences", requireAdminAuth, async (req, res) => {
   res.json(prefs ?? { webPush: true, email: true, quietHoursStart: null, quietHoursEnd: null });
 });
 
-// PATCH /api/v1/notification-preferences
+// PATCH /api/v1/notifications/notification-preferences
 router.patch("/notification-preferences", requireAdminAuth, async (req, res) => {
   const { webPush, email, quietHoursStart, quietHoursEnd } = req.body;
   const prefs = await prisma.notificationPreference.upsert({

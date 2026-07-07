@@ -33,7 +33,7 @@ export const TEMPLATES = {
     channel: "WHATSAPP",
     waTemplateName: "booking_confirmation_v2",
     requiresApproval: true,
-    vars: ["clientName", "serviceName", "dateTime", "salonAddress"],
+    vars: ["clientName", "serviceName", "dateTime", "price"],
   },
   booking_pending_confirmation: {
     channel: "WHATSAPP",

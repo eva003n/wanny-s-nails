@@ -10,7 +10,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: "prompt",
-      injectRegister: false,
+      injectRegister: "auto",
 
       pwaAssets: {
         disabled: false,
@@ -26,7 +26,7 @@ export default defineConfig({
         orientation: "portrait",
         theme_color: "#C084A8",
         background_color: "#FAFAFA",
-        start_url: "/dashboard",
+        start_url: "/",
         scope: "/",
 
         icons: [
@@ -38,6 +38,7 @@ export default defineConfig({
             type: "image/png",
             purpose: "maskable",
           },
+
         ],
       },
 

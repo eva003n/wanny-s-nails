@@ -269,15 +269,6 @@ export const bookingsService = {
 
     const start = new Date(input.appointmentAt);
     const end = new Date(start.getTime() + service.durationMinutes * 60 * 1000);
-    // if (isNaN(start.getTime())) {
-    //   throw new InvalidAppointmentTimeError(input.appointmentAt);
-    // }
-    // const end = new Date(start.getTime() + service.durationMinutes * 60 * 1000);
-
-    // // Validate future date
-    // if (start <= new Date()) {
-    //   throw new InvalidAppointmentTimeError(input.appointmentAt);
-    // }
 
     // Slot alignment check — align to the salon's fixed booking grid
     // (e.g. every 15 minutes), NOT to the service duration. Aligning to
@@ -428,11 +419,12 @@ export const bookingsService = {
       },
     });
 
+    // side effects(notifications)
     // ── Schedule reminder jobs ──────────────────────────────────
     try {
       const appointmentMs = booking.appointmentAt.getTime();
       const nowMs = Date.now();
-      const EAT_OFFSET_MS = 3 * 60 * 60 * 1000;
+      const EAT_OFFSET_MS = 3 * 60 * 60 * 1000; // UTC + 3h
       const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
       // 24h reminder: schedule for 24 hours before appointment (in EAT)

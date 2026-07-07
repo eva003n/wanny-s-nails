@@ -39,7 +39,7 @@ export interface NotificationJobData {
   template: string;
   payload: Record<string, unknown>;
   endpoint: {
-    /** Phone number (E.164), email address, or push subscription ID */
+    /** Phone number (E.164) without "+" sign, email address, or push subscription ID */
     address: string;
     type: "phone" | "email" | "push_subscription";
   };
@@ -97,7 +97,7 @@ export async function dispatch(
       }
 
       // 3. Generate idempotency key
-      const idempotencyKey = `${context.bookingId}:${eventType}:${recipientConfig.channel}:${recipientConfig.type}`;
+      const idempotencyKey = `${context.bookingId}.${eventType}.${recipientConfig.channel}.${recipientConfig.type}`;
 
       // 4. Render template
       const payload = renderTemplateForChannel(recipientConfig.template, context as unknown as Record<string, unknown>);
@@ -138,12 +138,6 @@ export async function dispatch(
           eventType,
           bookingId: context.bookingId,
         } satisfies NotificationJobData,
-        {
-          attempts: 5,
-          backoff: { type: "exponential", delay: 5000 },
-          removeOnComplete: { age: 86400 },
-          removeOnFail: false, // keep failed jobs visible for inspection
-        },
       );
 
       // 8. Update status → queued
@@ -182,7 +176,7 @@ export async function dispatch(
 // ─── Endpoint Resolution ───────────────────────────────────────
 
 interface ResolvedEndpoint {
-  /** Phone (E.164), email, or subscription userId */
+  /** Phone (E.164) no + sign, email, or subscription userId */
   address: string;
   type: "phone" | "email" | "push_subscription";
 }
