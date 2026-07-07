@@ -344,6 +344,7 @@ type ConversationState =
   | "BOOKING_CONFIRMATION"
   | "AWAITING_PAYMENT_PHONE"
   | "AWAITING_PAYMENT"
+  | "THANK_YOU"
   | "RESCHEDULE_DATE"
   | "RESCHEDULE_TIME"
   | "RESCHEDULE_CONFIRMATION"
@@ -384,7 +385,10 @@ stateDiagram-v2
     BOOKING_CONFIRMATION --> AWAITING_PAYMENT_PHONE : "yes" / "1" confirmed
     BOOKING_CONFIRMATION --> GREETING : "no" / "2" — restart
 
-    AWAITING_PAYMENT_PHONE --> AWAITING_PAYMENT : Valid Kenyan phone provided
+    AWAITING_PAYMENT_PHONE --> THANK_YOU : Valid Kenyan phone provided
+    AWAITING_PAYMENT_PHONE --> THANK_YOU : "cash" / "skip" — pay at salon
+
+    THANK_YOU --> IDLE : Session cleared
 
     AWAITING_PAYMENT --> IDLE : Payment completed (Daraja callback)
     AWAITING_PAYMENT --> AWAITING_PAYMENT : Payment failed — retry offered
@@ -774,21 +778,69 @@ Button: Confirm booking
 Your booking has been received! 🎉
 Reference: NB-2025-00123
 
-To secure your slot, please pay KES 1,500 via M-Pesa.
-What M-Pesa number should we send the payment request to?
+To complete your booking, please tell me:
+
+If paying via 📱 M-Pesa — What number should we send the payment request to?
 (e.g., 0712 345 678)
+
+If paying with 💵 cash — Just reply 'cash' and you can pay at the salon.
 ```
 
-**Validation:** Must be valid Kenyan phone number (E.164 format).
+**Validation:** Must be valid Kenyan phone number (E.164 format) OR cash/skip keyword.
 
 **Transitions:**
 
 | Input | Transition | Action |
 | ----- | ---------- | ------ |
-| Valid Kenyan phone | → `AWAITING_PAYMENT` | Save to `paymentPhone`, enqueue STK Push |
+| Valid Kenyan phone | → `THANK_YOU` | Save to `paymentPhone`, approve booking |
+| "cash" / "skip" / "no" / "pay at salon" | → `THANK_YOU` | Approve booking, no phone saved |
 | Invalid | Stay in `AWAITING_PAYMENT_PHONE` | Increment `invalidInputCount`, show error |
 
 If `invalidInputCount >= 3` → `HUMAN_ESCALATION`.
+
+---
+
+### State: THANK_YOU
+
+**Message Type:** Text
+
+**Bot message (M-Pesa):**
+
+```
+Thank you for booking with Wanny's Nails! 🎉💅
+
+📋 Reference: NB-2025-00123
+✂️ Service: Gel Manicure
+📅 Thursday, 5 June 2025
+⏰ 2:00 PM
+💰 KES 1,500
+
+We'll send the M-Pesa payment request to 0712345678.
+
+We'll send you a reminder 24 hours before your appointment. See you soon! 😊
+```
+
+**Bot message (Cash):**
+
+```
+Thank you for booking with Wanny's Nails! 🎉💅
+
+📋 Reference: NB-2025-00123
+✂️ Service: Gel Manicure
+📅 Thursday, 5 June 2025
+⏰ 2:00 PM
+💰 KES 1,500
+
+Please pay at the salon when you arrive.
+
+We'll send you a reminder 24 hours before your appointment. See you soon! 😊
+```
+
+**Transitions:**
+
+| Input | Transition | Action |
+| ----- | ---------- | ------ |
+| Any | → `IDLE` | Clear session data |
 
 ---
 

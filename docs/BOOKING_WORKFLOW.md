@@ -92,6 +92,24 @@ A separate sequence is created per year. Year sequences are created lazily on fi
 
 ## Slot Generation Algorithm
 
+```
+Business Hours
+      ↓
+Working Days
+      ↓
+Existing Bookings
+      ↓
+Blocked Time
+      ↓
+Buffer Time
+      ↓
+Minimum Notice
+      ↓
+Service Duration
+      ↓
+Available Slots
+```
+
 ### Business Hours Configuration
 
 ```typescript
