@@ -174,11 +174,13 @@ async function sendPushToSubscription(
     );
   } catch (error: unknown) {
     const err = error as { statusCode?: number; message?: string };
+    // if error si of status code 404 or 410 then do not retry, it means subscription is expired, no mattter how many times we retry it will still be expired
     if (err.statusCode === 410 || err.statusCode === 404) {
       throw new PushSubscriptionError(
         err.statusCode,
         err.message || "Subscription not found",
       );
+      //TODO: Remove subscriptions from db
     }
     throw error; // Let BullMQ retry transient failures
   }
