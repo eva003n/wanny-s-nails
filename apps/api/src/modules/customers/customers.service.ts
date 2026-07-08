@@ -119,7 +119,7 @@ export const customersService = {
     });
     const isDeleted = existingPhone?.deletedAt;
 
-    if (!isDeleted && !existingPhone) {
+    if (isDeleted && existingPhone) {
       throw new PhoneAlreadyExistsError();
     }
 
