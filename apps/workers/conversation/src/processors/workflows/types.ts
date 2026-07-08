@@ -63,8 +63,8 @@ export interface ConversationSession {
   selectedCategory?: ServiceCategory | undefined;
   /** Current page offset for paginated time slot selection (0-based) */
   slotPage?: number | undefined;
-  /** Sub-phase within DATA_COLLECTION: "NAME" (collecting name) or "EMAIL" (collecting email) */
-  collectionPhase?: "NAME" | "PHONE" | undefined;
+  /** Sub-phase within DATA_COLLECTION: "NAME" (collecting name) */
+  collectionPhase?: "NAME" | undefined;
   /** Temp name stored during DATA_COLLECTION before DB record is created */
   temporaryName?: string | undefined;
   /** Temp email stored during DATA_COLLECTION before DB record is created */
