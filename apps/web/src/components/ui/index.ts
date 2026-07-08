@@ -11,3 +11,4 @@ export { default as EmptyState } from "./EmptyState";
 export { default as ErrorState } from "./ErrorState";
 export { default as Avatar } from "./Avatar";
 export { default as SegmentedControl } from "./SegmentedControl";
+export { default as Toggle } from "./Toggle";

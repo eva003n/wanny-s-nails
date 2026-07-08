@@ -12,6 +12,7 @@ import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Skeleton from "@/components/ui/Skeleton";
 import ErrorState from "@/components/ui/ErrorState";
+import Toggle from "@/components/ui/Toggle";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -75,38 +76,11 @@ export default function HoursSection() {
             <Card key={entry.dayOfWeek}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "var(--space-12)" }}>
-                  {/* Toggle */}
-                  <button
-                    role="switch"
-                    aria-checked={entry.isActive}
-                    aria-label={`Toggle ${DAY_LABELS[entry.dayOfWeek]}`}
-                    onClick={() => updateEntry(entry.dayOfWeek, "isActive", !entry.isActive)}
-                    style={{
-                      width: 51,
-                      height: 31,
-                      borderRadius: "var(--radius-full)",
-                      border: "none",
-                      cursor: "pointer",
-                      position: "relative",
-                      transition: "background 200ms ease-out",
-                      background: entry.isActive ? "var(--color-primary)" : "var(--color-border-strong)",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <span
-                      style={{
-                        position: "absolute",
-                        top: 2,
-                        left: entry.isActive ? 22 : 2,
-                        width: 27,
-                        height: 27,
-                        borderRadius: "var(--radius-full)",
-                        background: "white",
-                        transition: "left 200ms ease-out",
-                        boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
-                      }}
-                    />
-                  </button>
+                  <Toggle
+                    checked={entry.isActive}
+                    onChange={(val) => updateEntry(entry.dayOfWeek, "isActive", val)}
+                    ariaLabel={`Toggle ${DAY_LABELS[entry.dayOfWeek]}`}
+                  />
 
                   <span
                     style={{
