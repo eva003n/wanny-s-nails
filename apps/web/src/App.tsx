@@ -14,18 +14,27 @@ import Layout from "@/components/Layout";
 import ProtectedRoute from "@/components/layout/ProtectedRoute";
 import ErrorBoundary from "@/components/layout/ErrorBoundary";
 import ToastContainer from "@/components/ui/Toast";
+import { useRegisterSW } from "virtual:pwa-register/react";
+import { ServiceWorkerProvider, useServiceWorkerContext } from "@/hooks/useServiceWorkerContext";
 
 /* Lazy loaded pages */
 const Login = lazy(() => import("./pages/Login"));
 const DashboardPage = lazy(() => import("./pages/dashboard/DashboardPage"));
 const BookingsPage = lazy(() => import("./pages/bookings/BookingsPage"));
-const BookingDetailPage = lazy(() => import("./pages/bookings/BookingDetailPage"));
+const BookingDetailPage = lazy(
+  () => import("./pages/bookings/BookingDetailPage"),
+);
 import RescheduleBookingPage from "@/pages/bookings/RescheduleBookingPage";
 import CreateBookingPage from "@/pages/bookings/CreateBookingPage";
+import { Button } from "./components/ui";
 const CustomersPage = lazy(() => import("./pages/customers/CustomersPage"));
-const CustomerDetailPage = lazy(() => import("./pages/customers/CustomerDetailPage"));
+const CustomerDetailPage = lazy(
+  () => import("./pages/customers/CustomerDetailPage"),
+);
 const PaymentsPage = lazy(() => import("./pages/payments/PaymentsPage"));
-const PaymentDetailPage = lazy(() => import("./pages/payments/PaymentDetailPage"));
+const PaymentDetailPage = lazy(
+  () => import("./pages/payments/PaymentDetailPage"),
+);
 const SettingsPage = lazy(() => import("./pages/settings/SettingsPage"));
 
 /**
@@ -34,7 +43,15 @@ const SettingsPage = lazy(() => import("./pages/settings/SettingsPage"));
  */
 function PageFallback() {
   return (
-    <div className="page" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "50vh" }}>
+    <div
+      className="page"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "50vh",
+      }}
+    >
       <div
         aria-label="Loading"
         role="status"
@@ -83,52 +100,98 @@ function AppSSEProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+const isDevMode = import.meta.env.DEV;
+function AppInner() {
+ const { setRegistration, setRegistrationError } = useServiceWorkerContext();
+
+ const {
+   needRefresh: [needRefresh, _setNeedRefresh],
+   offlineReady: [offlineReady, _setOfflineReady],
+   updateServiceWorker,
+ } = useRegisterSW({
+   immediate: true,
+   onRegisteredSW(_swScriptUrl, registration) {
+     if (registration) {
+       setRegistration(registration);
+     }
+     if (isDevMode) {
+       console.log("Service worker registered", registration);
+     }
+   },
+   onRegisterError(error) {
+     setRegistrationError(error instanceof Error ? error : new Error(String(error)));
+     if (isDevMode) {
+       console.error("Service worker registration failed", error);
+     }
+   },
+ });
+
+  return (
+    <>
+      <ToastContainer />
+      {(needRefresh || offlineReady) && (
+        <div className="toast">
+          {offlineReady
+            ? "App ready to work offline"
+            : "New version available."}
+          {needRefresh && (
+            <Button onClick={() => updateServiceWorker(true)}>Reload/</Button>
+          )}
+        </div>
+      )}
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }
+        >
+          {[
+            { path: "dashboard", element: <DashboardPage /> },
+            { path: "bookings", element: <BookingsPage /> },
+            { path: "bookings/new", element: <CreateBookingPage /> },
+            { path: "bookings/:id", element: <BookingDetailPage /> },
+            {
+              path: "bookings/:id/reschedule",
+              element: <RescheduleBookingPage />,
+            },
+            { path: "customers", element: <CustomersPage /> },
+            { path: "customers/:id", element: <CustomerDetailPage /> },
+            { path: "payments", element: <PaymentsPage /> },
+            { path: "payments/:id", element: <PaymentDetailPage /> },
+            { path: "settings", element: <SettingsPage /> },
+          ].map(({ path, element }) => (
+            <Route
+              key={path}
+              path={path}
+              element={
+                <ErrorBoundary>
+                  <Suspense fallback={<PageFallback />}>{element}</Suspense>
+                </ErrorBoundary>
+              }
+            />
+          ))}
+          <Route index element={<Navigate to="/dashboard" replace />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+    </>
+  );
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AppSSEProvider>
         <AuthInitializer />
-        <BrowserRouter>
-          <ToastContainer />
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <Layout />
-                </ProtectedRoute>
-              }
-            >
-              {[
-                { path: "dashboard", element: <DashboardPage /> },
-                { path: "bookings", element: <BookingsPage /> },
-                { path: "bookings/new", element: <CreateBookingPage /> },
-                { path: "bookings/:id", element: <BookingDetailPage /> },
-                { path: "bookings/:id/reschedule", element: <RescheduleBookingPage /> },
-                { path: "customers", element: <CustomersPage /> },
-                { path: "customers/:id", element: <CustomerDetailPage /> },
-                { path: "payments", element: <PaymentsPage /> },
-                { path: "payments/:id", element: <PaymentDetailPage /> },
-                { path: "settings", element: <SettingsPage /> },
-              ].map(({ path, element }) => (
-                <Route
-                  key={path}
-                  path={path}
-                  element={
-                    <ErrorBoundary>
-                      <Suspense fallback={<PageFallback />}>
-                        {element}
-                      </Suspense>
-                    </ErrorBoundary>
-                  }
-                />
-              ))}
-              <Route index element={<Navigate to="/dashboard" replace />} />
-            </Route>
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
-        </BrowserRouter>
+        <ServiceWorkerProvider>
+          <BrowserRouter>
+            <AppInner />
+          </BrowserRouter>
+        </ServiceWorkerProvider>
       </AppSSEProvider>
     </QueryClientProvider>
   );
