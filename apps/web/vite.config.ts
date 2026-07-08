@@ -9,7 +9,10 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: "prompt",
+      strategies: "injectManifest", // need for custom push event handling
+      srcDir: "src",
+      filename: "sw.ts",
+      registerType: "autoUpdate",
       injectRegister: "auto",
 
       pwaAssets: {
@@ -19,7 +22,7 @@ export default defineConfig({
 
       manifest: {
         name: "Wanny's Nails",
-        short_name: "WannyNails",
+        short_name: "Wannys",
         description:
           "Booking management platform purposely built for Kenyan nail salon",
         display: "standalone",
@@ -43,7 +46,7 @@ export default defineConfig({
       },
 
       workbox: {
-        navigateFallback: "/offline.html",
+        navigateFallback: "/offli]ne.html",
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [
           {
@@ -78,7 +81,7 @@ export default defineConfig({
       },
 
       devOptions: {
-        enabled: false,
+        enabled: true,
         navigateFallback: "index.html",
         suppressWarnings: true,
         type: "module",
