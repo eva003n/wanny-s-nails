@@ -76,7 +76,7 @@ export const NOTIFICATION_TRIGGERS = {
   BOOKING_CONFIRMED: {
     recipients: [
       { type: "CLIENT", channel: "WHATSAPP", template: "booking_confirmation" },
-      // { type: "OWNER", channel: "PUSH", template: "booking_confirmed_alert" },
+      { type: "OWNER", channel: "PUSH", template: "booking_confirmed_alert" },
     ],
   },
   BOOKING_REJECTED: {

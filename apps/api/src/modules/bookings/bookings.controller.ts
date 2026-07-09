@@ -182,35 +182,6 @@ export const cancelBooking = asyncHandler(
       input.reason,
     );
 
-    // Cancel reminder jobs
-    try {
-      const bookingFull = await bookingsService.getById(params.id);
-      if (bookingFull.notifications?.length > 0) {
-        const { notificationQueue } = await import("../../shared/lib/index.js");
-        for (const reminder of bookingFull.notifications) {
-          const jobId = `scheduled.${reminder.id}`;
-          if (reminder.idempotencyKey) {
-            await notificationQueue.remove(jobId).catch(() => {});
-          }
-          await prisma.notification
-            .update({
-              where: { id: reminder.id },
-              data: { status: "CANCELLED" },
-            })
-            .catch(() => {});
-        }
-      }
-    } catch (err) {
-      log.error(
-        {
-          event: "booking.cancel.reminder_cleanup_failed",
-          bookingId: params.id,
-          error: String(err),
-        },
-        "Failed to cancel reminder jobs",
-      );
-    }
-
     // Dispatch BOOKING_CANCELLED notification
     try {
       const ctx = buildNotificationContext(booking);
@@ -238,36 +209,9 @@ export const rescheduleBooking = asyncHandler(
     const booking = await bookingsService.reschedule(
       params.id,
       input.appointmentAt,
+      req.user?.id,
       input.reason,
     );
-
-    // Cancel old reminder jobs
-    try {
-      const bookingFull = await bookingsService.getById(params.id);
-      if (bookingFull.notifications?.length > 0) {
-        const { notificationQueue } = await import("../../shared/lib/index.js");
-        for (const reminder of bookingFull.notifications) {
-          const jobId = `scheduled.${reminder.id}`;
-          await notificationQueue.remove(jobId).catch(() => {});
-          await prisma.notification
-            .update({
-              where: { id: reminder.id },
-              data: { status: "CANCELLED" },
-            })
-            .catch(() => {});
-        }
-      }
-    } catch (err) {
-      log.error(
-        {
-          event: "booking.reschedule.reminder_cleanup_failed",
-          bookingId: params.id,
-          error: String(err),
-        },
-        "Failed to cancel old reminder jobs on reschedule",
-      );
-    }
-
     success(res, booking);
   },
 );
@@ -303,7 +247,7 @@ export const markBookingPaid = asyncHandler(
       log.error(
         {
           event: "booking.mark_paid.notify_failed",
-          bookingId: booking.id,
+          bookingId: booking?.id,
           error: String(error),
         },
         "Failed to dispatch payment received notification",

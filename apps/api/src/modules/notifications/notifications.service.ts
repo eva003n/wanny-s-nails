@@ -594,7 +594,9 @@ export async function onBookingCancelled(bookingId: string): Promise<void> {
 
   for (const reminder of scheduledReminders) {
     try {
+      // remove both scheduled and  immediate(awiting processing) notifications
       await notificationQueue.remove(`scheduled.${reminder.id}`);
+      await notificationQueue.remove(`whatsapp.${reminder.id}`);
     } catch (error: unknown) {
       const err = error as { message?: string };
       log.warn(

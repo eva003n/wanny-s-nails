@@ -1,4 +1,4 @@
-import { prisma, notificationQueue,  } from "../../shared/lib/index.js";
+import { prisma, notificationQueue } from "../../shared/lib/index.js";
 
 import { logger } from "../../shared/lib/index.js";
 
@@ -9,10 +9,15 @@ import {
   OutsideBusinessHoursError,
   ServiceInactiveError,
 } from "../../shared/types/errors.js";
-import { dispatch, schedule, scheduleAppointmentReminders } from "../notifications/notifications.service.js";
+import {
+  onBookingCancelled,
+  onBookingRescheduled,
+  schedule,
+} from "../notifications/notifications.service.js";
 import type { NotificationContext } from "../notifications/notification-triggers.js";
-import { PrismaClientKnownRequestError } from "@wannys-nails/packages";
-
+import {
+  PrismaClientKnownRequestError,
+} from "@wannys-nails/packages";
 
 const log = logger.child({ module: "bookings.service" });
 
@@ -300,7 +305,6 @@ export const bookingsService = {
     );
   },
 
-
   async approve(id: string, approvedById: string) {
     const booking = await this.getById(id);
     if (booking.status !== "PENDING") {
@@ -374,7 +378,7 @@ export const bookingsService = {
           customerPhone: updated.customer.phone,
           customerEmail: updated.customer.email ?? "",
           serviceName: updated.service.name,
-          appointmentAt: updated.appointmentAt.toISOString(),
+          appointmentAt: twentyFourHoursBefore.toISOString(),
           amountKes: updated.priceKes,
         };
 
@@ -406,13 +410,28 @@ export const bookingsService = {
 
   async cancel(id: string, actorType: string, reason?: string) {
     const booking = await this.getById(id);
-    // do not canel an already cencelled booking
+    // do not cancel an already cancelled or completed booking
     if (booking.status === "CANCELLED" || booking.status === "COMPLETED") {
       throw new InvalidStatusTransitionError(booking.status, "cancel");
     }
 
+    // side effects
+    try {
+      await onBookingCancelled(booking.id);
+    } catch (error) {
+      log.error(
+        {
+          event: "booking.cancel.notify_failed",
+          bookingId: booking.id,
+          error: String(error),
+        },
+        "Failed to dispatch cancellation notification",
+      );
+    }
+
+  
     return prisma.booking.update({
-      where: { id },
+      where: { id, status: booking.status },
       data: {
         status: "CANCELLED",
         statusHistory: {
@@ -432,7 +451,12 @@ export const bookingsService = {
     });
   },
 
-  async reschedule(id: string, newAppointmentAt: string, reason?: string) {
+  async reschedule(
+    id: string,
+    newAppointmentAt: string,
+    rescheduledById: string,
+    reason?: string,
+  ) {
     const booking = await this.getById(id);
     if (booking.status === "CANCELLED" || booking.status === "COMPLETED") {
       throw new InvalidStatusTransitionError(booking.status, "reschedule");
@@ -444,6 +468,16 @@ export const bookingsService = {
     if (newDate <= new Date()) {
       throw new BookingConflictError();
     }
+    // Fetch service first — we need its duration for both the business-hours
+    // check and the slot-alignment/conflict checks below.
+    const service = await prisma.nailService.findUnique({
+      where: { id: booking.serviceId },
+    });
+    if (!service) {
+      throw new Error("Service not found");
+    }
+    const serviceDuration = service.durationMinutes;
+    const newEnd = new Date(newDate.getTime() + serviceDuration * 60 * 1000);
 
     // Check business hours
     const dayOfWeek = newDate.getDay();
@@ -459,19 +493,13 @@ export const bookingsService = {
     const closeParts = businessHours.closeTime.split(":");
     const openHour = Number(openParts[0]);
     const closeHour = Number(closeParts[0]);
-    const appointmentHour = newDate.getHours();
-    if (appointmentHour < openHour || appointmentHour >= closeHour) {
+    const appointmentStartHour = newDate.getHours();
+    const appointmentEndHour = newDate.getHours();
+
+    // Both the start AND the end of the appointment must fall within business hours.
+    if (appointmentStartHour < openHour || appointmentEndHour >= closeHour) {
       throw new OutsideBusinessHoursError(newAppointmentAt);
     }
-
-    // Check slot availability
-    const service = await prisma.nailService.findUnique({
-      where: { id: booking.serviceId },
-    });
-    if (!service) {
-      throw new Error("Service not found");
-    }
-    const serviceDuration = service.durationMinutes;
 
     // Validate slot alignment (service-duration boundaries)
     const minute = newDate.getMinutes();
@@ -480,40 +508,86 @@ export const bookingsService = {
     if (totalMinutesSinceMidnight % serviceDuration !== 0) {
       throw new BookingConflictError();
     }
-    const conflicting = await prisma.booking.findFirst({
+
+    // Check slot availability fetch nearby candidates, then check *actual*
+    // interval overlap using each candidate's own service duration, not just
+    // the new booking's duration.
+    const candidates = await prisma.booking.findMany({
       where: {
         id: { not: id },
-        appointmentAt: {
-          gt: new Date(newDate.getTime() - serviceDuration * 60 * 1000),
-          lt: new Date(newDate.getTime() + serviceDuration * 60 * 1000),
-        },
         status: { notIn: ["CANCELLED", "NO_SHOW"] },
+        // Wide net: anything that could conceivably overlap. Assumes no single
+        // service exceeds 4 hours — adjust the padding if that's not true.
+        appointmentAt: {
+          gt: new Date(newDate.getTime() - 2 * 60 * 60 * 1000),
+          lt: newEnd,
+        },
       },
+      include: { service: { select: { durationMinutes: true } } },
+    });
+
+    const conflicting = candidates.find((c) => {
+      const cStart = c.appointmentAt.getTime();
+      const cEnd = cStart + c.service.durationMinutes * 60 * 1000;
+      return cStart < newEnd.getTime() && cEnd > newDate.getTime();
     });
 
     if (conflicting) {
       throw new BookingConflictError();
     }
 
-    return prisma.booking.update({
-      where: { id },
-      data: {
-        appointmentAt: newDate,
-        status: "RESCHEDULED",
-        statusHistory: {
-          create: {
-            fromStatus: booking.status,
-            toStatus: "RESCHEDULED",
-            actorType: "USER",
-            ...(reason ? { reason } : {}),
+    // Atomic transition: guard on the status we validated against, so a
+    // concurrent reschedule/cancel that changed the booking between our read
+    // and this write causes a clean conflict instead of a silent double-write.
+    let updated;
+    try {
+      updated = await prisma.booking.update({
+        where: { id, status: booking.status },
+        data: {
+          appointmentAt: newDate,
+          status: "RESCHEDULED",
+          statusHistory: {
+            create: {
+              fromStatus: booking.status,
+              toStatus: "RESCHEDULED",
+              actorType: "USER",
+              actorId: rescheduledById,
+              ...(reason ? { reason } : {}),
+            },
           },
         },
-      },
-      include: {
-        customer: { select: { id: true, name: true, phone: true } },
-        service: { select: { id: true, name: true } },
-      },
-    });
+        include: {
+          customer: { select: { id: true, name: true, phone: true } },
+          service: { select: { id: true, name: true } },
+        },
+      });
+    } catch (error: unknown) {
+      if (
+        error instanceof PrismaClientKnownRequestError &&
+        error.code === "P2025"
+      ) {
+        const current = await this.getById(id);
+        throw new InvalidStatusTransitionError(current.status, "reschedule");
+      }
+      throw error;
+    }
+    /* ________________ Side effects_______________ */
+    // Cancel the old reminder job and schedule a fresh one at the new time.
+    // Don't let a notification hiccup fail the reschedule itself.
+    try {
+      await onBookingRescheduled(updated.id, newDate);
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      log.error(
+        {
+          event: "reschedule.notification_update_failed",
+          bookingId: id,
+          error: err.message,
+        },
+        "Booking rescheduled but failed to update reminder notifications",
+      );
+    }
+    return updated;
   },
 
   async markPaid(id: string, method: string, notes?: string) {
@@ -522,35 +596,37 @@ export const bookingsService = {
       throw new InvalidStatusTransitionError(booking.status, "mark as paid");
     }
 
-    // Create payment record if doesn't exist
-    await prisma.payment.upsert({
-      where: { bookingId: id },
-      update: {
-        status: "SUCCESS",
-        amountKes: booking.priceKes,
-      },
-      create: {
-        bookingId: id,
-        amountKes: booking.priceKes,
-        status: "SUCCESS",
-        metadata: {
-          method: method ?? "CASH",
+    return await prisma.$transaction(async (tx) => {
+      // Create payment record if doesn't exist
+      await tx.payment.upsert({
+        where: { bookingId: id },
+        update: {
+          status: "SUCCESS",
+          amountKes: booking.priceKes,
+          metadata: {
+            method: method ?? "CASH",
+          },
         },
-      },
-    });
+        create: {
+          bookingId: id,
+          amountKes: booking.priceKes,
+          status: "SUCCESS",
+        },
+      });
+      // Update booking payment status
 
-    // Update booking payment status
-    return prisma.booking.update({
-      where: { id },
-      data: {
-        paymentStatus: "SUCCESS",
-        ...(notes ? { notes } : {}),
-      },
-      include: {
-        customer: { select: { id: true, name: true, phone: true } },
-        service: { select: { id: true, name: true } },
-        payment: true,
-      },
+      return tx.booking.update({
+        where: { id },
+        data: {
+          paymentStatus: "SUCCESS",
+          ...(notes ? { notes } : {}),
+        },
+        include: {
+          customer: { select: { id: true, name: true, phone: true } },
+          service: { select: { id: true, name: true } },
+          payment: true,
+        },
+      });
     });
   },
 
