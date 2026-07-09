@@ -138,3 +138,33 @@ export const retryNotification = asyncHandler(async (req: Request, res: Response
   success(res, { message: "Notification queued for retry" });
 });
 
+// ─── Mark Notification as Read ────────────────────────────────
+
+export const markAsRead = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+  const notification = await prisma.notification.findUnique({
+    where: { id: req.params.id as string },
+  });
+
+  if (!notification) {
+    res.status(404).json({ error: "Notification not found" });
+    return;
+  }
+
+  await prisma.notification.update({
+    where: { id: notification.id },
+    data: { readAt: new Date() },
+  });
+
+  noContent(res);
+});
+
+// ─── Unread Count ─────────────────────────────────────────────
+
+export const unreadCount = asyncHandler(async (_req: Request, res: Response, _next: NextFunction) => {
+  const count = await prisma.notification.count({
+    where: { readAt: null },
+  });
+
+  success(res, { count });
+});
+

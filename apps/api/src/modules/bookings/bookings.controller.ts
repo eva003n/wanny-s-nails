@@ -1,8 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { bookingsService } from "./bookings.service.js";
-import { logger} from "../../shared/lib/logger.js";
-import {prisma} from "../../shared/lib/prisma.js"
+import { logger } from "../../shared/lib/logger.js";
+import { prisma } from "../../shared/lib/prisma.js";
 import { dispatch } from "../notifications/notifications.service.js";
 import type { NotificationContext } from "../notifications/notification-triggers.js";
 import {
@@ -79,7 +79,9 @@ function buildNotificationContext(booking: {
     customerId: booking.customerId,
     customerName: booking.customer.name,
     customerPhone: booking.customer.phone,
-    ...(booking.customer.email ? { customerEmail: booking.customer.email } : {}),
+    ...(booking.customer.email
+      ? { customerEmail: booking.customer.email }
+      : {}),
     serviceName: booking.service.name,
     appointmentAt: booking.appointmentAt.toISOString(),
     ...(booking.priceKes != null ? { amountKes: booking.priceKes } : {}),
@@ -89,190 +91,240 @@ function buildNotificationContext(booking: {
 
 // --- Handlers ---
 
-export const listBookings = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-  const query = req.validated?.query as z.infer<typeof listBookingsQuerySchema> | undefined;
-  const { page, limit, sort } = parsePagination(
-    req.query as Record<string, unknown>,
-    { sort: "appointmentAt:asc" },
-  );
+export const listBookings = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const query = req.validated?.query as
+      | z.infer<typeof listBookingsQuerySchema>
+      | undefined;
+    const { page, limit, sort } = parsePagination(
+      req.query as Record<string, unknown>,
+      { sort: "appointmentAt:asc" },
+    );
 
-  const result = await bookingsService.list({
-    page,
-    limit,
-    status: query?.status ?? (req.query.status as string | undefined),
-    paymentStatus: query?.paymentStatus ?? (req.query.paymentStatus as string | undefined),
-    customerId: query?.customerId ?? (req.query.customerId as string | undefined),
-    serviceId: query?.serviceId ?? (req.query.serviceId as string | undefined),
-    date: query?.date ?? (req.query.date as string | undefined),
-    from: query?.from ?? (req.query.from as string | undefined),
-    to: query?.to ?? (req.query.to as string | undefined),
-    sort,
-  });
-
-  paginated(res, result.bookings, result.total, result.page, result.limit);
-});
-
-export const getBookingById = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-  const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
-  const booking = await bookingsService.getById(params.id);
-  success(res, booking);
-});
-
-export const createBooking = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-  const input = req.validated!.body as z.infer<typeof createBookingSchema>;
-  const booking = await bookingsService.create(input);
-  created(res, booking);
-});
-
-export const approveBooking = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-  const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
-  const booking = await bookingsService.approve(
-    params.id,
-    req.user!.userId,
-  );
-
-  // Dispatch BOOKING_CONFIRMED notification
-  try {
-    const ctx = buildNotificationContext(booking);
-    ctx.adminUserIds = req.user?.userId ? [req.user.userId] : [];
-    await dispatch("BOOKING_CONFIRMED", ctx).catch((err) => {
-      log.error(
-        { event: "booking.approve.dispatch_failed", bookingId: booking.id, error: err instanceof Error ? err.message : String(err) },
-        "Failed to dispatch booking confirmed notification",
-      );
+    const result = await bookingsService.list({
+      page,
+      limit,
+      status: query?.status ?? (req.query.status as string | undefined),
+      paymentStatus:
+        query?.paymentStatus ?? (req.query.paymentStatus as string | undefined),
+      customerId:
+        query?.customerId ?? (req.query.customerId as string | undefined),
+      serviceId:
+        query?.serviceId ?? (req.query.serviceId as string | undefined),
+      date: query?.date ?? (req.query.date as string | undefined),
+      from: query?.from ?? (req.query.from as string | undefined),
+      to: query?.to ?? (req.query.to as string | undefined),
+      sort,
     });
-  } catch (error: unknown) {
-    const err = error as { message?: string };
-    log.error(
-      { event: "booking.approve.notify_failed", bookingId: booking.id, error: err.message },
-      "Failed to dispatch notification for approved booking",
-    );
-  }
 
-  success(res, booking);
-});
+    paginated(res, result.bookings, result.total, result.page, result.limit);
+  },
+);
 
-export const cancelBooking = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-  const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
-  const input = req.validated!.body as z.infer<typeof cancelSchema>;
-  const booking = await bookingsService.cancel(
-    params.id,
-    req.user ? "USER" : "CUSTOMER",
-    input.reason,
-  );
+export const getBookingById = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
+    const booking = await bookingsService.getById(params.id);
+    success(res, booking);
+  },
+);
 
-  // Cancel reminder jobs
-  try {
-    const bookingFull = await bookingsService.getById(params.id);
-    if (bookingFull.notifications?.length) {
-      const { notificationQueue } = await import("../../shared/lib/index.js");
-      for (const reminder of bookingFull.notifications) {
-        if (reminder.idempotencyKey) {
-          await notificationQueue.remove(reminder.idempotencyKey).catch(() => {});
-        }
-        await prisma.notification.update({
-          where: { id: reminder.id },
-          data: { status: "CANCELLED" },
-        }).catch(() => {});
-      }
+export const createBooking = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const input = req.validated!.body as z.infer<typeof createBookingSchema>;
+    const booking = await bookingsService.create(input);
+    created(res, booking);
+  },
+);
+
+export const approveBooking = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
+    const booking = await bookingsService.approve(params.id, req.user?.userId);
+
+    // Dispatch BOOKING_CONFIRMED notification
+    try {
+      const ctx = buildNotificationContext(booking);
+      ctx.adminUserIds = req.user?.userId ? [req.user.userId] : [];
+      await dispatch("BOOKING_CONFIRMED", ctx).catch((err) => {
+        log.error(
+          {
+            event: "booking.approve.dispatch_failed",
+            bookingId: booking.id,
+            error: err instanceof Error ? err.message : String(err),
+          },
+          "Failed to dispatch booking confirmed notification",
+        );
+      });
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      log.error(
+        {
+          event: "booking.approve.notify_failed",
+          bookingId: booking.id,
+          error: err.message,
+        },
+        "Failed to dispatch notification for approved booking",
+      );
     }
-  } catch (err) {
-    log.error(
-      { event: "booking.cancel.reminder_cleanup_failed", bookingId: params.id, error: String(err) },
-      "Failed to cancel reminder jobs",
+
+    success(res, booking);
+  },
+);
+
+export const cancelBooking = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
+    const input = req.validated!.body as z.infer<typeof cancelSchema>;
+    const booking = await bookingsService.cancel(
+      params.id,
+      req.user ? "ADMIN" : "STAFF",
+      input.reason,
     );
-  }
 
-  // Dispatch BOOKING_CANCELLED notification
-  try {
-    const ctx = buildNotificationContext(booking);
-    ctx.adminUserIds = req.user?.userId ? [req.user.userId] : [];
-    await dispatch("BOOKING_CANCELLED", ctx);
-  } catch (error) {
-    log.error(
-      { event: "booking.cancel.notify_failed", bookingId: booking.id, error: String(error) },
-      "Failed to dispatch cancellation notification",
-    );
-  }
-
-  success(res, booking);
-});
-
-export const rescheduleBooking = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-  const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
-  const input = req.validated!.body as z.infer<typeof rescheduleSchema>;
-  const booking = await bookingsService.reschedule(
-    params.id,
-    input.appointmentAt,
-    input.reason,
-  );
-
-  // Cancel old reminder jobs
-  try {
-    const bookingFull = await bookingsService.getById(params.id);
-    if (bookingFull.notifications?.length) {
-      const { notificationQueue } = await import("../../shared/lib/index.js");
-      for (const reminder of bookingFull.notifications) {
-        if (reminder.idempotencyKey) {
-          await notificationQueue.remove(reminder.idempotencyKey).catch(() => {});
+    // Cancel reminder jobs
+    try {
+      const bookingFull = await bookingsService.getById(params.id);
+      if (bookingFull.notifications?.length > 0) {
+        const { notificationQueue } = await import("../../shared/lib/index.js");
+        for (const reminder of bookingFull.notifications) {
+          const jobId = `scheduled.${reminder.id}`;
+          if (reminder.idempotencyKey) {
+            await notificationQueue.remove(jobId).catch(() => {});
+          }
+          await prisma.notification
+            .update({
+              where: { id: reminder.id },
+              data: { status: "CANCELLED" },
+            })
+            .catch(() => {});
         }
-        await prisma.notification.update({
-          where: { id: reminder.id },
-          data: { status: "CANCELLED" },
-        }).catch(() => {});
       }
+    } catch (err) {
+      log.error(
+        {
+          event: "booking.cancel.reminder_cleanup_failed",
+          bookingId: params.id,
+          error: String(err),
+        },
+        "Failed to cancel reminder jobs",
+      );
     }
-  } catch (err) {
-    log.error(
-      { event: "booking.reschedule.reminder_cleanup_failed", bookingId: params.id, error: String(err) },
-      "Failed to cancel old reminder jobs on reschedule",
+
+    // Dispatch BOOKING_CANCELLED notification
+    try {
+      const ctx = buildNotificationContext(booking);
+      ctx.adminUserIds = req.user?.userId ? [req.user.userId] : [];
+      await dispatch("BOOKING_CANCELLED", ctx);
+    } catch (error) {
+      log.error(
+        {
+          event: "booking.cancel.notify_failed",
+          bookingId: booking.id,
+          error: String(error),
+        },
+        "Failed to dispatch cancellation notification",
+      );
+    }
+
+    success(res, booking);
+  },
+);
+
+export const rescheduleBooking = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
+    const input = req.validated!.body as z.infer<typeof rescheduleSchema>;
+    const booking = await bookingsService.reschedule(
+      params.id,
+      input.appointmentAt,
+      input.reason,
     );
-  }
 
-  success(res, booking);
-});
+    // Cancel old reminder jobs
+    try {
+      const bookingFull = await bookingsService.getById(params.id);
+      if (bookingFull.notifications?.length > 0) {
+        const { notificationQueue } = await import("../../shared/lib/index.js");
+        for (const reminder of bookingFull.notifications) {
+          const jobId = `scheduled.${reminder.id}`;
+          await notificationQueue.remove(jobId).catch(() => {});
+          await prisma.notification
+            .update({
+              where: { id: reminder.id },
+              data: { status: "CANCELLED" },
+            })
+            .catch(() => {});
+        }
+      }
+    } catch (err) {
+      log.error(
+        {
+          event: "booking.reschedule.reminder_cleanup_failed",
+          bookingId: params.id,
+          error: String(err),
+        },
+        "Failed to cancel old reminder jobs on reschedule",
+      );
+    }
 
-export const updateBookingNotes = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-  const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
-  const input = req.validated!.body as z.infer<typeof patchNotesSchema>;
-  const booking = await bookingsService.updateNotes(
-    params.id,
-    input.notes ?? null,
-  );
-  success(res, booking);
-});
+    success(res, booking);
+  },
+);
 
-export const markBookingPaid = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-  const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
-  const input = req.validated!.body as z.infer<typeof markPaidSchema>;
-  const booking = await bookingsService.markPaid(
-    params.id,
-    input.method,
-    input.notes,
-  );
-
-  // Dispatch PAYMENT_RECEIVED notification
-  try {
-    const ctx = buildNotificationContext(booking);
-    ctx.adminUserIds = req.user?.userId ? [req.user.userId] : [];
-    await dispatch("PAYMENT_RECEIVED", ctx);
-  } catch (error) {
-    log.error(
-      { event: "booking.mark_paid.notify_failed", bookingId: booking.id, error: String(error) },
-      "Failed to dispatch payment received notification",
+export const updateBookingNotes = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
+    const input = req.validated!.body as z.infer<typeof patchNotesSchema>;
+    const booking = await bookingsService.updateNotes(
+      params.id,
+      input.notes ?? null,
     );
-  }
+    success(res, booking);
+  },
+);
 
-  success(res, booking);
-});
+export const markBookingPaid = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
+    const input = req.validated!.body as z.infer<typeof markPaidSchema>;
+    const booking = await bookingsService.markPaid(
+      params.id,
+      input.method,
+      input.notes,
+    );
 
-export const getTodayBookings = asyncHandler(async (_req: Request, res: Response, _next: NextFunction) => {
-  const bookings = await bookingsService.getTodayBookings();
-  success(res, bookings);
-});
+    // Dispatch PAYMENT_RECEIVED notification
+    try {
+      const ctx = buildNotificationContext(booking);
+      ctx.adminUserIds = req.user?.userId ? [req.user.userId] : [];
+      await dispatch("PAYMENT_RECEIVED", ctx);
+    } catch (error) {
+      log.error(
+        {
+          event: "booking.mark_paid.notify_failed",
+          bookingId: booking.id,
+          error: String(error),
+        },
+        "Failed to dispatch payment received notification",
+      );
+    }
 
-export const softDeleteBooking = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-  const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
-  await bookingsService.softDelete(params.id);
-  noContent(res);
-});
+    success(res, booking);
+  },
+);
+
+export const getTodayBookings = asyncHandler(
+  async (_req: Request, res: Response, _next: NextFunction) => {
+    const bookings = await bookingsService.getTodayBookings();
+    success(res, bookings);
+  },
+);
+
+export const softDeleteBooking = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
+    await bookingsService.softDelete(params.id);
+    noContent(res);
+  },
+);

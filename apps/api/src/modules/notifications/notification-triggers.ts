@@ -36,10 +36,10 @@ export interface NotificationContext {
   customerId: string;
   /** Display name for the customer */
   customerName: string;
-  /** E.164 phone */
+  /** E.164 phone no plus sign */
   customerPhone: string;
   /** Email if on file */
-  customerEmail?: string;
+  customerEmail?: string ;
   serviceName: string;
   /** ISO datetime string */
   appointmentAt?: string;
@@ -76,7 +76,7 @@ export const NOTIFICATION_TRIGGERS = {
   BOOKING_CONFIRMED: {
     recipients: [
       { type: "CLIENT", channel: "WHATSAPP", template: "booking_confirmation" },
-      { type: "OWNER", channel: "PUSH", template: "booking_confirmed_alert" },
+      // { type: "OWNER", channel: "PUSH", template: "booking_confirmed_alert" },
     ],
   },
   BOOKING_REJECTED: {
