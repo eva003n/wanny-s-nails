@@ -13,8 +13,6 @@
  */
 import { prisma, logger } from "../../shared/lib/index.js";
 
-
-
 import { normalizeKenyanPhone } from "@wannys-nails/packages";
 import { notificationQueue } from "../../shared/lib/index.js";
 
@@ -61,7 +59,10 @@ export async function dispatch(
 ): Promise<void> {
   const trigger = NOTIFICATION_TRIGGERS[eventType];
   if (!trigger) {
-    log.warn({ event: "dispatch.unknown_type", eventType }, "No trigger registered for event type");
+    log.warn(
+      { event: "dispatch.unknown_type", eventType },
+      "No trigger registered for event type",
+    );
     return;
   }
 
@@ -73,10 +74,14 @@ export async function dispatch(
   for (const recipientConfig of trigger.recipients) {
     try {
       // 1. Evaluate condition
-      const rc = recipientConfig as RecipientConfig & { condition?: string };
+      const rc = recipientConfig as RecipientConfig;
       if (rc.condition && !evaluateCondition(rc.condition, context)) {
         log.debug(
-          { event: "dispatch.condition_skipped", condition: rc.condition, recipientType: rc.type },
+          {
+            event: "dispatch.condition_skipped",
+            condition: rc.condition,
+            recipientType: rc.type,
+          },
           "Condition not met — skipping recipient",
         );
         continue;
@@ -90,7 +95,12 @@ export async function dispatch(
       );
       if (!endpoint) {
         log.warn(
-          { event: "dispatch.no_endpoint", recipientType: recipientConfig.type, channel: recipientConfig.channel, bookingId: context.bookingId },
+          {
+            event: "dispatch.no_endpoint",
+            recipientType: recipientConfig.type,
+            channel: recipientConfig.channel,
+            bookingId: context.bookingId,
+          },
           "No active endpoint for recipient — skipping",
         );
         continue;
@@ -99,15 +109,47 @@ export async function dispatch(
       // 3. Generate idempotency key
       const idempotencyKey = `${context.bookingId}.${eventType}.${recipientConfig.channel}.${recipientConfig.type}`;
 
+      // Check for an already-processed notification BEFORE writing/enqueuing,
+      // so retried events don't re-send something already processed
+
+      const existing = await prisma.notification.findUnique({
+        where: { idempotencyKey },
+      });
+
+      if (
+        existing &&
+        [
+          "QUEUED",
+          "SENT",
+          "PROCESSING",
+          "DELIVERED",
+          "READ",
+          "DEAD_LETTER",
+        ].includes(existing.status)
+      ) {
+        log.info(
+          {
+            event: "schedule.already_processed",
+            notificationId: existing.id,
+            status: existing.status,
+          },
+          "Notification already sent or in-flight — skipping",
+        );
+        continue;
+      }
       // 4. Render template
-      const payload = renderTemplateForChannel(recipientConfig.template, context as unknown as Record<string, unknown>);
+      const payload = renderTemplateForChannel(
+        recipientConfig.template,
+        context as unknown as Record<string, unknown>,
+      );
 
       // 5. Resolve recipientId
-      const recipientId = endpoint.type === "push_subscription"
-        ? endpoint.address // push subscriptions use userId as recipientId
-        : context.customerId;
+      const recipientId =
+        endpoint.type === "push_subscription"
+          ? endpoint.address // push subscriptions use userId as recipientId
+          : context.customerId;
 
-      // 6. Write DB row (upsert — idempotent)
+      // 6. Write DB row (upsert — idempotent)if failed mark as pending
       const notification = await prisma.notification.upsert({
         where: { idempotencyKey },
         create: {
@@ -121,24 +163,51 @@ export async function dispatch(
           status: "PENDING",
           correlationId: context.bookingId,
         },
-        update: {}, // no-op: if it already exists, don't reset status
+        update: {
+          payload: payload as any,
+          status: "PENDING",
+        }, 
       });
 
-      // 7. Enqueue the job
-      await notificationQueue.add(
-        `send-${recipientConfig.channel.toLowerCase()}`,
-        {
-          notificationId: notification.id,
-          recipientId,
-          recipientType: recipientConfig.type,
-          channel: recipientConfig.channel,
-          template: recipientConfig.template,
-          payload,
-          endpoint,
-          eventType,
-          bookingId: context.bookingId,
-        } satisfies NotificationJobData,
-      );
+      const jobId = `${recipientConfig.channel.toLowerCase()}.${notification.id}`;
+
+      // 7. Enqueue the job with deterministic jobId for dedup
+      try {
+        await notificationQueue.add(
+          `send-${recipientConfig.channel.toLowerCase()}`,
+          {
+            notificationId: notification.id,
+            recipientId,
+            recipientType: recipientConfig.type,
+            channel: recipientConfig.channel,
+            template: recipientConfig.template,
+            payload,
+            endpoint,
+            eventType,
+            bookingId: context.bookingId,
+          } satisfies NotificationJobData,
+          { jobId },
+        );
+      } catch (enqueueError: unknown) {
+        // DB row exists as PENDING but nothing is behind it — mark it FAILED
+        // instead of leaving it stranded, so a reconciliation sweep or retry
+        // can pick it back up.
+        const err = enqueueError as { message?: string };
+        log.error(
+          {
+            event: "dispatch.enqueue_failed",
+            notificationId: notification.id,
+            bookingId: context.bookingId,
+            error: err.message,
+          },
+          "Failed to enqueue notification job after DB write — marking as FAILED",
+        );
+        await prisma.notification.update({
+          where: { id: notification.id },
+          data: { status: "FAILED" },
+        });
+        throw enqueueError; // bubble up to outer catch for consistent logging
+      }
 
       // 8. Update status → queued
       await prisma.notification.update({
@@ -156,7 +225,6 @@ export async function dispatch(
         },
         "Notification enqueued",
       );
-
     } catch (error) {
       log.error(
         {
@@ -187,7 +255,9 @@ async function resolveEndpoint(
   context: NotificationContext,
 ): Promise<ResolvedEndpoint | null> {
   if (channel === "WHATSAPP") {
-    const raw = context.customerPhone ?? "";
+    const raw = context.customerPhone;
+    if (!raw) throw new Error("Missing customer phone");
+
     return { address: normalizeKenyanPhone(raw), type: "phone" };
   }
 
@@ -201,7 +271,10 @@ async function resolveEndpoint(
     // Find active push subscriptions for admin users
     const userIds = context.adminUserIds;
     if (!userIds || userIds.length === 0) {
-      log.debug({ event: "resolve_endpoint.no_admin_users" }, "No admin user IDs for push notification");
+      log.debug(
+        { event: "resolve_endpoint.no_admin_users" },
+        "No admin user IDs for push notification",
+      );
       return null;
     }
 
@@ -258,6 +331,291 @@ function getPushUrl(eventType: string, context: NotificationContext): string {
     return `/payments?bookingId=${context.bookingId}`;
   }
   return "/dashboard";
+}
+
+// ─── Scheduling (Reminders) ─────────────────────────────────────
+
+export interface ScheduleParams {
+  bookingId: string;
+  eventType: NotificationEventType;
+  recipientType: string;
+  channel: string;
+  scheduledAt: Date;
+  template: string;
+  context: NotificationContext;
+}
+
+export async function schedule(params: ScheduleParams): Promise<void> {
+  const idempotencyKey = `${params.bookingId}.${params.eventType}.${params.channel}.${params.recipientType}`;
+  const delayMs = params.scheduledAt.getTime() - Date.now();
+
+  log.info({
+    event: "schedule.requested",
+    bookingId: params.bookingId,
+    delayMs,
+    scheduledAt: params.scheduledAt,
+  });
+
+  if (delayMs <= 0) {
+    log.info(
+      {
+        event: "schedule.past_time",
+        bookingId: params.bookingId,
+        eventType: params.eventType,
+      },
+      "Schedule time already passed — dispatching immediately",
+    );
+    await dispatch(params.eventType, params.context);
+    return;
+  }
+
+  const renderedPayload = renderTemplateForChannel(
+    params.template,
+    params.context as unknown as Record<string, unknown>,
+  );
+
+  // Check the existing row (if any) BEFORE upserting, so we can tell apart:
+  //  - no row yet                -> fresh schedule
+  //  - SCHEDULED / CANCELLED     -> safe to (re)schedule, reset to SCHEDULED
+  //  - QUEUED / SENT / PROCESSING / FAILED / READ / DELIVERED -> already fired or in-flight, don't touch
+  const existing = await prisma.notification.findUnique({
+    where: { idempotencyKey },
+  });
+
+  if (
+    existing &&
+    [
+      "QUEUED",
+      "SENT",
+      "PROCESSING",
+      "FAILED",
+      "DELIVERED",
+      "READ",
+      "DEAD_LETTER",
+    ].includes(existing.status)
+  ) {
+    log.info(
+      {
+        event: "schedule.already_processed",
+        notificationId: existing.id,
+        status: existing.status,
+      },
+      "Notification already sent or in-flight — skipping",
+    );
+    return;
+  }
+
+  const notification = await prisma.notification.upsert({
+    where: { idempotencyKey },
+    create: {
+      bookingId: params.bookingId,
+      recipientId: params.context.customerId,
+      recipientType: params.recipientType as any,
+      type: params.eventType as any,
+      channel: params.channel as any,
+      payload: renderedPayload as any,
+      idempotencyKey,
+      status: "SCHEDULED",
+      scheduledAt: params.scheduledAt,
+      correlationId: params.bookingId,
+    },
+    // Covers both "reschedule of a still-pending reminder" and
+    // "reschedule after a CANCELLED reminder" (booking time changed) —
+    // in both cases reset to SCHEDULED with the fresh time/payload.
+    // Safe because we already excluded  QUEUED / SENT / PROCESSING / FAILED / READ / DELIVERED above.
+    update: {
+      scheduledAt: params.scheduledAt,
+      payload: renderedPayload as any,
+      status: "SCHEDULED",
+    },
+  });
+
+  const jobId = `scheduled.${notification.id}`;
+
+  try {
+    await notificationQueue.add(
+      `send-${params.channel.toLowerCase()}`,
+      {
+        notificationId: notification.id,
+        recipientId: params.context.customerId,
+        recipientType: params.recipientType,
+        channel: params.channel,
+        template: params.template,
+        payload: renderedPayload,
+        endpoint: {
+          address: params.context.customerPhone,
+          type: "phone",
+        },
+        eventType: params.eventType,
+        bookingId: params.bookingId,
+      } satisfies NotificationJobData,
+      {
+        delay: Math.max(delayMs, 1000),
+        jobId,
+      },
+    );
+  } catch (error: unknown) {
+    const err = error as { message?: string };
+    log.error(
+      {
+        event: "schedule.enqueue_failed",
+        notificationId: notification.id,
+        bookingId: params.bookingId,
+        error: err.message,
+      },
+      "Failed to enqueue notification job after DB write — marking as FAILED",
+    );
+    await prisma.notification.update({
+      where: { id: notification.id },
+      data: { status: "FAILED" },
+    });
+    throw error;
+  }
+
+  log.info(
+    {
+      event: "schedule.enqueued",
+      notificationId: notification.id,
+      bookingId: params.bookingId,
+      scheduledAt: params.scheduledAt,
+    },
+    "Scheduled notification enqueued",
+  );
+}
+
+/**
+ * Schedule 24h appointment reminders for a booking.
+ * Should be called when a booking is confirmed.
+ */
+export async function scheduleAppointmentReminders(
+  bookingId: string,
+  appointmentAt: Date,
+): Promise<void> {
+  const now = new Date();
+
+  const twentyFourHoursBefore = new Date(
+    appointmentAt.getTime() - 24 * 60 * 60 * 1000,
+  );
+
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: { customer: true, service: true },
+  });
+
+  if (!booking) {
+    log.warn(
+      { event: "schedule.reminders.booking_not_found", bookingId },
+      "Cannot schedule reminders — booking not found",
+    );
+    return;
+  }
+
+  const context: NotificationContext = {
+    bookingId: booking.id,
+    customerId: booking.customerId,
+    customerName: booking.customer.name,
+    customerPhone: booking.customer.phone,
+    customerEmail: booking.customer.email ?? (undefined as unknown as string),
+    serviceName: booking.service.name,
+    appointmentAt: booking.appointmentAt.toISOString(),
+    amountKes: booking.priceKes,
+  };
+
+  if (twentyFourHoursBefore > now) {
+    await schedule({
+      bookingId,
+      eventType: "APPOINTMENT_REMINDER",
+      recipientType: "CLIENT",
+      channel: "WHATSAPP",
+      scheduledAt: twentyFourHoursBefore,
+      template: "reminder_24h",
+      context,
+    });
+  }
+}
+
+/**
+ * Cancel all scheduled reminders for a booking when it is rescheduled,
+ * then schedule fresh ones at the new time.
+ */
+export async function onBookingRescheduled(
+  bookingId: string,
+  newAppointmentAt: Date,
+): Promise<void> {
+  const existingReminders = await prisma.notification.findMany({
+    where: {
+      bookingId,
+      type: "APPOINTMENT_REMINDER",
+      status: "SCHEDULED",
+    },
+  });
+
+  for (const reminder of existingReminders) {
+    try {
+      // Must match the jobId format used in schedule(): "scheduled.<id>"
+      await notificationQueue.remove(`scheduled.${reminder.id}`);
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      log.warn(
+        {
+          event: "reschedule.queue_remove_failed",
+          notificationId: reminder.id,
+          bookingId,
+          error: err.message,
+        },
+        "Failed to remove old reminder job from queue — it may have already fired or been removed",
+      );
+      // Continue anyway — we still want to mark it CANCELLED and schedule the new one.
+    }
+  }
+
+  if (existingReminders.length > 0) {
+    await prisma.notification.updateMany({
+      where: { id: { in: existingReminders.map((r) => r.id) } },
+      data: { status: "CANCELLED" },
+    });
+  }
+
+  await scheduleAppointmentReminders(bookingId, newAppointmentAt);
+}
+
+/**
+ * Cancel all scheduled reminders for a booking when it is cancelled.
+ * Prevents orphaned reminder jobs from firing after cancellation.
+ */
+export async function onBookingCancelled(bookingId: string): Promise<void> {
+  const scheduledReminders = await prisma.notification.findMany({
+    where: {
+      bookingId,
+      type: "APPOINTMENT_REMINDER",
+      status: "SCHEDULED",
+    },
+  });
+
+  for (const reminder of scheduledReminders) {
+    try {
+      await notificationQueue.remove(`scheduled.${reminder.id}`);
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      log.warn(
+        {
+          event: "cancel.queue_remove_failed",
+          notificationId: reminder.id,
+          bookingId,
+          error: err.message,
+        },
+        "Failed to remove reminder job from queue — it may have already fired or been removed",
+      );
+    }
+  }
+
+  // update them to cancelled if they exists
+  if (scheduledReminders.length > 0) {
+    await prisma.notification.updateMany({
+      where: { id: { in: scheduledReminders.map((r) => r.id) } },
+      data: { status: "CANCELLED" },
+    });
+  }
 }
 
 function formatDate(iso: string): string {

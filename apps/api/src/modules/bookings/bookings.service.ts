@@ -1,8 +1,6 @@
-import { prisma, notificationQueue } from "../../shared/lib/index.js";
+import { prisma, notificationQueue,  } from "../../shared/lib/index.js";
 
-import { JOB_NAMES, } from "@wannys-nails/packages";
 import { logger } from "../../shared/lib/index.js";
-
 
 import {
   BookingConflictError,
@@ -11,6 +9,10 @@ import {
   OutsideBusinessHoursError,
   ServiceInactiveError,
 } from "../../shared/types/errors.js";
+import { dispatch, schedule, scheduleAppointmentReminders } from "../notifications/notifications.service.js";
+import type { NotificationContext } from "../notifications/notification-triggers.js";
+import { PrismaClientKnownRequestError } from "@wannys-nails/packages";
+
 
 const log = logger.child({ module: "bookings.service" });
 
@@ -56,7 +58,7 @@ export const bookingsService = {
     } = filters;
     const skip = (page - 1) * limit;
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { deletedAt: null };
 
     if (status) {
       const statuses = status
@@ -136,7 +138,7 @@ export const bookingsService = {
         },
       },
     });
-    if (!booking) {
+    if (!booking || booking.deletedAt) {
       throw new BookingNotFoundError();
     }
     return booking;
@@ -156,101 +158,6 @@ export const bookingsService = {
     }
     return booking;
   },
-
-  // async create(input: CreateBookingInput) {
-  //   const service = await prisma.nailService.findUnique({
-  //     where: { id: input.serviceId },
-  //   });
-  //   if (!service || service.deletedAt) {
-  //     throw new ServiceInactiveError();
-  //   }
-  //   if (!service.isActive) {
-  //     throw new ServiceInactiveError();
-  //   }
-
-  //   // Check customer exists
-  //   const customer = await prisma.customer.findUnique({
-  //     where: { id: input.customerId },
-  //   });
-  //   if (!customer) {
-  //     throw new BookingNotFoundError(`Customer ${input.customerId}`);
-  //   }
-
-  //   const appointmentAt = new Date(input.appointmentAt);
-
-  //   // Validate future date
-  //   if (appointmentAt <= new Date()) {
-  //     throw new BookingConflictError();
-  //   }
-
-  //   // Check business hours
-  //   const dayOfWeek = appointmentAt.getDay();
-  //   const businessHours = await prisma.businessHours.findUnique({ where: { dayOfWeek } });
-  //   if (!businessHours || !businessHours.isActive) {
-  //     throw new OutsideBusinessHoursError(input.appointmentAt);
-  //   }
-
-  //   // Validate business hours
-  //   const openParts = businessHours.openTime.split(":");
-  //   const closeParts = businessHours.closeTime.split(":");
-  //   const openHour = Number(openParts[0]);
-  //   const closeHour = Number(closeParts[0]);
-  //   const appointmentHour = appointmentAt.getHours();
-  //   if (appointmentHour < openHour || appointmentHour >= closeHour) {
-  //     throw new OutsideBusinessHoursError(input.appointmentAt);
-  //   }
-
-  //   // Check slot alignment (service-duration boundaries)
-  //   const minute = appointmentAt.getMinutes();
-  //   const hour = appointmentAt.getHours();
-  //   const totalMinutesSinceMidnight = hour * 60 + minute;
-  //   if (totalMinutesSinceMidnight % service.durationMinutes !== 0) {
-  //     throw new BookingConflictError();
-  //   }
-
-  //   // Check for slot conflict
-  //   const conflictingBooking = await prisma.booking.findFirst({
-  //     where: {
-  //       appointmentAt: {
-  //         gt: new Date(appointmentAt.getTime() - service.durationMinutes * 60 * 1000).toISOString(),
-  //         lt: new Date(appointmentAt.getTime() + service.durationMinutes * 60 * 1000).toISOString(),
-  //       },
-  //       status: { notIn: ["CANCELLED", "NO_SHOW"] },
-  //     },
-  //   });
-
-  //   if (conflictingBooking) {
-  //     throw new BookingConflictError();
-  //   }
-
-  //   return prisma.booking.create({
-  //     data: {
-  //       reference: generateReference(),
-  //       customerId: input.customerId,
-  //       serviceId: input.serviceId,
-  //       appointmentAt,
-  //       durationMinutes: service.durationMinutes,
-  //       priceKes: service.priceKes,
-  //       notes: input.notes ?? null,
-  //       payment: {
-  //         create: {
-  //           amountKes: service.priceKes,
-  //         },
-  //       },
-  //       statusHistory: {
-  //         create: {
-  //           toStatus: "PENDING",
-  //           actorType: "CUSTOMER",
-  //         },
-  //       },
-  //     },
-  //     include: {
-  //       customer: { select: { id: true, name: true, phone: true } },
-  //       service: { select: { id: true, name: true } },
-  //       payment: true,
-  //     },
-  //   });
-  // },
 
   async create(input: CreateBookingInput) {
     const service = await prisma.nailService.findUnique({
@@ -392,156 +299,106 @@ export const bookingsService = {
       { isolationLevel: "Serializable" }, // see NOTE above — pair with retry logic or a DB constraint
     );
   },
+
+
   async approve(id: string, approvedById: string) {
     const booking = await this.getById(id);
     if (booking.status !== "PENDING") {
       throw new InvalidStatusTransitionError(booking.status, "approve");
     }
 
-    const updated = await prisma.booking.update({
-      where: { id },
-      data: {
-        status: "APPROVED",
-        approvedById,
-        statusHistory: {
-          create: {
-            fromStatus: "PENDING",
-            toStatus: "APPROVED",
-            actorType: "USER",
-            actorId: approvedById,
+    // Guard the transition atomically in the WHERE clause so two concurrent
+    // approve() calls can't both pass the pre-check and both write.
+    let updated;
+    try {
+      updated = await prisma.booking.update({
+        where: { id, status: "PENDING" },
+        data: {
+          status: "APPROVED",
+          approvedById,
+          statusHistory: {
+            create: {
+              fromStatus: "PENDING",
+              toStatus: "APPROVED",
+              actorType: "USER",
+              actorId: approvedById,
+            },
           },
         },
-      },
-      include: {
-        customer: { select: { id: true, name: true, phone: true } },
-        service: { select: { id: true, name: true } },
-        approvedBy: { select: { id: true, name: true } },
-      },
-    });
-
-    // side effects(notifications)
-    // ── Schedule reminder jobs ──────────────────────────────────
-    try {
-      const appointmentMs = booking.appointmentAt.getTime();
-      const nowMs = Date.now();
-      const EAT_OFFSET_MS = 3 * 60 * 60 * 1000; // UTC + 3h
-      const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-
-      // 24h reminder: schedule for 24 hours before appointment (in EAT)
-      const reminder24hAt = new Date(appointmentMs - ONE_DAY_MS - Date.now());
-      const delay24h = reminder24hAt.getTime() - nowMs;
-      // 3. Generate idempotency key
-      const eventType = "APPOINTMENT_REMINDER";
-      const channel = "WHATAPP";
-      const recipientType = "CLIENT";
-
-      const idempotencyKey = `${booking.id}:${eventType}:${channel}:${recipientType}`;
-
-      // 4. Render template
-      if (delay24h > 0) {
-        const reminder24h = await prisma.notification.create({
-          data: {
-            bookingId: id,
-            recipientId: booking.customerId,
-            recipientType: "CLIENT",
-            type: "APPOINTMENT_REMINDER",
-            channel: "WHATSAPP",
-            status: "SCHEDULED",
-            payload: {},
-            scheduledAt: reminder24hAt,
-            idempotencyKey: idempotencyKey,
+        include: {
+          customer: {
+            select: { id: true, name: true, phone: true, email: true },
           },
-        });
-
-        const job24h = await notificationQueue.add(
-          JOB_NAMES.WHATSAPP,
-          {
-            reminderId: reminder24h.id,
-            bookingId: id,
-            customerPhone: updated.customer.phone,
-            customerName: updated.customer.name,
-            serviceName: updated.service.name,
-            appointmentAt: booking.appointmentAt.toISOString(),
-          },
-          {
-            delay: delay24h,
-            attempts: 3,
-            backoff: { type: "exponential", delay: 60000 },
-          },
-        );
-
-        if (job24h.id) {
-          await prisma.notification.update({
-            where: { id: reminder24h.id },
-            data: { idempotencyKey: job24h.id },
-          });
-        }
-
-        log.info(
-          { event: "reminder.24h.scheduled", bookingId: id, delay: delay24h },
-          "24h reminder scheduled",
-        );
-      }
-
-      // 1h reminder: schedule for 1 hour before appointment (in EAT)
-      const reminder1hAt = new Date(appointmentMs - 1 * 60 * 60 * 1000);
-      const delay1h = reminder1hAt.getTime() - nowMs;
-
-      if (delay1h > 0) {
-        const reminder1h = await prisma.notification.create({
-          data: {
-            bookingId: id,
-            recipientId: booking.customerId,
-            recipientType: "CLIENT",
-            type: "APPOINTMENT_REMINDER",
-            channel: "WHATSAPP",
-            payload: {},
-            status: "SCHEDULED",
-            scheduledAt: reminder1hAt,
-            idempotencyKey: idempotencyKey,
-          },
-        });
-
-        const job1h = await notificationQueue.add(
-          JOB_NAMES.WHATSAPP,
-          {
-            reminderId: reminder1h.id,
-            bookingId: id,
-            customerPhone: updated.customer.phone,
-            customerName: updated.customer.name,
-            serviceName: updated.service.name,
-            appointmentAt: booking.appointmentAt.toISOString(),
-          },
-          {
-            delay: delay1h,
-            attempts: 3,
-            backoff: { type: "exponential", delay: 60000 },
-          },
-        );
-
-        if (job1h.id) {
-          await prisma.notification.update({
-            where: { id: reminder1h.id },
-            data: { idempotencyKey: job1h.id },
-          });
-        }
-
-        log.info(
-          { event: "reminder.1h.scheduled", bookingId: id, delay: delay1h },
-          "1h reminder scheduled",
-        );
-      }
+          service: { select: { id: true, name: true } },
+          approvedBy: { select: { id: true, name: true } },
+        },
+      });
     } catch (error: unknown) {
-      // Don't fail the approval if reminder scheduling fails
-      const err = error as { message?: string };
+      // P2025 = record not found matching the WHERE clause — someone else
+      // already transitioned this booking out of PENDING between our read and write.
+      if (
+        error instanceof PrismaClientKnownRequestError &&
+        error.code === "P2025"
+      ) {
+        const current = await this.getById(id);
+        throw new InvalidStatusTransitionError(current.status, "approve");
+      }
+      throw error;
+    }
+
+    // side effects (notifications)
+    // ── Schedule reminder jobs ──────────────────────────────────
+    const eventType = "APPOINTMENT_REMINDER";
+    const channel = "WHATSAPP";
+    const recipientType = "CLIENT";
+    const twentyFourHoursBefore = new Date(
+      updated.appointmentAt.getTime() - 24 * 60 * 60 * 1000,
+    );
+    const templateName = "reminder_24h";
+
+    if (!updated.customer.phone) {
       log.error(
         {
-          event: "reminder.schedule_failed",
+          event: "reminder.schedule_skipped",
           bookingId: id,
-          error: err.message,
+          reason: "missing_phone",
         },
-        "Failed to schedule reminders — booking was still approved",
+        "Skipped reminder scheduling — customer has no phone on file",
       );
+    } else {
+      try {
+        const context: NotificationContext = {
+          bookingId: updated.id,
+          customerId: updated.customerId,
+          customerName: updated.customer.name,
+          customerPhone: updated.customer.phone,
+          customerEmail: updated.customer.email ?? "",
+          serviceName: updated.service.name,
+          appointmentAt: updated.appointmentAt.toISOString(),
+          amountKes: updated.priceKes,
+        };
+
+        await schedule({
+          bookingId: updated.id,
+          eventType,
+          recipientType,
+          channel,
+          scheduledAt: twentyFourHoursBefore,
+          template: templateName,
+          context,
+        });
+      } catch (error: unknown) {
+        // Don't fail the approval if reminder scheduling fails
+        const err = error as { message?: string };
+        log.error(
+          {
+            event: "reminder.schedule_failed",
+            bookingId: id,
+            error: err.message,
+          },
+          "Failed to schedule reminders — booking was still approved",
+        );
+      }
     }
 
     return updated;
@@ -549,6 +406,7 @@ export const bookingsService = {
 
   async cancel(id: string, actorType: string, reason?: string) {
     const booking = await this.getById(id);
+    // do not canel an already cencelled booking
     if (booking.status === "CANCELLED" || booking.status === "COMPLETED") {
       throw new InvalidStatusTransitionError(booking.status, "cancel");
     }
@@ -675,6 +533,9 @@ export const bookingsService = {
         bookingId: id,
         amountKes: booking.priceKes,
         status: "SUCCESS",
+        metadata: {
+          method: method ?? "CASH",
+        },
       },
     });
 
@@ -717,6 +578,7 @@ export const bookingsService = {
 
     return prisma.booking.findMany({
       where: {
+        deletedAt: null,
         appointmentAt: { gte: today, lt: tomorrow },
         status: { notIn: ["CANCELLED", "NO_SHOW"] },
       },
@@ -749,7 +611,10 @@ export const bookingsService = {
     if (!bookingFull) {
       throw new BookingNotFoundError();
     }
-    if (bookingFull.payment?.status === "SUCCESS" || bookingFull.payment?.status === "REFUNDED") {
+    if (
+      bookingFull.payment?.status === "SUCCESS" ||
+      bookingFull.payment?.status === "REFUNDED"
+    ) {
       throw new InvalidStatusTransitionError(bookingFull.status, "delete");
     }
     return prisma.booking.update({
