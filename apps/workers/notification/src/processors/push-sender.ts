@@ -42,7 +42,7 @@ interface SubscriptionFailure {
 }
 
 export async function pushSender(job: Job<NotificationJobData>): Promise<void> {
-  const { notificationId, recipientId, template, payload, bookingId } =
+  const { notificationId, recipientId, template, payload, bookingId,  } =
     job.data;
 
   log.info(
@@ -73,9 +73,9 @@ export async function pushSender(job: Job<NotificationJobData>): Promise<void> {
   const pushPriority = getPushPriority(template);
 
   const pushPayload: PushPayload = {
-    title: (payload.title as string) || "Wanny's Nails",
-    body: (payload.body as string) || "",
-    icon: "/icons/icon-192.png",
+    title: "Wanny's Nails",
+    body: getPushBody(template, payload),
+    icon: "/icons/192.png",
     badge: "/icons/badge-96.png",
     data: {
       url: getBookingUrl(bookingId),
@@ -343,3 +343,90 @@ function summarizeFailures(failures: SubscriptionFailure[]): string {
     .join("; ")
     .slice(0, 1000); // keep it bounded for a text column
 }
+
+
+// ─── Push Notification Helpers ─────────────────────────────────
+
+function getPushTitle(template: string, context: NotificationContext): string {
+  const titles: Record<string, string> = {
+    new_booking_alert: `New Booking from ${context.customerName}`,
+    booking_awaiting_approval: `${context.customerName}'s booking needs approval`,
+    booking_confirmed_alert: `Booking Confirmed: ${context.customerName}`,
+    booking_rejected_alert: `Booking Rejected: ${context.customerName}`,
+    booking_cancelled_alert: `Booking Cancelled: ${context.customerName}`,
+    booking_rescheduled_alert: `Booking Rescheduled: ${context.customerName}`,
+    booking_completed_alert: `Completed: ${context.customerName}`,
+    booking_no_show_alert: `No Show: ${context.customerName}`,
+    payment_received_alert: `Payment Received: KES ${context.amountKes?.toLocaleString() ?? 0}`,
+    payment_failed_alert: `Payment Failed: ${context.customerName}`,
+    payment_expired_alert: `Payment Expired: ${context.customerName}`,
+    refund_processed_alert: `Refund Processed: KES ${context.amountKes?.toLocaleString() ?? 0}`,
+  };
+  return titles[template] ?? `Notification — ${context.customerName}`;
+}
+
+export interface NotificationContext {
+  // bookingId: string;
+  // customerId: string;
+  /** Display name for the customer */
+  customerName: string;
+  /** E.164 phone no plus sign */
+  // customerPhone: string;
+  /** Email if on file */
+  customerEmail?: string;
+  serviceName: string;
+  /** ISO datetime string */
+  appointmentAt?: string;
+  /** Amount in KES */
+  amountKes?: number;
+  /** For PAYMENT_RECEIVED — M-Pesa receipt number */
+  mpesaReceiptNumber?: string;
+  /** For PAYMENT_REFUNDED — refund reference */
+  refundReference?: string;
+  /** Original appointment time (for reschedule) */
+  previousAppointmentAt?: string;
+  /** Admin user IDs to notify (for push/email) */
+  adminUserIds?: string[];
+}
+
+function formatDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString("en-KE", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
+}
+function getPushBody(template: string, context: NotificationContext): string {
+  const bodies: Record<string, string> = {
+    new_booking_alert: `${context.customerName} booked ${context.serviceName}${context.appointmentAt ? ` on ${formatDate(context.appointmentAt)}` : ""}.`,
+    booking_awaiting_approval: `${context.customerName} — ${context.serviceName} on ${formatDate(context.appointmentAt ?? "")}.`,
+    booking_confirmed_alert: `${context.customerName} — ${context.serviceName} on ${formatDate(context.appointmentAt ?? "")}.`,
+    booking_rejected_alert: `${context.customerName}'s booking for ${context.serviceName} was rejected.`,
+    booking_cancelled_alert: `${context.customerName} cancelled ${context.serviceName} on ${formatDate(context.appointmentAt ?? "")}.`,
+    booking_rescheduled_alert: `${context.customerName} rescheduled ${context.serviceName} to ${formatDate(context.appointmentAt ?? "")}.`,
+    booking_completed_alert: `${context.customerName}'s ${context.serviceName} appointment is complete.`,
+    booking_no_show_alert: `${context.customerName} missed their ${context.serviceName} appointment.`,
+    payment_received_alert: `KES ${context.amountKes?.toLocaleString() ?? 0} received from ${context.customerName} for ${context.serviceName}.`,
+    payment_failed_alert: `Payment of KES ${context.amountKes?.toLocaleString() ?? 0} from ${context.customerName} failed.`,
+    payment_expired_alert: `Payment request for ${context.customerName} — ${context.serviceName} expired.`,
+    refund_processed_alert: `KES ${context.amountKes?.toLocaleString() ?? 0} refunded to ${context.customerName}.`,
+  };
+  return bodies[template] ?? `Notification update for ${context.customerName}.`;
+}
+
+/* function getPushUrl(eventType: string, context: NotificationContext): string {
+  if (eventType.startsWith("BOOKING") || eventType.startsWith("APPOINTMENT")) {
+    return `/bookings/${context.bookingId}`;
+  }
+  if (eventType.startsWith("PAYMENT")) {
+    return `/payments?bookingId=${context.bookingId}`;
+  }
+  return "/dashboard";
+} */
