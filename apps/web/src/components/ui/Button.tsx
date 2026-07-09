@@ -38,6 +38,11 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             "border border-border text-primary",
           ],
 
+          variant === "destructive" && [
+            "w-full bg-error text-white",
+            "hover:bg-red-600 active:scale-[0.98]",
+          ],
+
           variant === "ghost" && [
             "w-full bg-transparent text-text-primary",
             "hover:bg-surface-raised active:scale-[0.98]",
