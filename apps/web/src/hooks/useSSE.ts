@@ -3,11 +3,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useUiStore } from "@/store/ui.store";
 import { subscribeSSE, disconnectSSE, connectSSE,} from "@/lib/sse";
 import { bookingKeys } from "@/pages/bookings/hooks/useBookings";
+import { notificationKeys } from "@/pages/notifications/hooks/useNotifications";
 
 // Mirrors the production useSSE contract from frontend.md: subscribes to
-// booking/payment events and invalidates the relevant query keys. Connection
-// lifecycle (open/error/reconnect) is simulated since there's no live backend
-// in this build, but the cache-invalidation behaviour is identical.
+// booking/payment/notification events and invalidates the relevant query keys.
 export function useSSE() {
   const queryClient = useQueryClient();
   const setSseBannerVisible = useUiStore((s) => s.setSseBannerVisible);
@@ -33,6 +32,10 @@ export function useSSE() {
         queryClient.invalidateQueries({ queryKey: ["payments"] });
         queryClient.invalidateQueries({ queryKey: bookingKeys.all });
         queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      }),
+      subscribeSSE("notification.new", () => {
+        queryClient.invalidateQueries({ queryKey: notificationKeys.unreadCount });
+        queryClient.invalidateQueries({ queryKey: notificationKeys.all });
       }),
     ];
 

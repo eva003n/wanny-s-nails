@@ -10,7 +10,8 @@ export type SSEEventName =
   | "booking.approved"
   | "booking.cancelled"
   | "payment.completed"
-  | "booking.rescheduled";
+  | "booking.rescheduled"
+  | "notification.new";
 
 export type Listener = () => void;
 

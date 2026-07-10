@@ -36,6 +36,7 @@ const PaymentDetailPage = lazy(
   () => import("./pages/payments/PaymentDetailPage"),
 );
 const SettingsPage = lazy(() => import("./pages/settings/SettingsPage"));
+const NotificationsPage = lazy(() => import("./pages/notifications/NotificationsPage"));
 
 /**
  * §7.1: Minimal loading indicator — NOT a full-page spinner.
@@ -163,6 +164,7 @@ function AppInner() {
             { path: "payments", element: <PaymentsPage /> },
             { path: "payments/:id", element: <PaymentDetailPage /> },
             { path: "settings", element: <SettingsPage /> },
+            { path: "notifications", element: <NotificationsPage /> },
           ].map(({ path, element }) => (
             <Route
               key={path}

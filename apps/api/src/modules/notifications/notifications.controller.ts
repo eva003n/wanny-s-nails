@@ -19,7 +19,10 @@ export const listNotifications = asyncHandler(async (req: Request, res: Response
   const { page, limit } = parsePagination(req.query as Record<string, unknown>);
   const skip = (page - 1) * limit;
 
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = {
+    recipientId: req.user!.userId,
+    readAt: null
+  };
 
   if (req.query.status) {
     where.status = req.query.status;
@@ -160,9 +163,12 @@ export const markAsRead = asyncHandler(async (req: Request, res: Response, _next
 
 // ─── Unread Count ─────────────────────────────────────────────
 
-export const unreadCount = asyncHandler(async (_req: Request, res: Response, _next: NextFunction) => {
+export const unreadCount = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
   const count = await prisma.notification.count({
-    where: { readAt: null },
+    where: {
+      recipientId: req.user!.userId,
+      readAt: null,
+    },
   });
 
   success(res, { count });
