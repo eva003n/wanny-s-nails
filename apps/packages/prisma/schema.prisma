@@ -79,6 +79,7 @@ enum NotificationStatus {
   DELIVERED // whatsapp only
   READ  // whatsapp only
   FAILED // // exhausted retries
+  DEAD_LETTER // after all retries exhausted, moved to DLQ
   CANCELLED // cancelled before sending
 }
 

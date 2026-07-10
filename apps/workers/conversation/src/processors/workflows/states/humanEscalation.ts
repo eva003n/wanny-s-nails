@@ -42,7 +42,7 @@ export async function handleHumanEscalation(
 
     // Publish to Redis channel for SSE to pick up
     await redis.publish(
-      "notification:human-escalation",
+      "events",
       notificationPayload,
     );
     log.info(

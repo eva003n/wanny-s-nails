@@ -12,10 +12,15 @@ import type { NormalisedEvent } from "./lib/index.js";
 export interface NotificationJobData {
   notificationId: string;
   recipientId: string;
+
   recipientType: string;
   channel: string;
   template: string;
-  payload: Record<string, unknown>;
+  payload: {
+    customerName: string;
+    serviceName: string;
+    appointmentAt: string;
+  };
   endpoint: {
     /** Phone number (E.164), email address, or push subscription ID */
     address: string;
@@ -25,6 +30,11 @@ export interface NotificationJobData {
   bookingId: string;
 }
 
+export type PubSubEvent = {
+  event: string,
+  data: Record<string, unknown>
+
+}
 export type WhatsAppTemplatePayload = {
   type: "template";
   to: string;

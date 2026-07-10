@@ -56,3 +56,4 @@ export const  createPrismaClient = (url: string | undefined, env: string = "deve
 }
 
 export type * from "../generated/prisma/client.js";
+export  * from "../generated/prisma/internal/prismaNamespace.js";
