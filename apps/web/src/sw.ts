@@ -1,8 +1,11 @@
 /// <reference lib="webworker"/>
 
-import api from "./lib/api";
+import axios from "axios";
 
-declare let self: ServiceWorkerGlobalScope
+declare let self: ServiceWorkerGlobalScope & {
+  __VAPID_PUBLIC_KEY__: string;
+  __WB_MANIFEST: Array<{ url: string; revision: string | null }>;
+};
 
 /**
  * Wanny's Nails — Service Worker
@@ -16,12 +19,12 @@ declare let self: ServiceWorkerGlobalScope
 const CACHE_NAME = "wannys-nails-v1";
 const OFFLINE_URL = "/offline.html";
 
-// ─── Install: cache offline fallback ───────────────────────────
+// ─── Install: cache offline fallback + precache manifest ─────
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.add(OFFLINE_URL);
+      return cache.addAll([OFFLINE_URL, ...self.__WB_MANIFEST.map((e) => e.url)]);
     }),
   );
   // Activate immediately — don't wait for existing pages to close
@@ -45,20 +48,19 @@ self.addEventListener("activate", (event) => {
 });
 
 // ─── Push: display notification ────────────────────────────────
-
 self.addEventListener("push", (event) => {
   const data = event.data?.json() ?? {
     title: "Wanny's Nails",
     body: "You have a new notification.",
-    icon: "/icons/icon-192.png",
+    icon: "/icons/192.png",
     data: { url: "/", notificationId: "" },
     tag: Date.now().toString(),
   };
 
   const options = {
     body: data.body,
-    icon: data.icon || "/icons/icon-192.png",
-    badge: "/icons/icon-192.png",
+    icon: data.icon || "/icons/192.png",
+    badge: "/icons/192.png",
     data: data.data,
     tag: data.tag || `notification-${Date.now()}`,
     vibrate: [200, 100, 200],
@@ -157,23 +159,18 @@ self.addEventListener("pushsubscriptionchange", (event) => {
       .subscribe(event.oldSubscription?.options ?? {
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(
-          import.meta.env.VITE_VAPID_PUBLIC_KEY,
+          self.__VAPID_PUBLIC_KEY__,
         ),
       })
       .then((newSubscription) => {
         // Send the old and new subscription to the server
-        return fetch("/api/v1/push-subscriptions/refresh", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            oldEndpoint: event.oldSubscription?.endpoint,
-            newSubscription: {
-              endpoint: newSubscription.endpoint,
-              p256dh: arrayBufferToBase64(newSubscription.getKey("p256dh")),
-              auth: arrayBufferToBase64(newSubscription.getKey("auth")),
-            },
-          }),
+        return axios.post("/api/v1/push-subscriptions/refresh", {
+          oldEndpoint: event.oldSubscription?.endpoint,
+          newSubscription: {
+            endpoint: newSubscription.endpoint,
+            p256dh: arrayBufferToBase64(newSubscription.getKey("p256dh")),
+            auth: arrayBufferToBase64(newSubscription.getKey("auth")),
+          },
         });
       }),
   );
@@ -186,7 +183,7 @@ self.addEventListener("fetch", (event) => {
   if (event.request.mode === "navigate") {
     event.respondWith(
       fetch(event.request).catch(() => {
-        return caches.match(OFFLINE_URL);
+        return caches.match(OFFLINE_URL).then((res) => res ?? new Response("Offline", { status: 503 }));
       }),
     );
   }
@@ -194,7 +191,7 @@ self.addEventListener("fetch", (event) => {
 
 // ─── Utility: URL-safe Base64 to Uint8Array ────────────────────
 
-function urlBase64ToUint8Array(base64String) {
+function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding)
     .replace(/-/g, "+")
@@ -211,7 +208,7 @@ function urlBase64ToUint8Array(base64String) {
 
 // ─── Utility: ArrayBuffer to Base64 ───────────────────────────
 
-function arrayBufferToBase64(buffer) {
+function arrayBufferToBase64(buffer: ArrayBuffer | null) {
   if (!buffer) return "";
   const bytes = new Uint8Array(buffer);
   let binary = "";
@@ -223,3 +220,6 @@ function arrayBufferToBase64(buffer) {
 
 // VAPID public key placeholder (set at build/deploy time)
 self.__VAPID_PUBLIC_KEY__ = "";
+
+
+
