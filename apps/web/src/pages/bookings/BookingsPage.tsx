@@ -8,8 +8,8 @@
  */
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useBookings } from "./hooks/useBookings";
-import { CalendarDays } from "lucide-react";
+import { useBookings, useDeleteBooking } from "./hooks/useBookings";
+import { CalendarDays, Trash2 } from "lucide-react";
 import PageHeader from "@/components/layout/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge, { bookingStatusToBadge, paymentStatusToBadge } from "@/components/ui/Badge";
@@ -17,7 +17,10 @@ import EmptyState from "@/components/ui/EmptyState";
 import ErrorState from "@/components/ui/ErrorState";
 import Skeleton from "@/components/ui/Skeleton";
 import Button from "@/components/ui/Button";
+import Dialog from "@/components/ui/Dialog";
 import Pagination from "@/components/ui/Pagination";
+import { useAuthStore } from "@/store/auth.store";
+import { useUiStore } from "@/store/ui.store";
 
 /* §8.1 KES format */
 function formatKES(amount: number): string {
@@ -45,16 +48,35 @@ export default function BookingsPage() {
   const [filter, setFilter] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const { data: result, isLoading, error, refetch } = useBookings({
     status: filter || undefined,
     page,
     limit,
   });
+  const deleteMutation = useDeleteBooking();
+  const user = useAuthStore((s) => s.user);
+  const showToast = useUiStore((s) => s.showToast);
+  const isOwner = user?.role === "OWNER";
 
   const bookings = result?.data ?? [];
   const meta = result?.meta;
 
   if (error) return <ErrorState message="Couldn't load your bookings." onRetry={refetch} />;
+
+  const handleDelete = () => {
+    if (!deleteTarget) return;
+    deleteMutation.mutate(deleteTarget.id, {
+      onSuccess: () => {
+        showToast({ type: "success", message: "Booking deleted." });
+        setDeleteTarget(null);
+      },
+      onError: () => {
+        showToast({ type: "error", message: "Failed to delete booking. It may have a paid or refunded payment." });
+        setDeleteTarget(null);
+      },
+    });
+  };
 
   return (
     <div>
@@ -158,7 +180,7 @@ export default function BookingsPage() {
                     {booking.service.name}
                   </p>
 
-                  {/* Amount + Payment status */}
+                  {/* Amount + Payment status + Delete */}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "var(--space-12)", paddingTop: "var(--space-12)", borderTop: "1px solid var(--color-border)" }}>
                     <span
                       style={{
@@ -171,9 +193,36 @@ export default function BookingsPage() {
                     >
                       {formatKES(booking.priceKes)}
                     </span>
-                    <Badge variant={paymentStatusToBadge(booking.paymentStatus).variant} ariaLabel={`Status: ${booking.paymentStatus}`}>
-                      {paymentStatusToBadge(booking.paymentStatus).label}
-                    </Badge>
+                    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-8)" }}>
+                      <Badge variant={paymentStatusToBadge(booking.paymentStatus).variant} ariaLabel={`Status: ${booking.paymentStatus}`}>
+                        {paymentStatusToBadge(booking.paymentStatus).label}
+                      </Badge>
+                      {isOwner && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteTarget({ id: booking.id, name: booking.customer.name });
+                          }}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            padding: 4,
+                            cursor: "pointer",
+                            color: "var(--color-text-tertiary)",
+                            borderRadius: "var(--radius-sm)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            transition: "color var(--duration-fast) var(--ease-out)",
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-error)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-text-tertiary)")}
+                          aria-label={`Delete booking for ${booking.customer.name}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </Card>
               ))}
@@ -195,6 +244,22 @@ export default function BookingsPage() {
           </>
         )}
       </div>
+
+      {/* Delete confirmation dialog */}
+      <Dialog
+        open={!!deleteTarget}
+        title="Delete this booking?"
+        description={
+          deleteTarget
+            ? `Permanently delete the booking for ${deleteTarget.name}? This cannot be undone.`
+            : ""
+        }
+        confirmLabel="Delete"
+        destructive
+        isConfirming={deleteMutation.isPending}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

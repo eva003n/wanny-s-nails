@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { emitSSE } from "@/lib/sseBus";
+import { emitSSE } from "@/lib/sse";
 import { validateOrThrow } from "@/lib/guards";
 import {
   BookingListSchema,
@@ -172,7 +172,8 @@ export function useApproveBooking() {
     },
     onSuccess: (updatedBooking) => {
       updateCaches(queryClient, updatedBooking);
-      emitSSE("booking.approved");
+
+      emitSSE("booking.approved"); // testing
     },
   });
 }
@@ -199,7 +200,8 @@ export function useCancelBooking() {
     },
     onSuccess: (updatedBooking) => {
       updateCaches(queryClient, updatedBooking);
-      emitSSE("booking.cancelled");
+      
+      emitSSE("booking.cancelled");// testing
     },
   });
 }
@@ -228,7 +230,8 @@ export function useRescheduleBooking() {
     },
     onSuccess: (updated) => {
       updateCaches(queryClient, updated);
-      emitSSE("booking.rescheduled");
+
+      emitSSE("booking.rescheduled");// testing
     },
   });
 }
@@ -265,7 +268,8 @@ export function useMarkPaymentManually() {
     onSuccess: (updated) => {
       updateCaches(queryClient, updated);
       queryClient.invalidateQueries({ queryKey: ["payments"] });
-      emitSSE("payment.completed");
+
+      emitSSE("payment.completed");// testing
     },
   });
 }
@@ -285,11 +289,31 @@ export function useSendPaymentRequest() {
         phoneNumber: phoneNumber.replace(/[^0-9]/g, ""),
       });
       // STK push returns { paymentId, checkoutRequestId, message }, not a booking
-      return data.data as { paymentId: string; checkoutRequestId: string | null; message: string };
+      return data.data as {
+        paymentId: string;
+        checkoutRequestId: string | null;
+        message: string;
+      };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: paymentKeys.all });
       queryClient.invalidateQueries({ queryKey: bookingKeys.all });
+    },
+  });
+}
+
+export function useDeleteBooking() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (bookingId: string) => {
+      await api.delete(`/bookings/${bookingId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: bookingKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+
+      emitSSE("booking.deleted");// testing
     },
   });
 }
@@ -328,6 +352,7 @@ export function useCreateBooking() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["customers"] });
       queryClient.setQueryData(bookingKeys.detail(created.id), created);
+      
       emitSSE("booking.created");
     },
   });
