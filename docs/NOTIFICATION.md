@@ -107,23 +107,6 @@ model PushSubscription {
 }
 ```
 
-### `notification_preferences`
-Admin preferences — clients don't have preferences (WhatsApp is always-on):
-
-```prisma
-model NotificationPreference {
-  id              String   @id @default(uuid())
-  adminUserId     String   @unique @map("admin_user_id")
-  webPush         Boolean  @default(true)
-  email           Boolean  @default(true)
-  quietHoursStart Int?     @map("quiet_hours_start") // 0-23, Africa/Nairobi hour
-  quietHoursEnd   Int?     @map("quiet_hours_end")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-
-  @@map("notification_preferences")
-}
-```
-
 ---
 
 ## 3. Event Sources → Notification Triggers
@@ -362,7 +345,7 @@ Outbound half of the same FSM that handles inbound conversation — architectura
 - **Rate limits & messaging tiers.** WhatsApp Business accounts have tiered 24h messaging limits (250/1K/10K/unlimited unique users) scaling with quality rating. Configure a Redis-backed sliding window rate limiter to match your current tier — don't hardcode an optimistic number.
 
 ```typescript
-// apps/workers/notification/src/lib/rateLimiter.ts
+// apps/packages/src/services/notifications.ts
 const RATE_LIMIT_WINDOW_MS = 1000;
 const RATE_LIMIT_MAX = 80; // stay under the 80/sec default tier limit
 
@@ -1466,78 +1449,8 @@ async function onBookingCancelled(bookingId: string) {
 Forgetting this is the classic bug: client cancels, reminder fires anyway, client is confused or annoyed. Any agent touching the cancellation/reschedule path must check this file for job-id cleanup as part of the change — not just the booking status update.
 
 ---
-## 11. Preference Management
 
-Clients have no notification preferences — WhatsApp is the only channel and is always on (they can block the business number in WhatsApp, but that's handled at delivery time, not here).
-
-Admins have preferences managed via the PWA settings screen:
-
-### `NotificationPreference` Model
-
-```prisma
-model NotificationPreference {
-  id              String   @id @default(uuid())
-  adminUserId     String   @unique @map("admin_user_id")
-  webPush         Boolean  @default(true)
-  email           Boolean  @default(true)
-  quietHoursStart Int?     @map("quiet_hours_start") // 0-23, Africa/Nairobi hour
-  quietHoursEnd   Int?     @map("quiet_hours_end")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-
-  @@map("notification_preferences")
-}
-```
-
-### Admin API Endpoints
-
-```typescript
-// GET /api/v1/notifications/notification-preferences
-router.get("/notification-preferences", requireAdminAuth, async (req, res) => {
-  const prefs = await prisma.notificationPreference.findUnique({
-    where: { adminUserId: req.admin.id },
-  });
-  res.json(prefs ?? { webPush: true, email: true, quietHoursStart: null, quietHoursEnd: null });
-});
-
-// PATCH /api/v1/notifications/notification-preferences
-router.patch("/notification-preferences", requireAdminAuth, async (req, res) => {
-  const { webPush, email, quietHoursStart, quietHoursEnd } = req.body;
-  const prefs = await prisma.notificationPreference.upsert({
-    where: { adminUserId: req.admin.id },
-    update: { webPush, email, quietHoursStart, quietHoursEnd },
-    create: { adminUserId: req.admin.id, webPush, email, quietHoursStart, quietHoursEnd },
-  });
-  res.json(prefs);
-});
-```
-
-### Quiet Hours Evaluation
-
-```typescript
-export function isQuietHours(prefs: NotificationPreference | null): boolean {
-  if (!prefs?.quietHoursStart || !prefs?.quietHoursEnd) return false;
-
-  // Always evaluate in Africa/Nairobi timezone
-  const now = new Date();
-  const nairobiHour = parseInt(
-    now.toLocaleString("en-KE", { timeZone: "Africa/Nairobi", hour: "numeric", hour12: false }),
-    10
-  );
-
-  if (prefs.quietHoursStart < prefs.quietHoursEnd) {
-    return nairobiHour >= prefs.quietHoursStart && nairobiHour < prefs.quietHoursEnd;
-  } else {
-    // Overnight range (wraps midnight)
-    return nairobiHour >= prefs.quietHoursStart || nairobiHour < prefs.quietHoursEnd;
-  }
-}
-```
-
-Quiet hours are checked at dispatch time for push notifications. If quiet hours are active, the notification is logged as `SKIPPED` with reason "quiet hours." The admin will see the information when they next open the PWA dashboard.
-
----
-
-## 12. Security
+## 11. Security
 
 - **Webhook signature verification is mandatory** on every inbound webhook (WhatsApp delivery status, any email provider bounce/complaint webhook). Reuse the HMAC verification pattern from the M-Pesa Daraja integration — never process a webhook body before verifying its signature.
 - **Secrets**: WhatsApp access token, VAPID private key, email provider API key all live in environment-specific secrets (not committed, not logged). Never log full payloads containing phone numbers or tokens — redact in structured logs.
@@ -1546,9 +1459,9 @@ Quiet hours are checked at dispatch time for push notifications. If quiet hours 
 
 ---
 
-## 13. Testing Strategy
+## 12. Testing Strategy
 
-- **Unit**: template rendering (missing vars throw), trigger config resolution (correct recipients for each event, `condition` evaluation), idempotency key generation, quiet hours evaluation.
+- **Unit**: template rendering (missing vars throw), trigger config resolution (correct recipients for each event, `condition` evaluation), idempotency key generation.
 - **Integration**: `NotificationService.dispatch()` against a test DB — verify row written before job enqueued; verify `upsert` behavior doesn't reset status on duplicate dispatch calls.
 - **Worker tests**: each sender (`whatsapp-sender`, `push-sender`, `email-sender`) mocked against the provider SDK — verify status transitions on success, verify `410`/`404` marks subscription inactive, verify thrown errors trigger BullMQ retry (not swallowed).
 - **Webhook tests**: signature verification rejects tampered/unsigned payloads; valid payloads correctly update `notifications.status` via `providerMessageId` correlation.
@@ -1557,14 +1470,14 @@ Quiet hours are checked at dispatch time for push notifications. If quiet hours 
 
 ---
 
-## 14. Rules for Agents Working in This Domain
+## 13. Rules for Agents Working in This Domain
 
 1. **Never hardcode a message string.** Register it in the template registry (§4) first.
 2. **Never add a trigger row without registering its template(s).** Both halves ship together.
 3. **Never call a provider SDK (WhatsApp/webpush/email) directly from `apps/api`.** All sends go through `notificationQueue` → worker → sender. The API only dispatches and writes rows.
 4. **Never skip the DB-row-before-enqueue ordering** in §5. If you're refactoring `dispatch()`, preserve this.
 5. **Never touch booking cancellation/reschedule logic without checking for orphaned reminder jobs** (§10).
-6. **Never process a webhook before verifying its signature** (§12).
+6. **Never process a webhook before verifying its signature** (§11).
 7. **If adding a new WhatsApp template that requires approval**, flag it explicitly as a deploy blocker — don't assume same-day availability.
 8. **If a channel send can fail in a way that matters to the business** (booking confirmation, payment receipt), make sure there's a fallback or DLQ visibility path — don't let it fail silently into `dead_letter` with nothing surfaced.
 9. **When in doubt about whether something is a new event type or a variant of an existing one**, check the trigger table (§3) first — extend it before inventing a new `NotificationEventType`.
@@ -1572,7 +1485,7 @@ Quiet hours are checked at dispatch time for push notifications. If quiet hours 
 
 ---
 
-## 15. Observability
+## 14. Observability
 
 ### Metrics to Alert On
 
@@ -1614,7 +1527,7 @@ router.get("/", requireAdminAuth, async (req, res) => {
 
 ---
 
-## 16. Failure Modes
+## 15. Failure Modes
 
 | Failure | Impact | Recovery |
 |---|---|---|
@@ -1628,7 +1541,7 @@ router.get("/", requireAdminAuth, async (req, res) => {
 
 ---
 
-## 17. Environment Variables
+## 16. Environment Variables
 
 ```bash
 # VAPID (Web Push) — generate once with npx web-push generate-vapid-keys
@@ -1644,8 +1557,6 @@ WHATSAPP_API_VERSION=v19.0
 # Operational tuning
 WEB_PUSH_TTL_SECONDS=3600           # hold duration at push service for offline browsers
 WHATSAPP_RATE_LIMIT_PER_SECOND=80   # stay under tier limit; default Meta tier = 80/s
-NOTIFICATION_QUIET_HOURS_DEFAULT_START=22
-NOTIFICATION_QUIET_HOURS_DEFAULT_END=7
 
 # Worker concurrency (tune per server memory)
 NOTIFICATION_WORKER_CONCURRENCY=10
@@ -1653,7 +1564,7 @@ NOTIFICATION_WORKER_CONCURRENCY=10
 
 ---
 
-## 18. WhatsApp Template Approval Checklist
+## 17. WhatsApp Template Approval Checklist
 
 Before go-live, the following templates must be submitted to Meta and approved. Template names must match exactly what is used in the template registry.
 
@@ -1682,16 +1593,15 @@ Use the **UTILITY** category for all transactional templates (booking/payment-re
 
 ---
 
-## 19. Rollout Order
+## 18. Rollout Order
 
-1. Migrate `notifications`, `notification_subscriptions`, `push_subscriptions`, `notification_preferences` tables.
+1. Migrate `notifications`, `notification_subscriptions`, `push_subscriptions` tables.
 2. Build `NotificationService.dispatch()` core + trigger config + template registry skeleton.
 3. Wire `BOOKING_CONFIRMED` → WhatsApp confirmation (reuses existing WhatsApp client from FSM work).
 4. Add admin push: VAPID setup, service worker, subscription endpoint, `new_booking_alert`.
 5. Reminder scheduling + cancellation-aware job removal.
 6. WhatsApp delivery-status webhook handler (with signature verification).
 7. Email sender + critical-event fallback path.
-8. Admin notification preferences endpoint + PWA settings UI.
-9. Reconciliation cron + DLQ dashboard surfacing.
-10. Rate limiting tuned to current WhatsApp messaging tier.
-11. Observability: structured logs + metrics wired into existing stack.
+8. Reconciliation cron + DLQ dashboard surfacing.
+9. Rate limiting tuned to current WhatsApp messaging tier.
+10. Observability: structured logs + metrics wired into existing stack.
