@@ -1,12 +1,11 @@
 import type { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
 import { _config } from "../../shared/lib/config.js";
-import { logger } from "../../shared/lib/index.js";
+import { logger, subscriber } from "../../shared/lib/index.js";
 
 
 const log = logger.child({ module: "events" });
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";
-import { UnauthorizedError } from "../../shared/types/errors.js";
+import type { PubSubEvent } from "@wannys-nails/packages";
 
 type SSEClient = {
   id: string;
@@ -23,27 +22,16 @@ export function publishEvent(event: string, data: Record<string, unknown>) {
   }
 }
 
+subscriber.subscribe("events")
+
+subscriber.on("message", (_channel, message) => {
+  const payload: PubSubEvent = JSON.parse(message)
+  publishEvent(payload.event, payload.data)
+
+})
+
 export const connectSse = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-  const token = req.query.token as string;
-
-  if (!token) {
-    res
-      .status(401)
-      .json(new UnauthorizedError());
-    return;
-  }
-
-  let userId: string;
-  try {
-    const decoded = jwt.verify(token, _config.JWT_SECRET) as { userId: string };
-    userId = decoded.userId;
-  } catch {
-    res
-      .status(401)
-      .json(new UnauthorizedError());
-    return;
-  }
-
+// client will retry with default 3s
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
@@ -51,7 +39,7 @@ export const connectSse = asyncHandler(async (req: Request, res: Response, _next
     "X-Accel-Buffering": "no", // if the app is behind a reverse proxy this tells the proxy not to buffer the response to enhance the real time effect no delays
   });
 
-  res.write(`event: connected\ndata: {"userId":"${userId}"}\n\n`);
+  res.write(`event: connected\ndata: {"userId":"${req.user?.id}"}\n\n`);
 
   const clientId = String(++clientIdCounter);
   const client: SSEClient = { id: clientId, res };
@@ -72,5 +60,5 @@ export const connectSse = asyncHandler(async (req: Request, res: Response, _next
     log.debug({ event: "sse.client.disconnected", clientId }, "SSE client disconnected");
   });
 
-  log.debug({ event: "sse.client.connected", clientId, userId }, "SSE client connected");
+  log.debug({ event: "sse.client.connected", clientId, userId: req.user?.id }, "SSE client connected");
 });

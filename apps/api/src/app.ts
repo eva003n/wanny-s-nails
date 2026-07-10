@@ -67,18 +67,18 @@ app.use(globalRateLimit);
 // HTTP request logging
 app.use(logMiddleware);
 
+
 // Bull mq queues UI
 app.use("/api/v1/admin/queues", groupedBoard.getRouter())
 
 // Health check endpoint (public, no auth)
-app.use("/health", healthRoutes);
+// app.use("/health", healthRoutes);
 app.use("/api/v1/health", healthRoutes);
 
 // Webhook endpoints (public, no JWT, use HMAC/IP validation)
 app.use("/api/v1/webhooks", webhooksRoutes);
 
-// SSE events endpoint (public with query param token)
-app.use("/api/v1/events", eventsRoutes);
+
 
 // API routes (authenticated)
 app.use("/api/v1/auth", authRoutes);
@@ -91,6 +91,7 @@ app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/notifications", notificationsRoutes);
 app.use("/api/v1/push-subscriptions", pushSubscriptionsRoutes);
 app.use("/api/v1/business-hours", businessHoursRoutes);
+app.use("/api/v1/events", eventsRoutes);
 
 app.use(notFound);
 // Global error handler (must be last)
