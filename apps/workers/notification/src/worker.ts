@@ -13,9 +13,7 @@ import {
   Queue_Names,
   type NotificationJobData,
   JOB_NAMES,
-  type InboundMessage,
   type OutboundMessage,
-  type WhatsAppMessagePayload,
 } from "@wannys-nails/packages";
 import { whatsappProcessor } from "./processors/whatsapp.processor.js";
 import {
@@ -25,7 +23,7 @@ import {
 import { pushSender } from "./processors/push-sender.js";
 import type { Job } from "bullmq";
 import { log as logger} from "./lib/logger.js";
-import { notificationWorkerRedisConn, whatsAppWorkerRedisConn } from "./lib/redis.js";
+import { notificationWorkerRedisConn } from "./lib/redis.js";
 
 const log = logger.child({ module: "worker:notifications" });
 
@@ -39,29 +37,24 @@ async function handleNotificationJob(job: Job<NotificationJobData>): Promise<voi
   const jobName = job.name;
 
   switch (jobName) {
-    // — Outbound WhatsApp messages (enqueued by notification triggers) —
-    case JOB_NAMES.WHATSAPP: {
-    return  await whatsappProcessor(job as unknown as Job<WhatsAppMessagePayload
-        >);
-    
-    }
-
     // — handles whatsapp notifications (NotificationService.dispatch) —
     case JOB_NAMES.WHATSAPP: {
-      const whatsappPayload: WhatsAppMessagePayload & { to: string } = {
-        type: "text",
+      const outboundMsg: OutboundMessage = {
+        wamId: job.id || "",
         to: job.data.endpoint.address,
+        type: "text",
         text: buildWhatsAppText(job.data),
       };
-    return  await whatsappProcessor(job as unknown as Job<WhatsAppMessagePayload>);
+      return await whatsappProcessor({ data: outboundMsg } as Job<OutboundMessage>);
     }
+    
     case JOB_NAMES.EMAIL: {
       const emailPayload: EmailJobData = {
         to: job.data.endpoint.address,
         subject: job.data.template,
         html: JSON.stringify(job.data.payload),
       };
-      return await emailProcessor(job as unknown as Job<EmailJobData>);
+      return await emailProcessor({ data: emailPayload } as Job<EmailJobData>);
       
     }
     case JOB_NAMES.PUSH_NOTIFICATION: {
@@ -78,25 +71,10 @@ async function handleNotificationJob(job: Job<NotificationJobData>): Promise<voi
 
 
 
-// Finite state machine workers
-const whatAppWorker = createWorker<InboundMessage | OutboundMessage>(
-  {
-    queueName: Queue_Names.NOTIFICATIONS,
-    workerName: "fsm_worker",
-    concurrency: 1,
-    limiter: {
-      // base on whatsapp tier
-    },
-  },
-  async (job: Job<InboundMessage | OutboundMessage>) => {
-    await whatsappProcessor(job.data as any);
-  },
-  whatsAppWorkerRedisConn.options,
-  log,
-);
+
 // ─── Single Notification Worker ──────────────────────────────
-// Handles all job types on the notifications queue (outbound WhatsApp,
-// inbound FSM, email, push) to avoid worker duplication and racing.
+// Handles all notification job types on the notifications queue (WhatsApp,
+// email, push) to avoid worker duplication and racing.
 
 const notificationWorker = createWorker<NotificationJobData>(
   {
@@ -116,7 +94,7 @@ const notificationWorker = createWorker<NotificationJobData>(
 
 // ─── Graceful Shutdown ────────────────────────────────────────
 
-registerGracefulShutdown([notificationWorker, whatAppWorker], log);
+registerGracefulShutdown([notificationWorker], log);
 
 log.info(
   {

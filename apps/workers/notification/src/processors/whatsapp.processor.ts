@@ -4,7 +4,6 @@ import { log as logger, whatsappHttpClient } from "../lib/index.js";
 import {
   HttpClientError,
   OutboundMessage,
-  WhatsAppMessagePayload,
   WhatsAppTemplatePayload,
 } from "@wannys-nails/packages";
 import { _config as config } from "../lib/config.js";
@@ -250,7 +249,7 @@ export async function whatsappProcessor(
         return await sendInteractiveButtonMessage(job.data);
 
       case "template":
-        return await sendTemplate(job.data as WhatsAppTemplatePayload);
+        return await sendTemplate(job.data as any);
 
       default:
         log.warn(
