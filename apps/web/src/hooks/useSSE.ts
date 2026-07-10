@@ -1,7 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useUiStore } from "@/store/ui.store";
-import { subscribeSSE } from "@/lib/sseBus";
+import { subscribeSSE, disconnectSSE, connectSSE,} from "@/lib/sse";
 import { bookingKeys } from "@/pages/bookings/hooks/useBookings";
 
 // Mirrors the production useSSE contract from frontend.md: subscribes to
@@ -11,13 +11,10 @@ import { bookingKeys } from "@/pages/bookings/hooks/useBookings";
 export function useSSE() {
   const queryClient = useQueryClient();
   const setSseBannerVisible = useUiStore((s) => s.setSseBannerVisible);
-  const bannerTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
-  );
+ 
 
   useEffect(() => {
-    setSseBannerVisible(false);
-    clearTimeout(bannerTimer.current);
+    connectSSE(setSseBannerVisible)
 
     const unsubs = [
       subscribeSSE("booking.created", () => {
@@ -39,9 +36,11 @@ export function useSSE() {
       }),
     ];
 
+    // clean up
     return () => {
+      // remove all listeners free memory
       unsubs.forEach((u) => u());
-      clearTimeout(bannerTimer.current);
+      disconnectSSE()
     };
   }, [queryClient, setSseBannerVisible]);
 }
