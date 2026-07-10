@@ -6,6 +6,7 @@
 
 export type SSEEventName =
   | "booking.created"
+  | "booking.deleted"
   | "booking.approved"
   | "booking.cancelled"
   | "payment.completed"
@@ -16,11 +17,15 @@ type Listener = () => void;
 const listeners = new Map<SSEEventName, Set<Listener>>();
 
 export function subscribeSSE(event: SSEEventName, listener: Listener): () => void {
+  // new event create storage for listeners 
   if (!listeners.has(event)) listeners.set(event, new Set());
+  // existing event add listener to the listener collection
   listeners.get(event)!.add(listener);
+  // clean up function for when the component unmounts(remoce old listeners)
   return () => listeners.get(event)?.delete(listener);
 }
 
+// trigger all listeners for a particular event(simulates server sending an event)
 export function emitSSE(event: SSEEventName) {
   listeners.get(event)?.forEach((l) => l());
 }
