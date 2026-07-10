@@ -39,7 +39,7 @@ export const connectSse = asyncHandler(async (req: Request, res: Response, _next
     "X-Accel-Buffering": "no", // if the app is behind a reverse proxy this tells the proxy not to buffer the response to enhance the real time effect no delays
   });
 
-  res.write(`event: connected\ndata: {"userId":"${req.user?.id}"}\n\n`);
+  res.write(`event: connected\ndata: {"userId":"${req.user?.userId}"}\n\n`);
 
   const clientId = String(++clientIdCounter);
   const client: SSEClient = { id: clientId, res };
@@ -60,5 +60,5 @@ export const connectSse = asyncHandler(async (req: Request, res: Response, _next
     log.debug({ event: "sse.client.disconnected", clientId }, "SSE client disconnected");
   });
 
-  log.debug({ event: "sse.client.connected", clientId, userId: req.user?.id }, "SSE client connected");
+  log.debug({ event: "sse.client.connected", clientId, userId: req.user?.userId }, "SSE client connected");
 });
