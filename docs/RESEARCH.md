@@ -12,6 +12,8 @@
 - https://solyarisoftware.medium.com/dialoghi-come-macchine-a-stati-41bb748fd5b0
 - https://www.zoho.com/fsm/whatsapp.html
 
+## Chatbots
+-[Whatsapp chatbot by infobip](https://www.infobip.com/blog/whatsapp-chatbot-quick-guide)
 
 ## LLM providers
 Here's every legitimate free LLM option with no self-hosting as of June 2026.
