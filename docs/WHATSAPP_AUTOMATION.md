@@ -16,6 +16,64 @@ The WhatsApp chatbot uses a **deterministic FSM architecture** that handles stru
 - Idempotent message processing via `wamid` deduplication
 
 ---
+## Customer journey
+### Identify every customer goal
+This become the top level intents. This is the conversation entrypoint
+```
+Customer
+
+├── Book an appointment
+├── Reschedule appointment
+├── Cancel appointment
+├── View upcoming appointment
+├── Browse services
+├── Get pricing
+├── Ask business questions(location, business hours, contacts)
+├── Ask open ended questions
+├── Talk to a human agent
+├── Pay for booking
+└── Leave feedback
+```
+#### Booking flow
+```
+Customer
+
+↓
+
+Wants appointment
+
+↓
+
+Select service or services
+
+↓
+
+Select preferred day
+
+↓
+
+Select preferred time period
+
+↓
+
+Recommend slots
+
+↓
+
+Choose slot
+
+↓
+
+Confirm details
+
+↓
+
+Booking confirmed
+
+↓
+
+Reminder scheduled
+```
 
 ## WhatsApp Cloud API Integration Flow
 
