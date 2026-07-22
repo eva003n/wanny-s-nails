@@ -20,9 +20,11 @@ const log = logger.child({ module: "bookings.controller" });
 
 export const createBookingSchema = z.object({
   customerId: z.uuid(),
-  serviceId: z.uuid(),
+  // serviceId: z.uuid().optional(), // single service for backward compat
+  serviceIds: z.array(z.string().uuid()).min(1), // multi-service
   appointmentAt: z.string().datetime(),
   notes: z.string().max(500).optional(),
+  stylist: z.string()
 });
 
 export const cancelSchema = z.object({
@@ -63,17 +65,21 @@ export const listBookingsQuerySchema = z.object({
 // --- Helpers ---
 
 /**
- * Build a NotificationContext from a loaded booking with customer and service included.
+ * Build a NotificationContext from a loaded booking with customer and services included.
  */
 function buildNotificationContext(booking: {
   id: string;
   customerId: string;
   customer: { name: string; phone: string; email?: string | null };
-  service: { name: string };
+  services?: Array<{ service: { name: string } }>;
+  service?: { name: string }; // fallback for backward compat
   appointmentAt: Date;
   priceKes?: number;
   reference?: string;
 }): NotificationContext {
+  // Extract service name from the first booking service, or fallback
+  const firstService = booking.services?.[0]?.service;
+  const serviceName = firstService?.name ?? booking.service?.name ?? "Nail Service";
   return {
     bookingId: booking.id,
     customerId: booking.customerId,
@@ -82,7 +88,7 @@ function buildNotificationContext(booking: {
     ...(booking.customer.email
       ? { customerEmail: booking.customer.email }
       : {}),
-    serviceName: booking.service.name,
+    serviceName,
     appointmentAt: booking.appointmentAt.toISOString(),
     ...(booking.priceKes != null ? { amountKes: booking.priceKes } : {}),
     adminUserIds: [], // Resolved by the endpoint resolution in dispatch
@@ -132,7 +138,16 @@ export const getBookingById = asyncHandler(
 export const createBooking = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
     const input = req.validated!.body as z.infer<typeof createBookingSchema>;
-    const booking = await bookingsService.create(input);
+    // Support both single serviceId and serviceIds array
+    const serviceIds = input.serviceIds;
+    const createInput = {
+      customerId: input.customerId,
+      serviceIds,
+      appointmentAt: input.appointmentAt,
+      notes: input.notes,
+      stylist: input.stylist
+    };
+    const booking = await bookingsService.create(createInput);
     created(res, booking);
   },
 );

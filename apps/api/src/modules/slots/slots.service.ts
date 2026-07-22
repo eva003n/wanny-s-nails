@@ -7,10 +7,10 @@ import { BusinessClosedError } from "../../shared/types/errors.js";
 export const slotsService = {
   async getAvailableSlots(
     date: string,
-    serviceId: string,
+    serviceIds: string,
   ) {
     try {
-      return await getAvailableSlots(prisma, date, serviceId);
+      return await getAvailableSlots(prisma, date, serviceIds);
     } catch (error) {
       if (error instanceof Error && error.message === "The salon is closed on the requested date") {
         throw new BusinessClosedError();
