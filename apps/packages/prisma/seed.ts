@@ -38,8 +38,8 @@ const services = [
   // --- MANICURE ---
   {
     name: "Plain Full Manicure",
-    description: "Basic manicure service including nail shaping, cuticle care, and polish removal.",
-    durationMinutes: 60,
+    description: "Basic manicure service ",
+    durationMinutes: 120,
     priceKes: 1000,
     category: "MANICURE" as const,
     sortOrder: 1,
@@ -47,7 +47,7 @@ const services = [
   {
     name: "Gel Polish Application",
     description: "Application of gel polish on natural nails.",
-    durationMinutes: 60,
+    durationMinutes: 120,
     priceKes: 2000,
     category: "MANICURE" as const,
     sortOrder: 2,
@@ -55,7 +55,7 @@ const services = [
   {
     name: "Gel + Full Manicure",
     description: "Full manicure finished with gel polish.",
-    durationMinutes: 90,
+    durationMinutes: 120,
     priceKes: 2500,
     category: "MANICURE" as const,
     sortOrder: 3,
@@ -65,7 +65,7 @@ const services = [
   {
     name: "Overlay + Gel",
     description: "Overlay enhancement finished with gel polish.",
-    durationMinutes: 90,
+    durationMinutes: 120,
     priceKes: 3500,
     category: "ENHANCEMENTS" as const,
     sortOrder: 4,
@@ -73,7 +73,7 @@ const services = [
   {
     name: "Overlay Refill",
     description: "Refill and maintenance for existing overlays.",
-    durationMinutes: 90,
+    durationMinutes: 120,
     priceKes: 3000,
     category: "ENHANCEMENTS" as const,
     sortOrder: 5,
@@ -81,7 +81,7 @@ const services = [
   {
     name: "Overlay Ombre",
     description: "Overlay enhancement with an ombre finish.",
-    durationMinutes: 90,
+    durationMinutes: 120,
     priceKes: 4000,
     category: "ENHANCEMENTS" as const,
     sortOrder: 6,
@@ -89,7 +89,7 @@ const services = [
   {
     name: "Overlay Ombre Refill",
     description: "Refill for existing ombre overlays.",
-    durationMinutes: 90,
+    durationMinutes: 120,
     priceKes: 3500,
     category: "ENHANCEMENTS" as const,
     sortOrder: 7,
@@ -99,7 +99,7 @@ const services = [
   {
     name: "Plain Pedicure",
     description: "Basic pedicure service.",
-    durationMinutes: 60,
+    durationMinutes: 120,
     priceKes: 1000,
     category: "PEDICURE" as const,
     sortOrder: 8,
@@ -107,7 +107,7 @@ const services = [
   {
     name: "Pedicure + Polish",
     description: "Pedicure finished with regular nail polish.",
-    durationMinutes: 90,
+    durationMinutes: 120,
     priceKes: 1500,
     category: "PEDICURE" as const,
     sortOrder: 9,
@@ -115,7 +115,7 @@ const services = [
   {
     name: "Pedicure + Gel",
     description: "Pedicure finished with gel polish.",
-    durationMinutes: 90,
+    durationMinutes: 120,
     priceKes: 2500,
     category: "PEDICURE" as const,
     sortOrder: 10,
@@ -125,7 +125,7 @@ const services = [
   {
     name: "Acrylic Soak Off",
     description: "Safe removal of acrylic nail enhancements.",
-    durationMinutes: 60,
+    durationMinutes: 120,
     priceKes: 500,
     category: "REMOVAL" as const,
     sortOrder: 11,
