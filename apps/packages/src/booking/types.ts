@@ -2,28 +2,31 @@
  * Shared DTOs and value objects for the booking module.
  */
 
+type ActorType = "USER" | "CUSTOMER";
+
 export interface CreateBookingInput {
   customerId: string;
   serviceIds: string[]; // multiple services
   appointmentAt: string; // ISO 8601
-  actorType: "USER" | "CUSTOMER";
+  actorType: ActorType;
   notes?: string | null;
-  stylist?: string;
+  stylist?: string | undefined;
 }
 
 export interface BookingResult {
   id: string;
   reference: string;
   customerId: string;
-  appointmentAt: Date;
+  appointmentAt: string;
   durationMinutes: number;
   priceKes: number;
   status: string;
   paymentStatus: string;
   notes: string | null;
   customer: { id: string; name: string; phone: string };
-  services: Array<ServiceData>;
+  services: Array<{ service: { id: string; name: string } }>;
   payment: { id: string; amountKes: number; status: string } | null;
+  createdAt: string;
 }
 
 export interface ServiceData {
@@ -57,9 +60,17 @@ export interface BookingCandidate {
 export interface StatusHistoryEntry {
   fromStatus: string | null;
   toStatus: string;
-  actorType: string;
+  actorType: ActorType;
   actorId?: string | null;
   reason?: string | null;
+}
+
+export interface RescheduleBookingInput {
+  id: string;
+  newAppointmentAt: string;
+  rescheduledById: string;
+  actorType: ActorType;
+  reason?: string;
 }
 
 export const SLOT_GRANULARITY_MINUTES = 15;
