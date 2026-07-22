@@ -9,8 +9,8 @@
  * 🟢 You can import this file directly.
  */
 import type * as runtime from "@prisma/client/runtime/client"
-import type * as $Enums from "../enums.js"
-import type * as Prisma from "../internal/prismaNamespace.js"
+import type * as $Enums from "../enums.ts"
+import type * as Prisma from "../internal/prismaNamespace.ts"
 
 /**
  * Model ConversationSession
@@ -26,60 +26,68 @@ export type AggregateConversationSession = {
 
 export type ConversationSessionMinAggregateOutputType = {
   id: string | null
-  customerId: string | null
-  state: string | null
+  conversationId: string | null
+  currentState: string | null
   expiresAt: Date | null
   createdAt: Date | null
-  updatedAt: Date | null
+  lastActivityAt: Date | null
+  bookingId: string | null
 }
 
 export type ConversationSessionMaxAggregateOutputType = {
   id: string | null
-  customerId: string | null
-  state: string | null
+  conversationId: string | null
+  currentState: string | null
   expiresAt: Date | null
   createdAt: Date | null
-  updatedAt: Date | null
+  lastActivityAt: Date | null
+  bookingId: string | null
 }
 
 export type ConversationSessionCountAggregateOutputType = {
   id: number
-  customerId: number
-  state: number
+  conversationId: number
+  currentState: number
   context: number
+  metadata: number
   expiresAt: number
   createdAt: number
-  updatedAt: number
+  lastActivityAt: number
+  bookingId: number
   _all: number
 }
 
 
 export type ConversationSessionMinAggregateInputType = {
   id?: true
-  customerId?: true
-  state?: true
+  conversationId?: true
+  currentState?: true
   expiresAt?: true
   createdAt?: true
-  updatedAt?: true
+  lastActivityAt?: true
+  bookingId?: true
 }
 
 export type ConversationSessionMaxAggregateInputType = {
   id?: true
-  customerId?: true
-  state?: true
+  conversationId?: true
+  currentState?: true
   expiresAt?: true
   createdAt?: true
-  updatedAt?: true
+  lastActivityAt?: true
+  bookingId?: true
 }
 
 export type ConversationSessionCountAggregateInputType = {
   id?: true
-  customerId?: true
-  state?: true
+  conversationId?: true
+  currentState?: true
   context?: true
+  metadata?: true
   expiresAt?: true
   createdAt?: true
-  updatedAt?: true
+  lastActivityAt?: true
+  bookingId?: true
   _all?: true
 }
 
@@ -157,12 +165,14 @@ export type ConversationSessionGroupByArgs<ExtArgs extends runtime.Types.Extensi
 
 export type ConversationSessionGroupByOutputType = {
   id: string
-  customerId: string
-  state: string
+  conversationId: string
+  currentState: string
   context: runtime.JsonValue
+  metadata: runtime.JsonValue
   expiresAt: Date
   createdAt: Date
-  updatedAt: Date
+  lastActivityAt: Date
+  bookingId: string | null
   _count: ConversationSessionCountAggregateOutputType | null
   _min: ConversationSessionMinAggregateOutputType | null
   _max: ConversationSessionMaxAggregateOutputType | null
@@ -188,48 +198,59 @@ export type ConversationSessionWhereInput = {
   OR?: Prisma.ConversationSessionWhereInput[]
   NOT?: Prisma.ConversationSessionWhereInput | Prisma.ConversationSessionWhereInput[]
   id?: Prisma.StringFilter<"ConversationSession"> | string
-  customerId?: Prisma.StringFilter<"ConversationSession"> | string
-  state?: Prisma.StringFilter<"ConversationSession"> | string
+  conversationId?: Prisma.StringFilter<"ConversationSession"> | string
+  currentState?: Prisma.StringFilter<"ConversationSession"> | string
   context?: Prisma.JsonFilter<"ConversationSession">
+  metadata?: Prisma.JsonFilter<"ConversationSession">
   expiresAt?: Prisma.DateTimeFilter<"ConversationSession"> | Date | string
   createdAt?: Prisma.DateTimeFilter<"ConversationSession"> | Date | string
-  updatedAt?: Prisma.DateTimeFilter<"ConversationSession"> | Date | string
-  customer?: Prisma.XOR<Prisma.CustomerScalarRelationFilter, Prisma.CustomerWhereInput>
+  lastActivityAt?: Prisma.DateTimeFilter<"ConversationSession"> | Date | string
+  bookingId?: Prisma.StringNullableFilter<"ConversationSession"> | string | null
+  conversation?: Prisma.XOR<Prisma.ConversationScalarRelationFilter, Prisma.ConversationWhereInput>
+  messages?: Prisma.MessageListRelationFilter
 }
 
 export type ConversationSessionOrderByWithRelationInput = {
   id?: Prisma.SortOrder
-  customerId?: Prisma.SortOrder
-  state?: Prisma.SortOrder
+  conversationId?: Prisma.SortOrder
+  currentState?: Prisma.SortOrder
   context?: Prisma.SortOrder
+  metadata?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
-  updatedAt?: Prisma.SortOrder
-  customer?: Prisma.CustomerOrderByWithRelationInput
+  lastActivityAt?: Prisma.SortOrder
+  bookingId?: Prisma.SortOrderInput | Prisma.SortOrder
+  conversation?: Prisma.ConversationOrderByWithRelationInput
+  messages?: Prisma.MessageOrderByRelationAggregateInput
 }
 
 export type ConversationSessionWhereUniqueInput = Prisma.AtLeast<{
   id?: string
-  customerId?: string
+  conversationId?: string
   AND?: Prisma.ConversationSessionWhereInput | Prisma.ConversationSessionWhereInput[]
   OR?: Prisma.ConversationSessionWhereInput[]
   NOT?: Prisma.ConversationSessionWhereInput | Prisma.ConversationSessionWhereInput[]
-  state?: Prisma.StringFilter<"ConversationSession"> | string
+  currentState?: Prisma.StringFilter<"ConversationSession"> | string
   context?: Prisma.JsonFilter<"ConversationSession">
+  metadata?: Prisma.JsonFilter<"ConversationSession">
   expiresAt?: Prisma.DateTimeFilter<"ConversationSession"> | Date | string
   createdAt?: Prisma.DateTimeFilter<"ConversationSession"> | Date | string
-  updatedAt?: Prisma.DateTimeFilter<"ConversationSession"> | Date | string
-  customer?: Prisma.XOR<Prisma.CustomerScalarRelationFilter, Prisma.CustomerWhereInput>
-}, "id" | "customerId">
+  lastActivityAt?: Prisma.DateTimeFilter<"ConversationSession"> | Date | string
+  bookingId?: Prisma.StringNullableFilter<"ConversationSession"> | string | null
+  conversation?: Prisma.XOR<Prisma.ConversationScalarRelationFilter, Prisma.ConversationWhereInput>
+  messages?: Prisma.MessageListRelationFilter
+}, "id" | "conversationId">
 
 export type ConversationSessionOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
-  customerId?: Prisma.SortOrder
-  state?: Prisma.SortOrder
+  conversationId?: Prisma.SortOrder
+  currentState?: Prisma.SortOrder
   context?: Prisma.SortOrder
+  metadata?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
-  updatedAt?: Prisma.SortOrder
+  lastActivityAt?: Prisma.SortOrder
+  bookingId?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.ConversationSessionCountOrderByAggregateInput
   _max?: Prisma.ConversationSessionMaxOrderByAggregateInput
   _min?: Prisma.ConversationSessionMinOrderByAggregateInput
@@ -240,81 +261,143 @@ export type ConversationSessionScalarWhereWithAggregatesInput = {
   OR?: Prisma.ConversationSessionScalarWhereWithAggregatesInput[]
   NOT?: Prisma.ConversationSessionScalarWhereWithAggregatesInput | Prisma.ConversationSessionScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"ConversationSession"> | string
-  customerId?: Prisma.StringWithAggregatesFilter<"ConversationSession"> | string
-  state?: Prisma.StringWithAggregatesFilter<"ConversationSession"> | string
+  conversationId?: Prisma.StringWithAggregatesFilter<"ConversationSession"> | string
+  currentState?: Prisma.StringWithAggregatesFilter<"ConversationSession"> | string
   context?: Prisma.JsonWithAggregatesFilter<"ConversationSession">
+  metadata?: Prisma.JsonWithAggregatesFilter<"ConversationSession">
   expiresAt?: Prisma.DateTimeWithAggregatesFilter<"ConversationSession"> | Date | string
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"ConversationSession"> | Date | string
-  updatedAt?: Prisma.DateTimeWithAggregatesFilter<"ConversationSession"> | Date | string
+  lastActivityAt?: Prisma.DateTimeWithAggregatesFilter<"ConversationSession"> | Date | string
+  bookingId?: Prisma.StringNullableWithAggregatesFilter<"ConversationSession"> | string | null
 }
 
 export type ConversationSessionCreateInput = {
   id?: string
-  state: string
+  currentState: string
   context?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  metadata?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   expiresAt: Date | string
   createdAt?: Date | string
-  updatedAt?: Date | string
-  customer: Prisma.CustomerCreateNestedOneWithoutConversationSessionInput
+  lastActivityAt?: Date | string
+  bookingId?: string | null
+  conversation: Prisma.ConversationCreateNestedOneWithoutConversationSessionsInput
+  messages?: Prisma.MessageCreateNestedManyWithoutConversationSessionInput
 }
 
 export type ConversationSessionUncheckedCreateInput = {
   id?: string
-  customerId: string
-  state: string
+  conversationId: string
+  currentState: string
   context?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  metadata?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   expiresAt: Date | string
   createdAt?: Date | string
-  updatedAt?: Date | string
+  lastActivityAt?: Date | string
+  bookingId?: string | null
+  messages?: Prisma.MessageUncheckedCreateNestedManyWithoutConversationSessionInput
 }
 
 export type ConversationSessionUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  state?: Prisma.StringFieldUpdateOperationsInput | string
+  currentState?: Prisma.StringFieldUpdateOperationsInput | string
   context?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  metadata?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  customer?: Prisma.CustomerUpdateOneRequiredWithoutConversationSessionNestedInput
+  lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  bookingId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  conversation?: Prisma.ConversationUpdateOneRequiredWithoutConversationSessionsNestedInput
+  messages?: Prisma.MessageUpdateManyWithoutConversationSessionNestedInput
 }
 
 export type ConversationSessionUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  customerId?: Prisma.StringFieldUpdateOperationsInput | string
-  state?: Prisma.StringFieldUpdateOperationsInput | string
+  conversationId?: Prisma.StringFieldUpdateOperationsInput | string
+  currentState?: Prisma.StringFieldUpdateOperationsInput | string
   context?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  metadata?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  bookingId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  messages?: Prisma.MessageUncheckedUpdateManyWithoutConversationSessionNestedInput
 }
 
 export type ConversationSessionCreateManyInput = {
   id?: string
-  customerId: string
-  state: string
+  conversationId: string
+  currentState: string
   context?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  metadata?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   expiresAt: Date | string
   createdAt?: Date | string
-  updatedAt?: Date | string
+  lastActivityAt?: Date | string
+  bookingId?: string | null
 }
 
 export type ConversationSessionUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  state?: Prisma.StringFieldUpdateOperationsInput | string
+  currentState?: Prisma.StringFieldUpdateOperationsInput | string
   context?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  metadata?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  bookingId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type ConversationSessionUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  customerId?: Prisma.StringFieldUpdateOperationsInput | string
-  state?: Prisma.StringFieldUpdateOperationsInput | string
+  conversationId?: Prisma.StringFieldUpdateOperationsInput | string
+  currentState?: Prisma.StringFieldUpdateOperationsInput | string
   context?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  metadata?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  bookingId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type ConversationSessionListRelationFilter = {
+  every?: Prisma.ConversationSessionWhereInput
+  some?: Prisma.ConversationSessionWhereInput
+  none?: Prisma.ConversationSessionWhereInput
+}
+
+export type ConversationSessionOrderByRelationAggregateInput = {
+  _count?: Prisma.SortOrder
+}
+
+export type ConversationSessionCountOrderByAggregateInput = {
+  id?: Prisma.SortOrder
+  conversationId?: Prisma.SortOrder
+  currentState?: Prisma.SortOrder
+  context?: Prisma.SortOrder
+  metadata?: Prisma.SortOrder
+  expiresAt?: Prisma.SortOrder
+  createdAt?: Prisma.SortOrder
+  lastActivityAt?: Prisma.SortOrder
+  bookingId?: Prisma.SortOrder
+}
+
+export type ConversationSessionMaxOrderByAggregateInput = {
+  id?: Prisma.SortOrder
+  conversationId?: Prisma.SortOrder
+  currentState?: Prisma.SortOrder
+  expiresAt?: Prisma.SortOrder
+  createdAt?: Prisma.SortOrder
+  lastActivityAt?: Prisma.SortOrder
+  bookingId?: Prisma.SortOrder
+}
+
+export type ConversationSessionMinOrderByAggregateInput = {
+  id?: Prisma.SortOrder
+  conversationId?: Prisma.SortOrder
+  currentState?: Prisma.SortOrder
+  expiresAt?: Prisma.SortOrder
+  createdAt?: Prisma.SortOrder
+  lastActivityAt?: Prisma.SortOrder
+  bookingId?: Prisma.SortOrder
 }
 
 export type ConversationSessionNullableScalarRelationFilter = {
@@ -322,187 +405,352 @@ export type ConversationSessionNullableScalarRelationFilter = {
   isNot?: Prisma.ConversationSessionWhereInput | null
 }
 
-export type ConversationSessionCountOrderByAggregateInput = {
-  id?: Prisma.SortOrder
-  customerId?: Prisma.SortOrder
-  state?: Prisma.SortOrder
-  context?: Prisma.SortOrder
-  expiresAt?: Prisma.SortOrder
-  createdAt?: Prisma.SortOrder
-  updatedAt?: Prisma.SortOrder
+export type ConversationSessionCreateNestedManyWithoutConversationInput = {
+  create?: Prisma.XOR<Prisma.ConversationSessionCreateWithoutConversationInput, Prisma.ConversationSessionUncheckedCreateWithoutConversationInput> | Prisma.ConversationSessionCreateWithoutConversationInput[] | Prisma.ConversationSessionUncheckedCreateWithoutConversationInput[]
+  connectOrCreate?: Prisma.ConversationSessionCreateOrConnectWithoutConversationInput | Prisma.ConversationSessionCreateOrConnectWithoutConversationInput[]
+  createMany?: Prisma.ConversationSessionCreateManyConversationInputEnvelope
+  connect?: Prisma.ConversationSessionWhereUniqueInput | Prisma.ConversationSessionWhereUniqueInput[]
 }
 
-export type ConversationSessionMaxOrderByAggregateInput = {
-  id?: Prisma.SortOrder
-  customerId?: Prisma.SortOrder
-  state?: Prisma.SortOrder
-  expiresAt?: Prisma.SortOrder
-  createdAt?: Prisma.SortOrder
-  updatedAt?: Prisma.SortOrder
+export type ConversationSessionUncheckedCreateNestedManyWithoutConversationInput = {
+  create?: Prisma.XOR<Prisma.ConversationSessionCreateWithoutConversationInput, Prisma.ConversationSessionUncheckedCreateWithoutConversationInput> | Prisma.ConversationSessionCreateWithoutConversationInput[] | Prisma.ConversationSessionUncheckedCreateWithoutConversationInput[]
+  connectOrCreate?: Prisma.ConversationSessionCreateOrConnectWithoutConversationInput | Prisma.ConversationSessionCreateOrConnectWithoutConversationInput[]
+  createMany?: Prisma.ConversationSessionCreateManyConversationInputEnvelope
+  connect?: Prisma.ConversationSessionWhereUniqueInput | Prisma.ConversationSessionWhereUniqueInput[]
 }
 
-export type ConversationSessionMinOrderByAggregateInput = {
-  id?: Prisma.SortOrder
-  customerId?: Prisma.SortOrder
-  state?: Prisma.SortOrder
-  expiresAt?: Prisma.SortOrder
-  createdAt?: Prisma.SortOrder
-  updatedAt?: Prisma.SortOrder
+export type ConversationSessionUpdateManyWithoutConversationNestedInput = {
+  create?: Prisma.XOR<Prisma.ConversationSessionCreateWithoutConversationInput, Prisma.ConversationSessionUncheckedCreateWithoutConversationInput> | Prisma.ConversationSessionCreateWithoutConversationInput[] | Prisma.ConversationSessionUncheckedCreateWithoutConversationInput[]
+  connectOrCreate?: Prisma.ConversationSessionCreateOrConnectWithoutConversationInput | Prisma.ConversationSessionCreateOrConnectWithoutConversationInput[]
+  upsert?: Prisma.ConversationSessionUpsertWithWhereUniqueWithoutConversationInput | Prisma.ConversationSessionUpsertWithWhereUniqueWithoutConversationInput[]
+  createMany?: Prisma.ConversationSessionCreateManyConversationInputEnvelope
+  set?: Prisma.ConversationSessionWhereUniqueInput | Prisma.ConversationSessionWhereUniqueInput[]
+  disconnect?: Prisma.ConversationSessionWhereUniqueInput | Prisma.ConversationSessionWhereUniqueInput[]
+  delete?: Prisma.ConversationSessionWhereUniqueInput | Prisma.ConversationSessionWhereUniqueInput[]
+  connect?: Prisma.ConversationSessionWhereUniqueInput | Prisma.ConversationSessionWhereUniqueInput[]
+  update?: Prisma.ConversationSessionUpdateWithWhereUniqueWithoutConversationInput | Prisma.ConversationSessionUpdateWithWhereUniqueWithoutConversationInput[]
+  updateMany?: Prisma.ConversationSessionUpdateManyWithWhereWithoutConversationInput | Prisma.ConversationSessionUpdateManyWithWhereWithoutConversationInput[]
+  deleteMany?: Prisma.ConversationSessionScalarWhereInput | Prisma.ConversationSessionScalarWhereInput[]
 }
 
-export type ConversationSessionCreateNestedOneWithoutCustomerInput = {
-  create?: Prisma.XOR<Prisma.ConversationSessionCreateWithoutCustomerInput, Prisma.ConversationSessionUncheckedCreateWithoutCustomerInput>
-  connectOrCreate?: Prisma.ConversationSessionCreateOrConnectWithoutCustomerInput
+export type ConversationSessionUncheckedUpdateManyWithoutConversationNestedInput = {
+  create?: Prisma.XOR<Prisma.ConversationSessionCreateWithoutConversationInput, Prisma.ConversationSessionUncheckedCreateWithoutConversationInput> | Prisma.ConversationSessionCreateWithoutConversationInput[] | Prisma.ConversationSessionUncheckedCreateWithoutConversationInput[]
+  connectOrCreate?: Prisma.ConversationSessionCreateOrConnectWithoutConversationInput | Prisma.ConversationSessionCreateOrConnectWithoutConversationInput[]
+  upsert?: Prisma.ConversationSessionUpsertWithWhereUniqueWithoutConversationInput | Prisma.ConversationSessionUpsertWithWhereUniqueWithoutConversationInput[]
+  createMany?: Prisma.ConversationSessionCreateManyConversationInputEnvelope
+  set?: Prisma.ConversationSessionWhereUniqueInput | Prisma.ConversationSessionWhereUniqueInput[]
+  disconnect?: Prisma.ConversationSessionWhereUniqueInput | Prisma.ConversationSessionWhereUniqueInput[]
+  delete?: Prisma.ConversationSessionWhereUniqueInput | Prisma.ConversationSessionWhereUniqueInput[]
+  connect?: Prisma.ConversationSessionWhereUniqueInput | Prisma.ConversationSessionWhereUniqueInput[]
+  update?: Prisma.ConversationSessionUpdateWithWhereUniqueWithoutConversationInput | Prisma.ConversationSessionUpdateWithWhereUniqueWithoutConversationInput[]
+  updateMany?: Prisma.ConversationSessionUpdateManyWithWhereWithoutConversationInput | Prisma.ConversationSessionUpdateManyWithWhereWithoutConversationInput[]
+  deleteMany?: Prisma.ConversationSessionScalarWhereInput | Prisma.ConversationSessionScalarWhereInput[]
+}
+
+export type ConversationSessionCreateNestedOneWithoutMessagesInput = {
+  create?: Prisma.XOR<Prisma.ConversationSessionCreateWithoutMessagesInput, Prisma.ConversationSessionUncheckedCreateWithoutMessagesInput>
+  connectOrCreate?: Prisma.ConversationSessionCreateOrConnectWithoutMessagesInput
   connect?: Prisma.ConversationSessionWhereUniqueInput
 }
 
-export type ConversationSessionUncheckedCreateNestedOneWithoutCustomerInput = {
-  create?: Prisma.XOR<Prisma.ConversationSessionCreateWithoutCustomerInput, Prisma.ConversationSessionUncheckedCreateWithoutCustomerInput>
-  connectOrCreate?: Prisma.ConversationSessionCreateOrConnectWithoutCustomerInput
-  connect?: Prisma.ConversationSessionWhereUniqueInput
-}
-
-export type ConversationSessionUpdateOneWithoutCustomerNestedInput = {
-  create?: Prisma.XOR<Prisma.ConversationSessionCreateWithoutCustomerInput, Prisma.ConversationSessionUncheckedCreateWithoutCustomerInput>
-  connectOrCreate?: Prisma.ConversationSessionCreateOrConnectWithoutCustomerInput
-  upsert?: Prisma.ConversationSessionUpsertWithoutCustomerInput
+export type ConversationSessionUpdateOneWithoutMessagesNestedInput = {
+  create?: Prisma.XOR<Prisma.ConversationSessionCreateWithoutMessagesInput, Prisma.ConversationSessionUncheckedCreateWithoutMessagesInput>
+  connectOrCreate?: Prisma.ConversationSessionCreateOrConnectWithoutMessagesInput
+  upsert?: Prisma.ConversationSessionUpsertWithoutMessagesInput
   disconnect?: Prisma.ConversationSessionWhereInput | boolean
   delete?: Prisma.ConversationSessionWhereInput | boolean
   connect?: Prisma.ConversationSessionWhereUniqueInput
-  update?: Prisma.XOR<Prisma.XOR<Prisma.ConversationSessionUpdateToOneWithWhereWithoutCustomerInput, Prisma.ConversationSessionUpdateWithoutCustomerInput>, Prisma.ConversationSessionUncheckedUpdateWithoutCustomerInput>
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ConversationSessionUpdateToOneWithWhereWithoutMessagesInput, Prisma.ConversationSessionUpdateWithoutMessagesInput>, Prisma.ConversationSessionUncheckedUpdateWithoutMessagesInput>
 }
 
-export type ConversationSessionUncheckedUpdateOneWithoutCustomerNestedInput = {
-  create?: Prisma.XOR<Prisma.ConversationSessionCreateWithoutCustomerInput, Prisma.ConversationSessionUncheckedCreateWithoutCustomerInput>
-  connectOrCreate?: Prisma.ConversationSessionCreateOrConnectWithoutCustomerInput
-  upsert?: Prisma.ConversationSessionUpsertWithoutCustomerInput
-  disconnect?: Prisma.ConversationSessionWhereInput | boolean
-  delete?: Prisma.ConversationSessionWhereInput | boolean
-  connect?: Prisma.ConversationSessionWhereUniqueInput
-  update?: Prisma.XOR<Prisma.XOR<Prisma.ConversationSessionUpdateToOneWithWhereWithoutCustomerInput, Prisma.ConversationSessionUpdateWithoutCustomerInput>, Prisma.ConversationSessionUncheckedUpdateWithoutCustomerInput>
-}
-
-export type ConversationSessionCreateWithoutCustomerInput = {
+export type ConversationSessionCreateWithoutConversationInput = {
   id?: string
-  state: string
+  currentState: string
   context?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  metadata?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   expiresAt: Date | string
   createdAt?: Date | string
-  updatedAt?: Date | string
+  lastActivityAt?: Date | string
+  bookingId?: string | null
+  messages?: Prisma.MessageCreateNestedManyWithoutConversationSessionInput
 }
 
-export type ConversationSessionUncheckedCreateWithoutCustomerInput = {
+export type ConversationSessionUncheckedCreateWithoutConversationInput = {
   id?: string
-  state: string
+  currentState: string
   context?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  metadata?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   expiresAt: Date | string
   createdAt?: Date | string
-  updatedAt?: Date | string
+  lastActivityAt?: Date | string
+  bookingId?: string | null
+  messages?: Prisma.MessageUncheckedCreateNestedManyWithoutConversationSessionInput
 }
 
-export type ConversationSessionCreateOrConnectWithoutCustomerInput = {
+export type ConversationSessionCreateOrConnectWithoutConversationInput = {
   where: Prisma.ConversationSessionWhereUniqueInput
-  create: Prisma.XOR<Prisma.ConversationSessionCreateWithoutCustomerInput, Prisma.ConversationSessionUncheckedCreateWithoutCustomerInput>
+  create: Prisma.XOR<Prisma.ConversationSessionCreateWithoutConversationInput, Prisma.ConversationSessionUncheckedCreateWithoutConversationInput>
 }
 
-export type ConversationSessionUpsertWithoutCustomerInput = {
-  update: Prisma.XOR<Prisma.ConversationSessionUpdateWithoutCustomerInput, Prisma.ConversationSessionUncheckedUpdateWithoutCustomerInput>
-  create: Prisma.XOR<Prisma.ConversationSessionCreateWithoutCustomerInput, Prisma.ConversationSessionUncheckedCreateWithoutCustomerInput>
+export type ConversationSessionCreateManyConversationInputEnvelope = {
+  data: Prisma.ConversationSessionCreateManyConversationInput | Prisma.ConversationSessionCreateManyConversationInput[]
+  skipDuplicates?: boolean
+}
+
+export type ConversationSessionUpsertWithWhereUniqueWithoutConversationInput = {
+  where: Prisma.ConversationSessionWhereUniqueInput
+  update: Prisma.XOR<Prisma.ConversationSessionUpdateWithoutConversationInput, Prisma.ConversationSessionUncheckedUpdateWithoutConversationInput>
+  create: Prisma.XOR<Prisma.ConversationSessionCreateWithoutConversationInput, Prisma.ConversationSessionUncheckedCreateWithoutConversationInput>
+}
+
+export type ConversationSessionUpdateWithWhereUniqueWithoutConversationInput = {
+  where: Prisma.ConversationSessionWhereUniqueInput
+  data: Prisma.XOR<Prisma.ConversationSessionUpdateWithoutConversationInput, Prisma.ConversationSessionUncheckedUpdateWithoutConversationInput>
+}
+
+export type ConversationSessionUpdateManyWithWhereWithoutConversationInput = {
+  where: Prisma.ConversationSessionScalarWhereInput
+  data: Prisma.XOR<Prisma.ConversationSessionUpdateManyMutationInput, Prisma.ConversationSessionUncheckedUpdateManyWithoutConversationInput>
+}
+
+export type ConversationSessionScalarWhereInput = {
+  AND?: Prisma.ConversationSessionScalarWhereInput | Prisma.ConversationSessionScalarWhereInput[]
+  OR?: Prisma.ConversationSessionScalarWhereInput[]
+  NOT?: Prisma.ConversationSessionScalarWhereInput | Prisma.ConversationSessionScalarWhereInput[]
+  id?: Prisma.StringFilter<"ConversationSession"> | string
+  conversationId?: Prisma.StringFilter<"ConversationSession"> | string
+  currentState?: Prisma.StringFilter<"ConversationSession"> | string
+  context?: Prisma.JsonFilter<"ConversationSession">
+  metadata?: Prisma.JsonFilter<"ConversationSession">
+  expiresAt?: Prisma.DateTimeFilter<"ConversationSession"> | Date | string
+  createdAt?: Prisma.DateTimeFilter<"ConversationSession"> | Date | string
+  lastActivityAt?: Prisma.DateTimeFilter<"ConversationSession"> | Date | string
+  bookingId?: Prisma.StringNullableFilter<"ConversationSession"> | string | null
+}
+
+export type ConversationSessionCreateWithoutMessagesInput = {
+  id?: string
+  currentState: string
+  context?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  metadata?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  expiresAt: Date | string
+  createdAt?: Date | string
+  lastActivityAt?: Date | string
+  bookingId?: string | null
+  conversation: Prisma.ConversationCreateNestedOneWithoutConversationSessionsInput
+}
+
+export type ConversationSessionUncheckedCreateWithoutMessagesInput = {
+  id?: string
+  conversationId: string
+  currentState: string
+  context?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  metadata?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  expiresAt: Date | string
+  createdAt?: Date | string
+  lastActivityAt?: Date | string
+  bookingId?: string | null
+}
+
+export type ConversationSessionCreateOrConnectWithoutMessagesInput = {
+  where: Prisma.ConversationSessionWhereUniqueInput
+  create: Prisma.XOR<Prisma.ConversationSessionCreateWithoutMessagesInput, Prisma.ConversationSessionUncheckedCreateWithoutMessagesInput>
+}
+
+export type ConversationSessionUpsertWithoutMessagesInput = {
+  update: Prisma.XOR<Prisma.ConversationSessionUpdateWithoutMessagesInput, Prisma.ConversationSessionUncheckedUpdateWithoutMessagesInput>
+  create: Prisma.XOR<Prisma.ConversationSessionCreateWithoutMessagesInput, Prisma.ConversationSessionUncheckedCreateWithoutMessagesInput>
   where?: Prisma.ConversationSessionWhereInput
 }
 
-export type ConversationSessionUpdateToOneWithWhereWithoutCustomerInput = {
+export type ConversationSessionUpdateToOneWithWhereWithoutMessagesInput = {
   where?: Prisma.ConversationSessionWhereInput
-  data: Prisma.XOR<Prisma.ConversationSessionUpdateWithoutCustomerInput, Prisma.ConversationSessionUncheckedUpdateWithoutCustomerInput>
+  data: Prisma.XOR<Prisma.ConversationSessionUpdateWithoutMessagesInput, Prisma.ConversationSessionUncheckedUpdateWithoutMessagesInput>
 }
 
-export type ConversationSessionUpdateWithoutCustomerInput = {
+export type ConversationSessionUpdateWithoutMessagesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  state?: Prisma.StringFieldUpdateOperationsInput | string
+  currentState?: Prisma.StringFieldUpdateOperationsInput | string
   context?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  metadata?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  bookingId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  conversation?: Prisma.ConversationUpdateOneRequiredWithoutConversationSessionsNestedInput
 }
 
-export type ConversationSessionUncheckedUpdateWithoutCustomerInput = {
+export type ConversationSessionUncheckedUpdateWithoutMessagesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  state?: Prisma.StringFieldUpdateOperationsInput | string
+  conversationId?: Prisma.StringFieldUpdateOperationsInput | string
+  currentState?: Prisma.StringFieldUpdateOperationsInput | string
   context?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  metadata?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  bookingId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
+export type ConversationSessionCreateManyConversationInput = {
+  id?: string
+  currentState: string
+  context?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  metadata?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  expiresAt: Date | string
+  createdAt?: Date | string
+  lastActivityAt?: Date | string
+  bookingId?: string | null
+}
+
+export type ConversationSessionUpdateWithoutConversationInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  currentState?: Prisma.StringFieldUpdateOperationsInput | string
+  context?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  metadata?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  bookingId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  messages?: Prisma.MessageUpdateManyWithoutConversationSessionNestedInput
+}
+
+export type ConversationSessionUncheckedUpdateWithoutConversationInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  currentState?: Prisma.StringFieldUpdateOperationsInput | string
+  context?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  metadata?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  bookingId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  messages?: Prisma.MessageUncheckedUpdateManyWithoutConversationSessionNestedInput
+}
+
+export type ConversationSessionUncheckedUpdateManyWithoutConversationInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  currentState?: Prisma.StringFieldUpdateOperationsInput | string
+  context?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  metadata?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastActivityAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  bookingId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+
+/**
+ * Count Type ConversationSessionCountOutputType
+ */
+
+export type ConversationSessionCountOutputType = {
+  messages: number
+}
+
+export type ConversationSessionCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  messages?: boolean | ConversationSessionCountOutputTypeCountMessagesArgs
+}
+
+/**
+ * ConversationSessionCountOutputType without action
+ */
+export type ConversationSessionCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ConversationSessionCountOutputType
+   */
+  select?: Prisma.ConversationSessionCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * ConversationSessionCountOutputType without action
+ */
+export type ConversationSessionCountOutputTypeCountMessagesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.MessageWhereInput
+}
 
 
 export type ConversationSessionSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
-  customerId?: boolean
-  state?: boolean
+  conversationId?: boolean
+  currentState?: boolean
   context?: boolean
+  metadata?: boolean
   expiresAt?: boolean
   createdAt?: boolean
-  updatedAt?: boolean
-  customer?: boolean | Prisma.CustomerDefaultArgs<ExtArgs>
+  lastActivityAt?: boolean
+  bookingId?: boolean
+  conversation?: boolean | Prisma.ConversationDefaultArgs<ExtArgs>
+  messages?: boolean | Prisma.ConversationSession$messagesArgs<ExtArgs>
+  _count?: boolean | Prisma.ConversationSessionCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["conversationSession"]>
 
 export type ConversationSessionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
-  customerId?: boolean
-  state?: boolean
+  conversationId?: boolean
+  currentState?: boolean
   context?: boolean
+  metadata?: boolean
   expiresAt?: boolean
   createdAt?: boolean
-  updatedAt?: boolean
-  customer?: boolean | Prisma.CustomerDefaultArgs<ExtArgs>
+  lastActivityAt?: boolean
+  bookingId?: boolean
+  conversation?: boolean | Prisma.ConversationDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["conversationSession"]>
 
 export type ConversationSessionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
-  customerId?: boolean
-  state?: boolean
+  conversationId?: boolean
+  currentState?: boolean
   context?: boolean
+  metadata?: boolean
   expiresAt?: boolean
   createdAt?: boolean
-  updatedAt?: boolean
-  customer?: boolean | Prisma.CustomerDefaultArgs<ExtArgs>
+  lastActivityAt?: boolean
+  bookingId?: boolean
+  conversation?: boolean | Prisma.ConversationDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["conversationSession"]>
 
 export type ConversationSessionSelectScalar = {
   id?: boolean
-  customerId?: boolean
-  state?: boolean
+  conversationId?: boolean
+  currentState?: boolean
   context?: boolean
+  metadata?: boolean
   expiresAt?: boolean
   createdAt?: boolean
-  updatedAt?: boolean
+  lastActivityAt?: boolean
+  bookingId?: boolean
 }
 
-export type ConversationSessionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "customerId" | "state" | "context" | "expiresAt" | "createdAt" | "updatedAt", ExtArgs["result"]["conversationSession"]>
+export type ConversationSessionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "conversationId" | "currentState" | "context" | "metadata" | "expiresAt" | "createdAt" | "lastActivityAt" | "bookingId", ExtArgs["result"]["conversationSession"]>
 export type ConversationSessionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  customer?: boolean | Prisma.CustomerDefaultArgs<ExtArgs>
+  conversation?: boolean | Prisma.ConversationDefaultArgs<ExtArgs>
+  messages?: boolean | Prisma.ConversationSession$messagesArgs<ExtArgs>
+  _count?: boolean | Prisma.ConversationSessionCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type ConversationSessionIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  customer?: boolean | Prisma.CustomerDefaultArgs<ExtArgs>
+  conversation?: boolean | Prisma.ConversationDefaultArgs<ExtArgs>
 }
 export type ConversationSessionIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  customer?: boolean | Prisma.CustomerDefaultArgs<ExtArgs>
+  conversation?: boolean | Prisma.ConversationDefaultArgs<ExtArgs>
 }
 
 export type $ConversationSessionPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "ConversationSession"
   objects: {
-    customer: Prisma.$CustomerPayload<ExtArgs>
+    conversation: Prisma.$ConversationPayload<ExtArgs>
+    messages: Prisma.$MessagePayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
-    customerId: string
-    state: string
+    conversationId: string
+    currentState: string
     context: runtime.JsonValue
+    metadata: runtime.JsonValue
     expiresAt: Date
     createdAt: Date
-    updatedAt: Date
+    lastActivityAt: Date
+    bookingId: string | null
   }, ExtArgs["result"]["conversationSession"]>
   composites: {}
 }
@@ -897,7 +1145,8 @@ readonly fields: ConversationSessionFieldRefs;
  */
 export interface Prisma__ConversationSessionClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  customer<T extends Prisma.CustomerDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.CustomerDefaultArgs<ExtArgs>>): Prisma.Prisma__CustomerClient<runtime.Types.Result.GetResult<Prisma.$CustomerPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  conversation<T extends Prisma.ConversationDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ConversationDefaultArgs<ExtArgs>>): Prisma.Prisma__ConversationClient<runtime.Types.Result.GetResult<Prisma.$ConversationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  messages<T extends Prisma.ConversationSession$messagesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ConversationSession$messagesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MessagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -928,12 +1177,14 @@ export interface Prisma__ConversationSessionClient<T, Null = never, ExtArgs exte
  */
 export interface ConversationSessionFieldRefs {
   readonly id: Prisma.FieldRef<"ConversationSession", 'String'>
-  readonly customerId: Prisma.FieldRef<"ConversationSession", 'String'>
-  readonly state: Prisma.FieldRef<"ConversationSession", 'String'>
+  readonly conversationId: Prisma.FieldRef<"ConversationSession", 'String'>
+  readonly currentState: Prisma.FieldRef<"ConversationSession", 'String'>
   readonly context: Prisma.FieldRef<"ConversationSession", 'Json'>
+  readonly metadata: Prisma.FieldRef<"ConversationSession", 'Json'>
   readonly expiresAt: Prisma.FieldRef<"ConversationSession", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"ConversationSession", 'DateTime'>
-  readonly updatedAt: Prisma.FieldRef<"ConversationSession", 'DateTime'>
+  readonly lastActivityAt: Prisma.FieldRef<"ConversationSession", 'DateTime'>
+  readonly bookingId: Prisma.FieldRef<"ConversationSession", 'String'>
 }
     
 
@@ -1332,6 +1583,30 @@ export type ConversationSessionDeleteManyArgs<ExtArgs extends runtime.Types.Exte
    * Limit how many ConversationSessions to delete.
    */
   limit?: number
+}
+
+/**
+ * ConversationSession.messages
+ */
+export type ConversationSession$messagesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Message
+   */
+  select?: Prisma.MessageSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Message
+   */
+  omit?: Prisma.MessageOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MessageInclude<ExtArgs> | null
+  where?: Prisma.MessageWhereInput
+  orderBy?: Prisma.MessageOrderByWithRelationInput | Prisma.MessageOrderByWithRelationInput[]
+  cursor?: Prisma.MessageWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.MessageScalarFieldEnum | Prisma.MessageScalarFieldEnum[]
 }
 
 /**

@@ -17,8 +17,8 @@
 
 import * as runtime from "@prisma/client/runtime/index-browser"
 
-export type * from '../models.js'
-export type * from './prismaNamespace.js'
+export type * from '../models.ts'
+export type * from './prismaNamespace.ts'
 
 export const Decimal = runtime.Decimal
 
@@ -55,13 +55,16 @@ export const ModelName = {
   Customer: 'Customer',
   NailService: 'NailService',
   Booking: 'Booking',
+  BookingService: 'BookingService',
   BookingStatusHistory: 'BookingStatusHistory',
   Payment: 'Payment',
   PaymentTransaction: 'PaymentTransaction',
   Notification: 'Notification',
   NotificationSubscription: 'NotificationSubscription',
   PushSubscription: 'PushSubscription',
+  Conversation: 'Conversation',
   ConversationSession: 'ConversationSession',
+  Message: 'Message',
   AuditLog: 'AuditLog',
   BusinessHours: 'BusinessHours'
 } as const
@@ -136,7 +139,6 @@ export const BookingScalarFieldEnum = {
   id: 'id',
   reference: 'reference',
   customerId: 'customerId',
-  serviceId: 'serviceId',
   approvedById: 'approvedById',
   appointmentAt: 'appointmentAt',
   durationMinutes: 'durationMinutes',
@@ -151,6 +153,23 @@ export const BookingScalarFieldEnum = {
 } as const
 
 export type BookingScalarFieldEnum = (typeof BookingScalarFieldEnum)[keyof typeof BookingScalarFieldEnum]
+
+
+export const BookingServiceScalarFieldEnum = {
+  id: 'id',
+  bookingId: 'bookingId',
+  serviceId: 'serviceId',
+  stylist: 'stylist',
+  metadata: 'metadata',
+  serviceName: 'serviceName',
+  price: 'price',
+  durationMin: 'durationMin',
+  position: 'position',
+  status: 'status',
+  createdAt: 'createdAt'
+} as const
+
+export type BookingServiceScalarFieldEnum = (typeof BookingServiceScalarFieldEnum)[keyof typeof BookingServiceScalarFieldEnum]
 
 
 export const BookingStatusHistoryScalarFieldEnum = {
@@ -222,7 +241,8 @@ export const NotificationScalarFieldEnum = {
   lastError: 'lastError',
   correlationId: 'correlationId',
   idempotencyKey: 'idempotencyKey',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 } as const
 
 export type NotificationScalarFieldEnum = (typeof NotificationScalarFieldEnum)[keyof typeof NotificationScalarFieldEnum]
@@ -251,23 +271,56 @@ export const PushSubscriptionScalarFieldEnum = {
   auth: 'auth',
   userAgent: 'userAgent',
   isActive: 'isActive',
-  createdAt: 'createdAt'
+  metadata: 'metadata',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 } as const
 
 export type PushSubscriptionScalarFieldEnum = (typeof PushSubscriptionScalarFieldEnum)[keyof typeof PushSubscriptionScalarFieldEnum]
 
 
-export const ConversationSessionScalarFieldEnum = {
+export const ConversationScalarFieldEnum = {
   id: 'id',
+  phone: 'phone',
   customerId: 'customerId',
-  state: 'state',
-  context: 'context',
-  expiresAt: 'expiresAt',
-  createdAt: 'createdAt',
+  status: 'status',
+  metadata: 'metadata',
+  startedAt: 'startedAt',
   updatedAt: 'updatedAt'
 } as const
 
+export type ConversationScalarFieldEnum = (typeof ConversationScalarFieldEnum)[keyof typeof ConversationScalarFieldEnum]
+
+
+export const ConversationSessionScalarFieldEnum = {
+  id: 'id',
+  conversationId: 'conversationId',
+  currentState: 'currentState',
+  context: 'context',
+  metadata: 'metadata',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt',
+  lastActivityAt: 'lastActivityAt',
+  bookingId: 'bookingId'
+} as const
+
 export type ConversationSessionScalarFieldEnum = (typeof ConversationSessionScalarFieldEnum)[keyof typeof ConversationSessionScalarFieldEnum]
+
+
+export const MessageScalarFieldEnum = {
+  id: 'id',
+  conversationId: 'conversationId',
+  conversationSessionId: 'conversationSessionId',
+  role: 'role',
+  content: 'content',
+  contentType: 'contentType',
+  fsmState: 'fsmState',
+  intent: 'intent',
+  metadata: 'metadata',
+  createdAt: 'createdAt'
+} as const
+
+export type MessageScalarFieldEnum = (typeof MessageScalarFieldEnum)[keyof typeof MessageScalarFieldEnum]
 
 
 export const AuditLogScalarFieldEnum = {

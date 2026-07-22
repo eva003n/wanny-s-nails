@@ -16,10 +16,10 @@
  */
 
 import * as runtime from "@prisma/client/runtime/client"
-import type * as Prisma from "../models.js"
-import { type PrismaClient } from "./class.js"
+import type * as Prisma from "../models.ts"
+import { type PrismaClient } from "./class.ts"
 
-export type * from '../models.js'
+export type * from '../models.ts'
 
 export type DMMF = typeof runtime.DMMF
 
@@ -388,13 +388,16 @@ export const ModelName = {
   Customer: 'Customer',
   NailService: 'NailService',
   Booking: 'Booking',
+  BookingService: 'BookingService',
   BookingStatusHistory: 'BookingStatusHistory',
   Payment: 'Payment',
   PaymentTransaction: 'PaymentTransaction',
   Notification: 'Notification',
   NotificationSubscription: 'NotificationSubscription',
   PushSubscription: 'PushSubscription',
+  Conversation: 'Conversation',
   ConversationSession: 'ConversationSession',
+  Message: 'Message',
   AuditLog: 'AuditLog',
   BusinessHours: 'BusinessHours'
 } as const
@@ -412,7 +415,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "customer" | "nailService" | "booking" | "bookingStatusHistory" | "payment" | "paymentTransaction" | "notification" | "notificationSubscription" | "pushSubscription" | "conversationSession" | "auditLog" | "businessHours"
+    modelProps: "user" | "customer" | "nailService" | "booking" | "bookingService" | "bookingStatusHistory" | "payment" | "paymentTransaction" | "notification" | "notificationSubscription" | "pushSubscription" | "conversation" | "conversationSession" | "message" | "auditLog" | "businessHours"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -709,6 +712,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.BookingCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.BookingCountAggregateOutputType> | number
+        }
+      }
+    }
+    BookingService: {
+      payload: Prisma.$BookingServicePayload<ExtArgs>
+      fields: Prisma.BookingServiceFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.BookingServiceFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BookingServicePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.BookingServiceFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BookingServicePayload>
+        }
+        findFirst: {
+          args: Prisma.BookingServiceFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BookingServicePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.BookingServiceFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BookingServicePayload>
+        }
+        findMany: {
+          args: Prisma.BookingServiceFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BookingServicePayload>[]
+        }
+        create: {
+          args: Prisma.BookingServiceCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BookingServicePayload>
+        }
+        createMany: {
+          args: Prisma.BookingServiceCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.BookingServiceCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BookingServicePayload>[]
+        }
+        delete: {
+          args: Prisma.BookingServiceDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BookingServicePayload>
+        }
+        update: {
+          args: Prisma.BookingServiceUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BookingServicePayload>
+        }
+        deleteMany: {
+          args: Prisma.BookingServiceDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.BookingServiceUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.BookingServiceUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BookingServicePayload>[]
+        }
+        upsert: {
+          args: Prisma.BookingServiceUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BookingServicePayload>
+        }
+        aggregate: {
+          args: Prisma.BookingServiceAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateBookingService>
+        }
+        groupBy: {
+          args: Prisma.BookingServiceGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.BookingServiceGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.BookingServiceCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.BookingServiceCountAggregateOutputType> | number
         }
       }
     }
@@ -1156,6 +1233,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    Conversation: {
+      payload: Prisma.$ConversationPayload<ExtArgs>
+      fields: Prisma.ConversationFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ConversationFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConversationPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ConversationFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConversationPayload>
+        }
+        findFirst: {
+          args: Prisma.ConversationFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConversationPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ConversationFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConversationPayload>
+        }
+        findMany: {
+          args: Prisma.ConversationFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConversationPayload>[]
+        }
+        create: {
+          args: Prisma.ConversationCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConversationPayload>
+        }
+        createMany: {
+          args: Prisma.ConversationCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ConversationCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConversationPayload>[]
+        }
+        delete: {
+          args: Prisma.ConversationDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConversationPayload>
+        }
+        update: {
+          args: Prisma.ConversationUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConversationPayload>
+        }
+        deleteMany: {
+          args: Prisma.ConversationDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ConversationUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ConversationUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConversationPayload>[]
+        }
+        upsert: {
+          args: Prisma.ConversationUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConversationPayload>
+        }
+        aggregate: {
+          args: Prisma.ConversationAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateConversation>
+        }
+        groupBy: {
+          args: Prisma.ConversationGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ConversationGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ConversationCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ConversationCountAggregateOutputType> | number
+        }
+      }
+    }
     ConversationSession: {
       payload: Prisma.$ConversationSessionPayload<ExtArgs>
       fields: Prisma.ConversationSessionFieldRefs
@@ -1227,6 +1378,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.ConversationSessionCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.ConversationSessionCountAggregateOutputType> | number
+        }
+      }
+    }
+    Message: {
+      payload: Prisma.$MessagePayload<ExtArgs>
+      fields: Prisma.MessageFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.MessageFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MessagePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.MessageFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MessagePayload>
+        }
+        findFirst: {
+          args: Prisma.MessageFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MessagePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.MessageFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MessagePayload>
+        }
+        findMany: {
+          args: Prisma.MessageFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MessagePayload>[]
+        }
+        create: {
+          args: Prisma.MessageCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MessagePayload>
+        }
+        createMany: {
+          args: Prisma.MessageCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.MessageCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MessagePayload>[]
+        }
+        delete: {
+          args: Prisma.MessageDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MessagePayload>
+        }
+        update: {
+          args: Prisma.MessageUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MessagePayload>
+        }
+        deleteMany: {
+          args: Prisma.MessageDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.MessageUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.MessageUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MessagePayload>[]
+        }
+        upsert: {
+          args: Prisma.MessageUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MessagePayload>
+        }
+        aggregate: {
+          args: Prisma.MessageAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateMessage>
+        }
+        groupBy: {
+          args: Prisma.MessageGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MessageGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.MessageCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MessageCountAggregateOutputType> | number
         }
       }
     }
@@ -1471,7 +1696,6 @@ export const BookingScalarFieldEnum = {
   id: 'id',
   reference: 'reference',
   customerId: 'customerId',
-  serviceId: 'serviceId',
   approvedById: 'approvedById',
   appointmentAt: 'appointmentAt',
   durationMinutes: 'durationMinutes',
@@ -1486,6 +1710,23 @@ export const BookingScalarFieldEnum = {
 } as const
 
 export type BookingScalarFieldEnum = (typeof BookingScalarFieldEnum)[keyof typeof BookingScalarFieldEnum]
+
+
+export const BookingServiceScalarFieldEnum = {
+  id: 'id',
+  bookingId: 'bookingId',
+  serviceId: 'serviceId',
+  stylist: 'stylist',
+  metadata: 'metadata',
+  serviceName: 'serviceName',
+  price: 'price',
+  durationMin: 'durationMin',
+  position: 'position',
+  status: 'status',
+  createdAt: 'createdAt'
+} as const
+
+export type BookingServiceScalarFieldEnum = (typeof BookingServiceScalarFieldEnum)[keyof typeof BookingServiceScalarFieldEnum]
 
 
 export const BookingStatusHistoryScalarFieldEnum = {
@@ -1557,7 +1798,8 @@ export const NotificationScalarFieldEnum = {
   lastError: 'lastError',
   correlationId: 'correlationId',
   idempotencyKey: 'idempotencyKey',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 } as const
 
 export type NotificationScalarFieldEnum = (typeof NotificationScalarFieldEnum)[keyof typeof NotificationScalarFieldEnum]
@@ -1586,23 +1828,56 @@ export const PushSubscriptionScalarFieldEnum = {
   auth: 'auth',
   userAgent: 'userAgent',
   isActive: 'isActive',
-  createdAt: 'createdAt'
+  metadata: 'metadata',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 } as const
 
 export type PushSubscriptionScalarFieldEnum = (typeof PushSubscriptionScalarFieldEnum)[keyof typeof PushSubscriptionScalarFieldEnum]
 
 
-export const ConversationSessionScalarFieldEnum = {
+export const ConversationScalarFieldEnum = {
   id: 'id',
+  phone: 'phone',
   customerId: 'customerId',
-  state: 'state',
-  context: 'context',
-  expiresAt: 'expiresAt',
-  createdAt: 'createdAt',
+  status: 'status',
+  metadata: 'metadata',
+  startedAt: 'startedAt',
   updatedAt: 'updatedAt'
 } as const
 
+export type ConversationScalarFieldEnum = (typeof ConversationScalarFieldEnum)[keyof typeof ConversationScalarFieldEnum]
+
+
+export const ConversationSessionScalarFieldEnum = {
+  id: 'id',
+  conversationId: 'conversationId',
+  currentState: 'currentState',
+  context: 'context',
+  metadata: 'metadata',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt',
+  lastActivityAt: 'lastActivityAt',
+  bookingId: 'bookingId'
+} as const
+
 export type ConversationSessionScalarFieldEnum = (typeof ConversationSessionScalarFieldEnum)[keyof typeof ConversationSessionScalarFieldEnum]
+
+
+export const MessageScalarFieldEnum = {
+  id: 'id',
+  conversationId: 'conversationId',
+  conversationSessionId: 'conversationSessionId',
+  role: 'role',
+  content: 'content',
+  contentType: 'contentType',
+  fsmState: 'fsmState',
+  intent: 'intent',
+  metadata: 'metadata',
+  createdAt: 'createdAt'
+} as const
+
+export type MessageScalarFieldEnum = (typeof MessageScalarFieldEnum)[keyof typeof MessageScalarFieldEnum]
 
 
 export const AuditLogScalarFieldEnum = {
@@ -1809,6 +2084,34 @@ export type ListEnumPaymentStatusFieldRefInput<$PrismaModel> = FieldRefInputType
 
 
 /**
+ * Reference to a field of type 'Decimal'
+ */
+export type DecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal'>
+    
+
+
+/**
+ * Reference to a field of type 'Decimal[]'
+ */
+export type ListDecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal[]'>
+    
+
+
+/**
+ * Reference to a field of type 'ServiceStatus'
+ */
+export type EnumServiceStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ServiceStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'ServiceStatus[]'
+ */
+export type ListEnumServiceStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ServiceStatus[]'>
+    
+
+
+/**
  * Reference to a field of type 'NotificationRecipient'
  */
 export type EnumNotificationRecipientFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'NotificationRecipient'>
@@ -1861,6 +2164,34 @@ export type EnumNotificationStatusFieldRefInput<$PrismaModel> = FieldRefInputTyp
  * Reference to a field of type 'NotificationStatus[]'
  */
 export type ListEnumNotificationStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'NotificationStatus[]'>
+    
+
+
+/**
+ * Reference to a field of type 'ConversationStatus'
+ */
+export type EnumConversationStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ConversationStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'ConversationStatus[]'
+ */
+export type ListEnumConversationStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ConversationStatus[]'>
+    
+
+
+/**
+ * Reference to a field of type 'MessageRole'
+ */
+export type EnumMessageRoleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MessageRole'>
+    
+
+
+/**
+ * Reference to a field of type 'MessageRole[]'
+ */
+export type ListEnumMessageRoleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MessageRole[]'>
     
 
 
@@ -1991,13 +2322,16 @@ export type GlobalOmitConfig = {
   customer?: Prisma.CustomerOmit
   nailService?: Prisma.NailServiceOmit
   booking?: Prisma.BookingOmit
+  bookingService?: Prisma.BookingServiceOmit
   bookingStatusHistory?: Prisma.BookingStatusHistoryOmit
   payment?: Prisma.PaymentOmit
   paymentTransaction?: Prisma.PaymentTransactionOmit
   notification?: Prisma.NotificationOmit
   notificationSubscription?: Prisma.NotificationSubscriptionOmit
   pushSubscription?: Prisma.PushSubscriptionOmit
+  conversation?: Prisma.ConversationOmit
   conversationSession?: Prisma.ConversationSessionOmit
+  message?: Prisma.MessageOmit
   auditLog?: Prisma.AuditLogOmit
   businessHours?: Prisma.BusinessHoursOmit
 }
