@@ -4,16 +4,17 @@
 
 export interface CreateBookingInput {
   customerId: string;
-  serviceId: string;
+  serviceIds: string[]; // multiple services
   appointmentAt: string; // ISO 8601
+  actorType: "USER" | "CUSTOMER";
   notes?: string | null;
+  stylist?: string;
 }
 
 export interface BookingResult {
   id: string;
   reference: string;
   customerId: string;
-  serviceId: string;
   appointmentAt: Date;
   durationMinutes: number;
   priceKes: number;
@@ -21,7 +22,7 @@ export interface BookingResult {
   paymentStatus: string;
   notes: string | null;
   customer: { id: string; name: string; phone: string };
-  service: { id: string; name: string };
+  services: Array<ServiceData>;
   payment: { id: string; amountKes: number; status: string } | null;
 }
 
@@ -62,4 +63,4 @@ export interface StatusHistoryEntry {
 }
 
 export const SLOT_GRANULARITY_MINUTES = 15;
-export const MAX_SERVICE_MINUTES = 240;
+export const MAX_SERVICE_MINUTES = 120; // 2 hours

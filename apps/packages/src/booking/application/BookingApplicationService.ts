@@ -14,12 +14,12 @@ export interface CreateBookingResult {
 }
 
 /**
- * Application service that orchestrates the booking creation workflow.
+ * Application service that orchestrates the booking  workflow.
  *
  * Responsibilities:
  * 1. Accept input from API controller or Worker
- * 2. Call BookingDomainService to validate business rules
- * 3. Execute persistence within a UnitOfWork transaction
+ * 2. Call BookingDomainService to validate business rules(Domain layer)
+ * 3. Execute persistence within a UnitOfWork transaction(persistence layer)
  * 4. Return the result
  *
  * Contains NO business rules and NO direct Prisma calls.
@@ -37,7 +37,7 @@ export class BookingApplicationService {
 
   /**
    * Create a new booking.
-   * Shared entry point for both the API controller and the WhatsApp Worker.
+   * Shared entry point for both the API controller and the WhatsApp Worker(bot).
    */
   async create(input: CreateBookingInput): Promise<BookingResult> {
     // Build domain service deps from the repositories
@@ -66,28 +66,28 @@ export class BookingApplicationService {
         {
           reference: validated.reference,
           customerId: validated.customerId,
-          serviceId: validated.serviceId,
+          services: validated.services,
           appointmentAt: validated.appointmentAt,
           durationMinutes: validated.durationMinutes,
           priceKes: validated.priceKes,
           notes: validated.notes,
+          actorType: validated.actorType
+
         },
         ctx,
       );
     });
 
     // 3. Load customer and service details for the result
-    const [customer, service] = await Promise.all([
-      this.deps.customerRepository.findById(saved.customerId),
-      this.deps.serviceRepository.findById(saved.serviceId),
-    ]);
+    const customer = await 
+      this.deps.customerRepository.findById(saved.customerId);
 
     // 4. Build and return result DTO
     return {
       id: saved.id,
       reference: saved.reference,
       customerId: saved.customerId,
-      serviceId: saved.serviceId,
+      services: saved.services,
       appointmentAt: saved.appointmentAt,
       durationMinutes: saved.durationMinutes,
       priceKes: saved.priceKes,
@@ -98,10 +98,6 @@ export class BookingApplicationService {
         id: saved.customerId,
         name: customer?.name ?? "",
         phone: customer?.phone ?? "",
-      },
-      service: {
-        id: saved.serviceId,
-        name: service?.name ?? "",
       },
       payment: null,
     };

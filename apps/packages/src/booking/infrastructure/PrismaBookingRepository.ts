@@ -1,5 +1,6 @@
+import type { PrismaClient } from "../../generated/prisma/internal/class.js";
 import type { BookingRepository, CreateBookingRecord } from "../ports/BookingRepository.js";
-import type { BookingCandidate } from "../types.js";
+import type { BookingCandidate, ServiceData } from "../types.js";
 
 /**
  * Flexible Prisma client type that works with both standard and extended clients.
@@ -43,46 +44,61 @@ export class PrismaBookingRepository implements BookingRepository {
     id: string;
     reference: string;
     customerId: string;
-    serviceId: string;
     appointmentAt: Date;
     durationMinutes: number;
     priceKes: number;
     status: string;
     paymentStatus: string;
     notes: string | null;
+    services: ServiceData[];
   }> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tx = (ctx as any) ?? this.prisma;
 
-    const booking = await tx.booking.create({
+     const services = data.services.filter((s): s is ServiceData => s !== null);
+
+     const booking = await tx.booking.create({
       data: {
         reference: data.reference,
         customerId: data.customerId,
-        serviceId: data.serviceId,
         appointmentAt: data.appointmentAt,
         durationMinutes: data.durationMinutes,
         priceKes: data.priceKes,
         notes: data.notes,
+        services: {
+          create: services.map((svc, idx) => ({
+            service:  {
+              connect: {
+                id: svc.id
+              }
+            },
+            serviceName: svc.name,
+            price: svc.priceKes,
+            durationMin: svc.durationMinutes,
+            position: idx,
+          })),
+        },
         payment: {
           create: { amountKes: data.priceKes },
         },
         statusHistory: {
-          create: { toStatus: "PENDING", actorType: "CUSTOMER" },
+          create: { toStatus: "PENDING", actorType: data.actorType },
         },
       },
     });
+
 
     return {
       id: booking.id,
       reference: booking.reference,
       customerId: booking.customerId,
-      serviceId: booking.serviceId,
       appointmentAt: booking.appointmentAt,
       durationMinutes: booking.durationMinutes,
       priceKes: booking.priceKes,
       status: booking.status,
       paymentStatus: booking.paymentStatus,
       notes: booking.notes,
+      services,
     };
   }
 }

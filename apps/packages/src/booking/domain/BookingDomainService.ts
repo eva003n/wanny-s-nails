@@ -1,11 +1,23 @@
-import type { ServiceData, BusinessHoursData, BookingCandidate } from "../types.js";
+import type { ServiceData, BusinessHoursData, BookingCandidate, CreateBookingInput } from "../types.js";
 import { BookingPolicy, BusinessClosedError } from "./BookingPolicy.js";
 import { BookingConflictService, BookingConflictError } from "./BookingConflictService.js";
 
 export class ServiceInactiveError extends Error {
-  constructor() {
-    super("ServiceInactive");
+  constructor(message?: string) {
+    super(message || "ServiceInactive");
     this.name = "ServiceInactiveError";
+  }
+}
+export class ServiceNotFoundError extends Error {
+  constructor() {
+    super("ServiceNotFound");
+    this.name = "ServiceNotFoundError";
+  }
+}
+export class InvalidInputError extends Error {
+  constructor(message: string) {
+    super(message || "InvalidInput");
+    this.name = "InvalidInputError";
   }
 }
 
@@ -30,14 +42,13 @@ export interface BookingDomainServiceDeps {
   findBookingCandidates(
     lowerBound: Date,
     upperBound: Date,
-    options?: { excludeId?: string },
+    options?: { excludeId?: string }
   ): Promise<BookingCandidate[]>;
 }
 
 export interface ValidatedBooking {
   customerId: string;
-  serviceId: string;
-  serviceName: string;
+  services: Array<ServiceData>;
   appointmentAt: Date;
   durationMinutes: number;
   priceKes: number;
@@ -58,12 +69,22 @@ export const BookingDomainService = {
    * Throws domain errors on any validation failure.
    */
   async validateAndBuild(
-    input: { customerId: string; serviceId: string; appointmentAt: string; notes?: string | null },
+    input: CreateBookingInput,
     deps: BookingDomainServiceDeps,
-  ): Promise<ValidatedBooking & { reference: string }> {
-    // 1. Validate service exists and is active
-    const service = await deps.findService(input.serviceId);
-    if (!service || service.deletedAt || !service.isActive) {
+  ): Promise<ValidatedBooking & { reference: string, actorType: string }> {
+    // 1. Validate services exist and are active
+    if (input.serviceIds.length === 0) {
+      throw new InvalidInputError("Missing service id or ids");
+    }
+
+    // find all services data that match the provided ids or id
+    const services = await Promise.all(
+      input.serviceIds.map((id) => deps.findService(id)),
+    );
+
+    const activeService = services.find((s) => s && !s.deletedAt && s.isActive);
+   // couldn't find a single active service
+    if (!activeService) {
       throw new ServiceInactiveError();
     }
 
@@ -72,9 +93,10 @@ export const BookingDomainService = {
     if (!customer) {
       throw new CustomerNotFoundError(input.customerId);
     }
-
+    // calculate the time slot
     const start = new Date(input.appointmentAt);
-    const end = new Date(start.getTime() + service.durationMinutes * 60 * 1000);
+    const totalDuration = services.filter((s): s is ServiceData => s !== null).reduce((sum, s) => sum + s.durationMinutes, 0);
+    const end = new Date(start.getTime() + totalDuration * 60 * 1000);
 
     // 3. Slot alignment check
     BookingPolicy.assertSlotAlignment(start);
@@ -95,16 +117,18 @@ export const BookingDomainService = {
       throw new BookingConflictError();
     }
 
+    const totalPrice = services.filter((s): s is ServiceData => s !== null).reduce((sum, s) => sum + s.priceKes, 0)
+
     // 6. Build and return the validated aggregate
     return {
       reference: generateReference(),
       customerId: input.customerId,
-      serviceId: input.serviceId,
-      serviceName: service.name,
+      services: services.filter((s): s is ServiceData => s !== null),
       appointmentAt: start,
-      durationMinutes: service.durationMinutes,
-      priceKes: service.priceKes,
+      durationMinutes: totalDuration,
+      priceKes: totalPrice,
       notes: input.notes ?? null,
+      actorType: input.actorType
     };
   },
 };

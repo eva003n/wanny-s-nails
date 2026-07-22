@@ -1,13 +1,14 @@
-import type { BookingCandidate } from "../types.js";
+import type { BookingCandidate, ServiceData } from "../types.js";
 
 export interface CreateBookingRecord {
   reference: string;
   customerId: string;
-  serviceId: string;
   appointmentAt: Date;
   durationMinutes: number;
   priceKes: number;
   notes: string | null;
+  services: Array<ServiceData>;
+  actorType: string
 }
 
 export interface BookingRepository {
@@ -31,12 +32,12 @@ export interface BookingRepository {
     id: string;
     reference: string;
     customerId: string;
-    serviceId: string;
     appointmentAt: Date;
     durationMinutes: number;
     priceKes: number;
     status: string;
     paymentStatus: string;
     notes: string | null;
+    services: ServiceData[]
   }>;
 }
