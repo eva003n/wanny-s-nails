@@ -24,7 +24,7 @@ export const createBookingSchema = z.object({
   serviceIds: z.array(z.string().uuid()).min(1), // multi-service
   appointmentAt: z.string().datetime(),
   notes: z.string().max(500).optional(),
-  stylist: z.string()
+  stylist: z.string().optional()
 });
 
 export const cancelSchema = z.object({

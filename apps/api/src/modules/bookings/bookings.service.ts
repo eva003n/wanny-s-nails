@@ -33,7 +33,7 @@ interface CreateBookingInput {
   serviceIds: string[];
   appointmentAt: string;
   notes?: string | undefined;
-  stylist: string
+  stylist: string | undefined
 }
 
 const BOOKING_INCLUDE = {
