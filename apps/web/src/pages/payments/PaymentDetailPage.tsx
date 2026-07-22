@@ -171,7 +171,7 @@ export default function PaymentDetailPage() {
         <Row
           icon={CalendarDays}
           label="Service"
-          value={payment.booking.service.name}
+          value={payment.booking.services?.[0]?.service?.name ?? payment.booking.service?.name ?? "Nail Service"}
         />
         <Row
           icon={Receipt}

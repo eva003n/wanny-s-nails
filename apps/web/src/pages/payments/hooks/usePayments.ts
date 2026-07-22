@@ -40,6 +40,19 @@ export interface PaymentsResult {
  * is not present — we infer it from the payment context.
  */
 function normalizePayment(p: Record<string, any>): PaymentTransaction {
+  // Extract service name from new services[] or old service relation
+  const services = p.booking?.services;
+  const firstService = Array.isArray(services) ? services[0] : undefined;
+  const serviceName = firstService?.service?.name ?? p.booking?.service?.name ?? "";
+  const serviceId = firstService?.service?.id ?? p.booking?.service?.id ?? "";
+  const normalizedServices = Array.isArray(services)
+    ? services.map((s: any) => ({
+        service: {
+          id: s.service?.id ?? "",
+          name: s.service?.name ?? "",
+        },
+      }))
+    : undefined;
   return {
     id: p.id,
     bookingId: p.bookingId ?? p.booking?.id,
@@ -48,9 +61,10 @@ function normalizePayment(p: Record<string, any>): PaymentTransaction {
       id: p.bookingId ?? p.booking?.id,
       reference: p.booking?.reference ?? p.reference ?? "",
       service: {
-        id: p.booking?.service?.id ?? "",
-        name: p.booking?.service?.name ?? "",
+        id: serviceId,
+        name: serviceName,
       },
+      services: normalizedServices,
     },
     customer: {
       id: p.booking?.customer?.id ?? p.customer?.id ?? "",
@@ -143,7 +157,7 @@ export function usePayments(
             id: b.id,
             reference: b.reference,
             customer: b.customer,
-            service: b.service,
+            services: b.services,
           },
           customer: b.customer,
           amountKes: b.payment.amountKes,

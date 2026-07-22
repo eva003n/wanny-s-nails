@@ -220,7 +220,7 @@ export default function CustomerDetailPage() {
               bookings!.map((b) => (
                 <div key={b.id} className="flex items-center justify-between gap-3 px-4 py-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-text-primary">{b.service.name}</p>
+                    <p className="truncate text-sm font-medium text-text-primary">{b.services?.[0]?.service?.name ?? b.service?.name ?? "Nail Service"}</p>
                     <p className="text-xs text-text-secondary">
                       {formatDateShort(b.appointmentAt)} · {formatTime(b.appointmentAt)}
                     </p>

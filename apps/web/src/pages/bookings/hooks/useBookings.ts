@@ -5,7 +5,6 @@ import { validateOrThrow } from "@/lib/guards";
 import {
   BookingListSchema,
   BookingSchema,
-  AvailableSlotsResponseSchema,
   PaginatedBookingsSchema,
 } from "@/lib/schemas";
 import type { Booking, BookingFilters } from "@/lib/schemas";
@@ -324,8 +323,9 @@ export function useCreateBooking() {
     mutationFn: async (input: {
       customerId?: string;
       newCustomer?: { name: string; phone: string };
-      serviceId: string;
+      serviceIds: string[];
       appointmentAt: string;
+      stylist: string | undefined
     }) => {
       // If newCustomer is provided, create the customer first,
       // then use the returned ID for the booking.
@@ -342,8 +342,9 @@ export function useCreateBooking() {
       }
       const { data } = await api.post("/bookings", {
         customerId,
-        serviceId: input.serviceId,
+        serviceIds: input.serviceIds,
         appointmentAt: input.appointmentAt,
+        stylist: input.stylist
       });
       return validateOrThrow(BookingSchema, data.data, "POST /bookings");
     },
@@ -358,24 +359,3 @@ export function useCreateBooking() {
   });
 }
 
-export function useAvailableSlots(
-  serviceId: string | undefined,
-  date: string | undefined,
-) {
-  return useQuery({
-    queryKey: ["slots", serviceId, date],
-    queryFn: async () => {
-      const { data } = await api.get("/slots/availability", {
-        params: { serviceId, date },
-      });
-      const validated = validateOrThrow(
-        AvailableSlotsResponseSchema,
-        data.data,
-        "GET /slots/availability",
-      );
-      return validated.slots;
-    },
-    enabled: !!serviceId && !!date,
-    staleTime: 15_000,
-  });
-}

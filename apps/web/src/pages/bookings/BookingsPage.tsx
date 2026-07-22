@@ -177,7 +177,7 @@ export default function BookingsPage() {
                     {booking.customer.name}
                   </p>
                   <p style={{ fontSize: "13px", lineHeight: "18px", color: "var(--color-text-tertiary)", margin: "var(--space-2) 0 0" }}>
-                    {booking.service.name}
+                    {booking.service?.name ?? booking.services?.[0]?.service?.name ?? "Nail Service"}
                   </p>
 
                   {/* Amount + Payment status + Delete */}

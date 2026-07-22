@@ -142,7 +142,7 @@ export default function BookingDetailPage() {
     );
   };
 
-  const isPaid = booking.paymentStatus === "PAID";
+  const isPaid = booking.paymentStatus === "SUCCESS";
   const isReadOnly = booking.status === "COMPLETED" || booking.status === "CANCELLED";
 
   return (
@@ -177,18 +177,32 @@ export default function BookingDetailPage() {
 
         {/* Detail definition list */}
         <dl className="mt-5 divide-y divide-[--color-divider] rounded-[--radius-md] bg-surface shadow-[--shadow-card]">
-          {[
-            ["Service", booking.service.name],
-            ["Date", formatDateShort(booking.appointmentAt)],
-            ["Time", formatTime(booking.appointmentAt)],
-            ["Duration", `${booking.durationMinutes} min`],
-            ["Price", formatKes(booking.priceKes)],
-          ].map(([label, value]) => (
-            <div key={label} className="flex items-center justify-between px-4 py-3">
-              <dt className="text-sm text-text-secondary">{label}</dt>
-              <dd className="text-base font-medium text-text-primary">{value}</dd>
-            </div>
-          ))}
+          <div className="flex items-center justify-between px-4 py-3">
+            <dt className="text-sm text-text-secondary">Services</dt>
+            <dd className="text-base font-medium text-text-primary text-right">
+              {booking.services && booking.services.length > 0
+                ? booking.services.map((bs, i) => (
+                    <div key={i}>{bs.service.name}</div>
+                  ))
+                : booking.service?.name ?? "Nail Service"}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between px-4 py-3">
+            <dt className="text-sm text-text-secondary">Date</dt>
+            <dd className="text-base font-medium text-text-primary">{formatDateShort(booking.appointmentAt)}</dd>
+          </div>
+          <div className="flex items-center justify-between px-4 py-3">
+            <dt className="text-sm text-text-secondary">Time</dt>
+            <dd className="text-base font-medium text-text-primary">{formatTime(booking.appointmentAt)}</dd>
+          </div>
+          <div className="flex items-center justify-between px-4 py-3">
+            <dt className="text-sm text-text-secondary">Duration</dt>
+            <dd className="text-base font-medium text-text-primary">{booking.durationMinutes} min</dd>
+          </div>
+          <div className="flex items-center justify-between px-4 py-3">
+            <dt className="text-sm text-text-secondary">Price</dt>
+            <dd className="text-base font-medium text-text-primary">{formatKes(booking.priceKes)}</dd>
+          </div>
           <div className="flex items-center justify-between px-4 py-3">
             <dt className="text-sm text-text-secondary">Status</dt>
             <dd>

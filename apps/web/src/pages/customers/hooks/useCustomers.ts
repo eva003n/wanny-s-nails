@@ -33,9 +33,11 @@ export const customerKeys = {
 export function useCustomers(
   search?: string,
   page = 1,
-  limit = 20,
+  limit = 10,
+  enabled = true,
 ): UseQueryResult<CustomersResult, Error> {
   return useQuery<CustomersResult>({
+    enabled,
     queryKey: customerKeys.list(search, page, limit),
     queryFn: async () => {
       const params: Record<string, string | number> = {};
