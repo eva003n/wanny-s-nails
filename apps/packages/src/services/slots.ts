@@ -1,3 +1,5 @@
+import type { PrismaClient } from "../lib/prisma.ts";
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PrismaClientLike = any;
 
@@ -44,11 +46,11 @@ const isToday = (someDate: Date) => {
 export async function getAvailableSlots(
   prisma: PrismaClientLike,
   date: string,
-  serviceId: string,
+  serviceIds: string,
 ): Promise<{
   date: string;
-  serviceId: string;
-  serviceName: string;
+  // serviceId: string;
+  // serviceName: string;
   durationMinutes: number;
   totalSlots: number;
   availableSlots: number;
@@ -68,16 +70,17 @@ export async function getAvailableSlots(
     throw new Error("The salon is closed on the requested date");
   }
 
-  // Get service duration
-  const service = await prisma.nailService.findUnique({
-    where: { id: serviceId },
+  const ids = serviceIds.split(",")
+  // Get service duration per service
+  const services = await prisma.nailService.findMany({
+    where: { id: { in: ids} },
   });
 
-  if (!service) {
+  if (services.length === 0) {
     throw new Error("Service not found");
   }
 
-  const durationMinutes = service.durationMinutes; // 60 - 90
+  const totalDurationMinutes = services.filter((s: any) => s !== null).reduce((sum: number, s: any) => sum + s.durationMinutes, 0); 
 
   // Parse open/close times
   const openParts = businessHours.openTime.split(":"); // ["07", "00"]
@@ -94,14 +97,14 @@ export async function getAvailableSlots(
   const dayEnd = new Date(targetDate);
   dayEnd.setHours(closeHour, closeMin, 0, 0);
 
-  // Get existing bookings for this date
+  // Get existing bookings for a particular date
   const existingBookings = await prisma.booking.findMany({
     where: {
       appointmentAt: {
         gte: dayStart,
         lt: dayEnd,
       },
-      status: { notIn: ["CANCELLED", "NO_SHOW"] },
+      status: { notIn: ["CANCELLED", "NO_SHOW",] },
     },
     select: {
       appointmentAt: true,
@@ -114,7 +117,7 @@ export async function getAvailableSlots(
   const bufferMs =
     BOOKING_CONFIG.bufferBetweenAppointmentsMinutes * 60 * 1000;
   const intervalMs = BOOKING_CONFIG.slotIntervalMinutes * 60 * 1000;
-  const durationMs = durationMinutes * 60 * 1000;
+  const durationMs = totalDurationMinutes * 60 * 1000;
 
   // First candidate start time: today respects minimum notice, future days start at open
   let current = isToday(dayStart)
@@ -162,9 +165,9 @@ export async function getAvailableSlots(
 
   return {
     date,
-    serviceId,
-    serviceName: service.name,
-    durationMinutes,
+    // serviceId,
+    // serviceName: service.name,
+    durationMinutes: totalDurationMinutes,
     totalSlots: slots.length,
     availableSlots: availableCount,
     slots,

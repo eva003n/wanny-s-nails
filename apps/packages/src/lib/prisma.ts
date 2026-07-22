@@ -29,7 +29,8 @@ export const  createPrismaClient = (url: string | undefined, env: string = "deve
   return prisma.$extends({
   query: {
     $allModels: {
-      async findMany({ model, args, query }) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      async findMany({ model, args, query }: { model: string; args: any; query: any }) {
         if (model && softDeleteModels.includes(model)) {
           args.where = {
             ...args.where ?? {},
@@ -40,7 +41,8 @@ export const  createPrismaClient = (url: string | undefined, env: string = "deve
         return query(args);
       },
 
-      async findFirst({ model, args, query }) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      async findFirst({ model, args, query }: { model: string; args: any; query: any }) {
         if (model && softDeleteModels.includes(model) && args.where) {
           args.where = {
             ...args.where,
@@ -55,5 +57,15 @@ export const  createPrismaClient = (url: string | undefined, env: string = "deve
 }) 
 }
 
-export type * from "../generated/prisma/client.js";
-export  * from "../generated/prisma/internal/prismaNamespace.js";
+export type { PrismaClient, Prisma
+ } from "../generated/prisma/client.js";
+export  {PrismaClientKnownRequestError} from "../generated/prisma/internal/prismaNamespace.ts"
+export type {
+  Booking as BookingModel,
+  Customer as CustomerModel,
+  NailService as NailServiceModel,
+  BookingService,
+  Payment as PaymentModel,
+  BusinessHours as BusinessHoursModel,
+  User as UserModel,
+} from "../generated/prisma/client.js";
