@@ -1,6 +1,8 @@
-import type { ServiceData, BusinessHoursData, BookingCandidate, CreateBookingInput } from "../types.js";
+import type { ServiceData, BusinessHoursData, BookingCandidate, CreateBookingInput, RescheduleBookingInput } from "../types.js";
 import { BookingPolicy, BusinessClosedError } from "./BookingPolicy.js";
 import { BookingConflictService, BookingConflictError } from "./BookingConflictService.js";
+import type { BookingStatus } from "../../generated/prisma/enums.ts";
+import type { Booking, BusinessHours } from "../../generated/prisma/client.ts";
 
 export class ServiceInactiveError extends Error {
   constructor(message?: string) {
@@ -30,6 +32,23 @@ export class CustomerNotFoundError extends Error {
   readonly customerId: string;
 }
 
+export class InvalidStatusTransitionError extends Error {
+  constructor(currentStatus: string, targetAction: string) {
+    super(
+      `INVALID_STATUS_TRANSITION\n,
+      Cannot ${targetAction} a booking in ${currentStatus} status`
+    );
+  }
+}
+
+export class OutsideBusinessHoursError extends Error {
+  constructor(appointmentAt: string) {
+    super(
+      `OUTSIDE_BUSINESS_HOURS
+      The selected time is outside configured business hours; ${appointmentAt}`,
+    );
+  }
+}
 /**
  * Pure domain service for booking business logic.
  * Validates all business rules and constructs the booking aggregate.
@@ -71,7 +90,7 @@ export const BookingDomainService = {
   async validateAndBuild(
     input: CreateBookingInput,
     deps: BookingDomainServiceDeps,
-  ): Promise<ValidatedBooking & { reference: string, actorType: string }> {
+  ): Promise<ValidatedBooking & { reference: string; actorType: string }> {
     // 1. Validate services exist and are active
     if (input.serviceIds.length === 0) {
       throw new InvalidInputError("Missing service id or ids");
@@ -83,7 +102,7 @@ export const BookingDomainService = {
     );
 
     const activeService = services.find((s) => s && !s.deletedAt && s.isActive);
-   // couldn't find a single active service
+    // couldn't find a single active service
     if (!activeService) {
       throw new ServiceInactiveError();
     }
@@ -95,7 +114,9 @@ export const BookingDomainService = {
     }
     // calculate the time slot
     const start = new Date(input.appointmentAt);
-    const totalDuration = services.filter((s): s is ServiceData => s !== null).reduce((sum, s) => sum + s.durationMinutes, 0);
+    const totalDuration = services
+      .filter((s): s is ServiceData => s !== null)
+      .reduce((sum, s) => sum + s.durationMinutes, 0);
     const end = new Date(start.getTime() + totalDuration * 60 * 1000);
 
     // 3. Slot alignment check
@@ -111,13 +132,22 @@ export const BookingDomainService = {
 
     // 5. Conflict detection
     const window = BookingConflictService.buildQueryWindow(start, end);
-    const candidates = await deps.findBookingCandidates(window.lowerBound, window.upperBound);
-    const isAvailable = BookingConflictService.isAvailable(start, end, candidates);
+    const candidates = await deps.findBookingCandidates(
+      window.lowerBound,
+      window.upperBound,
+    );
+    const isAvailable = BookingConflictService.isAvailable(
+      start,
+      end,
+      candidates,
+    );
     if (!isAvailable) {
       throw new BookingConflictError();
     }
 
-    const totalPrice = services.filter((s): s is ServiceData => s !== null).reduce((sum, s) => sum + s.priceKes, 0)
+    const totalPrice = services
+      .filter((s): s is ServiceData => s !== null)
+      .reduce((sum, s) => sum + s.priceKes, 0);
 
     // 6. Build and return the validated aggregate
     return {
@@ -128,7 +158,56 @@ export const BookingDomainService = {
       durationMinutes: totalDuration,
       priceKes: totalPrice,
       notes: input.notes ?? null,
-      actorType: input.actorType
+      actorType: input.actorType,
     };
+  },
+
+  async validateBookingReschedule(
+    booking: { status: string; durationMinutes: number; services?: Array<{ durationMin: number }> },
+    businessHours: { isActive: boolean; openTime: string; closeTime: string },
+    data: RescheduleBookingInput,
+  ) {
+    if (booking.status === "CANCELLED" || booking.status === "COMPLETED") {
+      throw new InvalidStatusTransitionError(booking.status, "reschedule");
+    }
+
+    const newDate = new Date(data.newAppointmentAt);
+
+     // Validate future date
+    if (newDate <= new Date()) {
+      throw new BookingConflictError();
+    }
+
+    
+    // Calculate total duration from the booking's services
+    const totalDuration = booking.services?.reduce(
+      (sum: number, bs: { durationMin: number }) => sum + bs.durationMin,
+      booking.durationMinutes,
+    ) ?? booking.durationMinutes;
+
+    const newEnd = new Date(newDate.getTime() + totalDuration * 60 * 1000);
+
+    // Check business hours
+    const dayOfWeek = newDate.getDay();
+    if (!businessHours || !businessHours.isActive) {
+      throw new OutsideBusinessHoursError(data.newAppointmentAt);
+    }
+
+    const [openHour, openMinute = 0] = businessHours.openTime
+      .split(":")
+      .map(Number);
+    const [closeHour, closeMinute = 0] = businessHours.closeTime
+      .split(":")
+      .map(Number);
+
+    const dayOpen = new Date(newDate);
+    dayOpen.setHours(openHour as number, openMinute, 0, 0);
+    const dayClose = new Date(newDate);
+    dayClose.setHours(closeHour as number, closeMinute, 0, 0);
+
+    if (newDate < dayOpen || newEnd > dayClose) {
+      throw new OutsideBusinessHoursError(data.newAppointmentAt);
+    }
+    
   },
 };

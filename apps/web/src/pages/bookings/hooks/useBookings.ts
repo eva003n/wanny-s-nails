@@ -344,7 +344,7 @@ export function useCreateBooking() {
         customerId,
         serviceIds: input.serviceIds,
         appointmentAt: input.appointmentAt,
-        stylist: input.stylist
+       /*  stylist: input.stylist */
       });
       return validateOrThrow(BookingSchema, data.data, "POST /bookings");
     },

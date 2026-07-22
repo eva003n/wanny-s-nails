@@ -2,7 +2,7 @@ import {
   BookingDomainService,
   type BookingDomainServiceDeps,
 } from "../domain/BookingDomainService.js";
-import type { CreateBookingInput, BookingResult } from "../types.js";
+import type { CreateBookingInput, BookingResult, RescheduleBookingInput } from "../types.js";
 import type { UnitOfWork } from "../ports/UnitOfWork.js";
 import type { BookingRepository } from "../ports/BookingRepository.js";
 import type { ServiceRepository } from "../ports/ServiceRepository.js";
@@ -82,13 +82,15 @@ export class BookingApplicationService {
     const customer = await 
       this.deps.customerRepository.findById(saved.customerId);
 
-    // 4. Build and return result DTO
+    // 4. Build and return result DTO matching the frontend BookingSchema
     return {
       id: saved.id,
       reference: saved.reference,
       customerId: saved.customerId,
-      services: saved.services,
-      appointmentAt: saved.appointmentAt,
+      services: saved.services.map((s) => ({
+        service: { id: s.id, name: s.name },
+      })),
+      appointmentAt: saved.appointmentAt.toISOString(),
       durationMinutes: saved.durationMinutes,
       priceKes: saved.priceKes,
       status: saved.status,
@@ -100,6 +102,15 @@ export class BookingApplicationService {
         phone: customer?.phone ?? "",
       },
       payment: null,
+      createdAt: saved.createdAt.toISOString(),
     };
   }
+
+  async reschedule(input: RescheduleBookingInput) {
+const booking = await this.deps.bookingRepository.getById(input.id)
+  }
+  async cancel() {
+
+  }
+
 }

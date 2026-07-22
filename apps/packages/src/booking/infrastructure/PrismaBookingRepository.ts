@@ -37,6 +37,12 @@ export class PrismaBookingRepository implements BookingRepository {
     }));
   }
 
+  async getById(id: string): Promise<{ id: string; reference: string; customerId: string; appointmentAt: Date; durationMinutes: number; priceKes: number; status: string; paymentStatus: string; notes: string | null; services: ServiceData[]; createdAt: Date; }> {
+    return await this.prisma.findUnique({
+      where: {id}
+    })
+  }
+  
   async save(
     data: CreateBookingRecord,
     ctx?: unknown,
@@ -51,6 +57,7 @@ export class PrismaBookingRepository implements BookingRepository {
     paymentStatus: string;
     notes: string | null;
     services: ServiceData[];
+    createdAt: Date;
   }> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tx = (ctx as any) ?? this.prisma;
@@ -99,6 +106,7 @@ export class PrismaBookingRepository implements BookingRepository {
       paymentStatus: booking.paymentStatus,
       notes: booking.notes,
       services,
+      createdAt: booking.createdAt,
     };
   }
 }

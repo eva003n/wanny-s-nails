@@ -22,6 +22,19 @@ export interface BookingRepository {
     options?: { excludeId?: string },
   ): Promise<BookingCandidate[]>;
 
+  getById(id: string): Promise<{
+    id: string;
+    reference: string;
+    customerId: string;
+    appointmentAt: Date;
+    durationMinutes: number;
+    priceKes: number;
+    status: string;
+    paymentStatus: string;
+    notes: string | null;
+    services: ServiceData[];
+    createdAt: Date;
+  }>;
   /**
    * Persist a new booking record.
    */
@@ -38,6 +51,7 @@ export interface BookingRepository {
     status: string;
     paymentStatus: string;
     notes: string | null;
-    services: ServiceData[]
+    services: ServiceData[];
+    createdAt: Date;
   }>;
 }
