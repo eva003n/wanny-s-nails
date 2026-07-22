@@ -1,7 +1,7 @@
-# Database Design — NailBook
+# Database Design — Wanny's Nails
 
-**Version:** 1.0  
-**Database:** PostgreSQL 18  
+**Version:** 2.0
+**Database:** PostgreSQL 18
 **ORM:** Prisma 7
 
 ---
@@ -9,17 +9,21 @@
 ## Domain Model
 
 ```
-NailService ◄──── Booking ────► Customer
-                      │
-                      ├──► BookingStatusHistory
-                      │
-                      └──► Payment ────► PaymentTransaction
+NailService ◄──── BookingService ────► Booking ────► Customer
+                                            │
+                                            ├──► BookingStatusHistory
+                                            │
+                                            ├──► Payment ────► PaymentTransaction
+                                            │
+                                            └──► Notification
 
-Customer ──────────────► ConversationSession
+Customer ──────────────► Conversation ────► ConversationSession ────► Message
 
-Booking ──────────────► Reminder (0..2)
-
-User (staff/owner) ───► AuditLog
+User (staff/owner) ────► AuditLog
+User (staff/owner) ────► PushSubscription
+User (staff/owner) ────► Notification
+User (staff/owner) ────► NotificationSubscription
+User (staff/owner) ────► BookingService (stylist)
 ```
 
 ---
@@ -35,6 +39,7 @@ erDiagram
         string name
         enum role
         boolean isActive
+        json metadata
         timestamp createdAt
         timestamp updatedAt
         timestamp deletedAt
@@ -47,6 +52,7 @@ erDiagram
         string email
         boolean consentGiven
         timestamp consentAt
+        json metadata
         timestamp createdAt
         timestamp updatedAt
         timestamp deletedAt
@@ -59,6 +65,7 @@ erDiagram
         enum category
         integer durationMinutes
         integer priceKes
+        json metadata
         boolean isActive
         integer sortOrder
         timestamp createdAt
@@ -70,7 +77,6 @@ erDiagram
         uuid id PK
         string reference UK
         uuid customerId FK
-        uuid serviceId FK
         uuid approvedById FK
         timestamp appointmentAt
         integer durationMinutes
@@ -78,9 +84,24 @@ erDiagram
         enum status
         enum paymentStatus
         string notes
+        json metadata
         timestamp createdAt
         timestamp updatedAt
         timestamp deletedAt
+    }
+
+    BookingService {
+        uuid id PK
+        uuid bookingId FK
+        uuid serviceId FK
+        string stylist
+        string serviceName
+        decimal price
+        integer durationMin
+        integer position
+        enum status
+        json metadata
+        timestamp createdAt
     }
 
     BookingStatusHistory {
@@ -91,6 +112,7 @@ erDiagram
         string actorType
         uuid actorId
         string reason
+        json metadata
         timestamp createdAt
     }
 
@@ -104,30 +126,106 @@ erDiagram
         string phoneNumber
         timestamp completedAt
         string failureReason
+        int reconciliationAttempts
+        json metadata
         timestamp createdAt
         timestamp updatedAt
     }
 
-    Reminder {
+    PaymentTransaction {
+        uuid id PK
+        uuid paymentId FK
+        integer attemptNumber
+        string checkoutRequestId
+        integer resultCode
+        string resultDesc
+        string mpesaReceiptNumber
+        json rawRequest
+        json rawCallback
+        json metadata
+        timestamp createdAt
+    }
+
+    Notification {
         uuid id PK
         uuid bookingId FK
+        uuid recipientId FK
+        enum recipientType
         enum type
         enum channel
+        json payload
+        json metadata
         enum status
         timestamp scheduledAt
         timestamp sentAt
-        string jobId
+        timestamp deliveredAt
+        timestamp readAt
+        timestamp failedAt
+        string lastError
+        string correlationId
+        string idempotencyKey UK
         timestamp createdAt
+        timestamp updatedAt
+    }
+
+    NotificationSubscription {
+        uuid id PK
+        uuid recipientId FK
+        enum recipientType
+        enum channel
+        string endpoint
+        json metadata
+        boolean isActive
+        timestamp createdAt
+        timestamp updatedAt
+    }
+
+    PushSubscription {
+        uuid id PK
+        uuid userId FK
+        string endpoint UK
+        string p256dh
+        string auth
+        string userAgent
+        boolean isActive
+        json metadata
+        timestamp createdAt
+        timestamp updatedAt
+    }
+
+    Conversation {
+        uuid id PK
+        string phone UK
+        uuid customerId FK
+        enum status
+        json metadata
+        timestamp startedAt
+        timestamp updatedAt
     }
 
     ConversationSession {
         uuid id PK
-        uuid customerId FK
-        string state
-        jsonb context
+        uuid conversationId FK
+        string currentState
+        json context
+        json metadata
         timestamp expiresAt
         timestamp createdAt
-        timestamp updatedAt
+        timestamp lastActivityAt
+        uuid bookingId
+    }
+
+    Message {
+        uuid id PK
+        uuid conversationId FK
+        uuid conversationSessionId FK
+        enum role
+        string content
+        string contentType
+        string fsmState
+        string intent
+        json metadata
+        timestamp createdAt
     }
 
     AuditLog {
@@ -137,19 +235,40 @@ erDiagram
         string action
         string actorType
         uuid actorId
-        jsonb before
-        jsonb after
+        json before
+        json after
         string ipAddress
         timestamp createdAt
     }
 
+    BusinessHours {
+        uuid id PK
+        integer dayOfWeek UK
+        string openTime
+        string closeTime
+        boolean isActive
+        json metadata
+        timestamp createdAt
+        timestamp updatedAt
+    }
+
     Customer ||--o{ Booking : "places"
-    NailService ||--o{ Booking : "booked for"
+    Booking ||--o{ BookingService : "includes"
+    NailService ||--o{ BookingService : "booked for"
     User ||--o{ Booking : "approves"
+    User ||--o{ BookingService : "serves as stylist"
     Booking ||--o{ BookingStatusHistory : "has"
     Booking ||--o| Payment : "has"
-    Booking ||--o{ Reminder : "schedules"
-    Customer ||--o| ConversationSession : "has active"
+    Booking ||--o{ Notification : "has"
+    Payment ||--o{ PaymentTransaction : "logs"
+    Customer ||--o{ Conversation : "has"
+    Conversation ||--o{ ConversationSession : "has"
+    Conversation ||--o{ Message : "contains"
+    ConversationSession ||--o{ Message : "scopes"
+    User ||--o{ AuditLog : "audits"
+    User ||--o{ PushSubscription : "subscribes"
+    User ||--o{ Notification : "receives"
+    User ||--o{ NotificationSubscription : "preferences"
 ```
 
 ---
@@ -162,18 +281,24 @@ Represents salon staff and owner accounts for the PWA.
 
 ```prisma
 model User {
-  id           String    @id @default(uuid())g
+  id           String    @id @default(uuid())
   email        String    @unique
   passwordHash String    @map("password_hash")
   name         String
   role         UserRole  @default(STAFF)
   isActive     Boolean   @default(true) @map("is_active")
+  metadata    Json?          @default("{}")
+
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
 
-  approvedBookings Booking[]  @relation("ApprovedBy")
-  auditLogs        AuditLog[] @relation("Actor")
+  approvedBookings       Booking[]                     @relation("approvedBy")
+  auditLogs              AuditLog[]                    @relation("Actor")
+  notifications          Notification[]                @relation("notificationRecipient")
+  notificationSubscriptions NotificationSubscription[] @relation("subscriber")
+  pushSubscriptions      PushSubscription[]
+  bookingServices        BookingService[]              @relation("stylist")
 
   @@map("users")
 }
@@ -196,12 +321,14 @@ model Customer {
   email        String?
   consentGiven Boolean   @default(false) @map("consent_given")
   consentAt    DateTime? @map("consent_at")
+  metadata    Json?          @default("{}")
+
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
 
-  bookings            Booking[]
-  conversationSession ConversationSession?
+  bookings     Booking[]
+  conversations Conversation[]
 
   @@map("customers")
 }
@@ -216,58 +343,63 @@ model NailService {
   id              String    @id @default(uuid())
   name            String
   description     String?
-  category        ServiceCategory
   durationMinutes Int       @map("duration_minutes")
   priceKes        Int       @map("price_kes")  // in whole KES, no decimals
+  category        ServiceCategory
+  metadata        Json?     @default("{}")
   isActive        Boolean   @default(true) @map("is_active")
   sortOrder       Int       @default(0) @map("sort_order")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
   deletedAt       DateTime? @map("deleted_at")
 
-  bookings Booking[]
+  bookingServices BookingService[]
 
-  @@map("salon_services")
+  @@map("nail_services")
 }
 
 enum ServiceCategory {
-  MANICURE
-  OVERLAY
-  PEDICURE
-  ACRYLIC
+  MANICURE      // Natural nail care
+  PEDICURE      // Foot and toenail care
+  ENHANCEMENTS  // Overlays, gel overlays, acrylic overlays, BIAB, hard gel
+  NAIL_ART      // Designs, rhinestones, chrome, hand painting, etc
+  EXTENSIONS    // Tips, sculpted acrylics, Gel-X, soft gel extensions
+  REMOVAL       // Removing existing products
+  REPAIR        // Fixing broken or damaged nails
+  TREATMENT     // Nail health treatments, paraffin wax, strengthening treatments, cuticle therapy
 }
 ```
 
 ### bookings
 
-Core booking entity.
+Core booking entity. Services are linked through the BookingService join table (many-to-many).
 
 ```prisma
 model Booking {
   id              String        @id @default(uuid())
-  reference       String        @unique  // WN-2025-00001
+  reference       String        @unique  // WN-2026-00001
   customerId      String        @map("customer_id")
-  serviceId       String        @map("service_id")
   approvedById    String?       @map("approved_by_id")
   appointmentAt   DateTime      @map("appointment_at")  // stored in UTC
-  durationMinutes Int           @map("duration_minutes")  // snapshot at booking time
-  priceKes        Int           @map("price_kes")  // snapshot at booking time
+  durationMinutes Int           @map("duration_minutes")  // snapshot: sum of all service durations at booking time
+  priceKes        Int           @map("price_kes")  // snapshot: sum of all service prices at booking time
   status          BookingStatus @default(PENDING)
-  paymentStatus   PaymentStatus @default(UNPAID) @map("payment_status")
+  paymentStatus   PaymentStatus @default(PENDING) @map("payment_status")
   notes           String?
+  metadata        Json?          @default("{}")
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
   deletedAt       DateTime?     @map("deleted_at")
 
-  customer    Customer     @relation(fields: [customerId], references: [id])
-  service     NailService @relation(fields: [serviceId], references: [id])
-  approvedBy  User?        @relation("ApprovedBy", fields: [approvedById], references: [id])
-  statusHistory BookingStatusHistory[]
-  payment     Payment?
-  reminders   Reminder[]
+  customer        Customer      @relation(fields: [customerId], references: [id])
+  approvedBy      User?         @relation("approvedBy", fields: [approvedById], references: [id])
+
+  statusHistory   BookingStatusHistory[]
+  payment         Payment?
+  services        BookingService[]
+  notifications   Notification[]
 
   @@index([customerId])
-  @@index([serviceId])
   @@index([appointmentAt])
   @@index([status])
   @@index([paymentStatus])
@@ -285,11 +417,54 @@ enum BookingStatus {
 }
 
 enum PaymentStatus {
-  UNPAID
-  PAYMENT_PENDING
-  PAID
-  PAYMENT_FAILED
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+  EXPIRED
   REFUNDED
+  RECONCILING  // transient: callback received, side effects not yet committed
+}
+```
+
+### booking_services
+
+Join table linking bookings to services. Snapshots service details at booking time.
+
+```prisma
+model BookingService {
+  id          String   @id @default(uuid())
+  bookingId   String   @map("booking_id")
+  serviceId   String   @map("service_id")
+  stylist     String   // User.id — assigned staff member
+  metadata    Json?    @default("{}")
+
+  // Snapshotted fields — capture price/duration AT TIME OF BOOKING
+  serviceName String   @map("service_name") // in case service gets renamed/removed later
+  price       Decimal  @db.Decimal(10, 2)  // KES amount at booking time, not live-referenced
+  durationMin Int      @map("duration_min")// duration at booking time, for slot calculation
+
+  // Ordering, since a customer picks multiple services in sequence
+  position    Int      // 0, 1, 2... determines order services are performed
+  // Per-service status tracking (useful if staff mark each service done independently)
+  status      ServiceStatus @default(PENDING) // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+
+  booking     Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  service     NailService  @relation(fields: [serviceId], references: [id])
+  user        User         @relation("stylist", fields: [stylist], references: [id])
+
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  @@index([bookingId])
+  @@index([serviceId])
+  @@map("booking_services")
+}
+
+enum ServiceStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
 }
 ```
 
@@ -299,25 +474,20 @@ Immutable audit trail of all booking state transitions.
 
 ```prisma
 model BookingStatusHistory {
-  id         String        @id @default(uuid())
-  bookingId  String        @map("booking_id")
+  id         String         @id @default(uuid())
+  bookingId  String         @map("booking_id")
   fromStatus BookingStatus? @map("from_status")
-  toStatus   BookingStatus @map("to_status")
-  actorType  ActorType        @map("actor_type")  // "USER" | "SYSTEM" | "CUSTOMER"
-  actorId    String?       @map("actor_id")
+  toStatus   BookingStatus  @map("to_status")
+  actorType  String         @map("actor_type")  // "USER" | "SYSTEM" | "CUSTOMER"
+  actorId    String?        @map("actor_id")
   reason     String?
-  createdAt  DateTime      @default(now()) @map("created_at")
+  metadata    Json?          @default("{}")
+  createdAt  DateTime       @default(now()) @map("created_at")
 
   booking Booking @relation(fields: [bookingId], references: [id])
 
   @@index([bookingId])
   @@map("booking_status_history")
-}
-
-enum ActorType {
-  CUSTOMER
-  USER
-  SYSTEM
 }
 ```
 
@@ -331,11 +501,15 @@ model Payment {
   bookingId          String        @unique @map("booking_id")
   checkoutRequestId  String?       @unique @map("checkout_request_id")
   amountKes          Int           @map("amount_kes")
-  status             PaymentStatus @default(UNPAID)
+  status             PaymentStatus @default(PENDING)
   mpesaReceiptNumber String?       @unique @map("mpesa_receipt_number")
   phoneNumber        String?       @map("phone_number")
   completedAt        DateTime?     @map("completed_at")
   failureReason      String?       @map("failure_reason")
+  reconciliationAttempts      Int      @map("reconciliation_attempts") @default(0)
+
+  metadata           Json?          @default("{}")
+
   createdAt          DateTime      @default(now()) @map("created_at")
   updatedAt          DateTime      @updatedAt @map("updated_at")
 
@@ -362,6 +536,8 @@ model PaymentTransaction {
   mpesaReceiptNumber String?  @map("mpesa_receipt_number")
   rawRequest         Json?    @map("raw_request")   // sanitised (no passkey)
   rawCallback        Json?    @map("raw_callback")
+  metadata           Json?    @default("{}")
+
   createdAt          DateTime @default(now()) @map("created_at")
 
   payment Payment @relation(fields: [paymentId], references: [id])
@@ -372,51 +548,173 @@ model PaymentTransaction {
 }
 ```
 
-### reminders
+### notifications
 
-Tracks scheduled and sent appointment reminders.
+Tracks all outbound notifications (WhatsApp, email, push).
 
 ```prisma
-model Reminder {
-  id          String         @id @default(uuid())
-  bookingId   String         @map("booking_id")
-  type        ReminderType
-  channel     ReminderChannel @default(EMAIL)
-  status      ReminderStatus @default(SCHEDULED)
-  scheduledAt DateTime       @map("scheduled_at")
-  sentAt      DateTime?      @map("sent_at")
-  jobId       String?        @map("job_id")  // BullMQ job ID for cancellation
-  createdAt   DateTime       @default(now()) @map("created_at")
+model Notification {
+  id              String               @id @default(uuid())
+  bookingId       String               @map("booking_id")
+  recipientId     String               @map("recipient_id")
+  recipientType   NotificationRecipient @map("recipient_type")
+  type            NotificationType
+  channel         NotificationChannel  @default(EMAIL)
+  payload         Json
+  metadata        Json?                @default("{}")
+  status          NotificationStatus   @default(PENDING)
+  scheduledAt     DateTime?            @map("scheduled_at")
+  sentAt          DateTime?            @map("sent_at")
+  deliveredAt     DateTime?            @map("delivered_at")
+  readAt          DateTime?            @map("read_at")
+  failedAt        DateTime?            @map("failed_at")
+  lastError       String?              @map("last_error")
+  correlationId   String?              @map("correlation_id")
+  idempotencyKey  String               @unique @map("idempotency_key")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
 
-  booking Booking @relation(fields: [bookingId], references: [id])
+  booking   Booking  @relation(fields: [bookingId], references: [id])
+  recipient User?    @relation("notificationRecipient", fields: [recipientId], references: [id])
 
   @@index([bookingId])
   @@index([scheduledAt, status])
-  @@map("reminders")
+  @@index([recipientType, recipientId])
+  @@index([idempotencyKey])
+  @@map("notifications")
+}
+```
+
+### notification_subscriptions
+
+Stores delivery preferences per recipient.
+
+```prisma
+model NotificationSubscription {
+  id            String                @id @default(uuid())
+  recipientId   String                @map("recipient_id") // Owner, staff, or customer
+  recipientType NotificationRecipient @map("recipient_type")
+  channel       NotificationChannel
+  endpoint      String  // phone number (E.164 no plus sign) | push endpoint URL | email address
+  metadata      Json?                 @default("{}")
+  isActive      Boolean               @map("is_active") @default(false)
+
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  recipient User? @relation("subscriber", fields: [recipientId], references: [id])
+
+  @@unique([recipientId, channel, endpoint])
+  @@index([recipientType, recipientId, channel])
+  @@map("notification_subscriptions")
+}
+```
+
+### push_subscriptions
+
+Web push subscriptions for PWA notifications.
+
+```prisma
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?  @map("user_agent")
+  isActive  Boolean  @default(true) @map("is_active")
+  metadata  Json?     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+```
+
+### conversations
+
+Tracks WhatsApp conversation threads per phone number.
+
+```prisma
+model Conversation {
+  id            String   @id @default(uuid())
+  phone         String   @unique // one conversation per phone
+  customerId    String?
+  customer      Customer? @relation(fields: [customerId], references: [id])
+  status        ConversationStatus @default(ACTIVE)
+  metadata      Json?       @default("{}")
+  startedAt     DateTime @default(now()) @map("started_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  messages      Message[]
+  conversationSessions  ConversationSession[]
+  @@map("conversations")
 }
 
-enum ReminderType    { REMINDER_24H  REMINDER_1H }
-enum ReminderChannel { WHATSAPP   EMAIL }
-enum ReminderStatus  { SCHEDULED  SENT  FAILED  CANCELLED }
+enum ConversationStatus {
+  ACTIVE
+  IDLE
+  CLOSED
+}
 ```
 
 ### conversation_sessions
 
-Redis is the primary store for active sessions. This table logs completed conversations for analytics.
+Tracks FSM state per conversation. Redis is the primary store for active sessions; this table logs completed sessions for analytics.
 
 ```prisma
 model ConversationSession {
   id         String   @id @default(uuid())
-  customerId String   @unique @map("customer_id")
-  state      String
-  context    Json     @default("{}")
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+
+  currentState String  @map("current_state")
+  context    Json     @default("{}") // memory and slot filling
+  metadata   Json     @default("{}")
   expiresAt  DateTime @map("expires_at")
   createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  lastActivityAt  DateTime @updatedAt @map("last_activity_at")
 
-  customer Customer @relation(fields: [customerId], references: [id])
+  bookingId      String?  // set if this session resulted in a booking
+  messages       Message[] // messages scoped to this specific attempt
 
+  @@index([conversationId])
   @@map("conversation_sessions")
+}
+```
+
+### messages
+
+Stores both inbound and outbound WhatsApp/Web messages.
+
+```prisma
+model Message {
+  id             String   @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationSessionId String?
+  conversationSession   ConversationSession? @relation(fields: [conversationSessionId], references: [id])
+
+  role           MessageRole // USER, BOT, SYSTEM
+  content        String      @db.Text
+  contentType    String      @default("text") // text, image, location, interactive_reply
+  fsmState       String?  // snapshot at send-time — mirrors session.currentState but frozen
+  intent         String?
+  metadata       Json?       @default("{}")
+  createdAt      DateTime    @default(now())
+
+  @@index([conversationId, createdAt])
+  @@index([conversationSessionId])
+  @@map("messages")
+}
+
+enum MessageRole {
+  USER
+  BOT
+  SYSTEM
 }
 ```
 
@@ -437,10 +735,33 @@ model AuditLog {
   ipAddress  String?  @map("ip_address")
   createdAt  DateTime @default(now()) @map("created_at")
 
+  actor User? @relation("Actor", fields: [actorId], references: [id])
+
   @@index([entityType, entityId])
   @@index([actorId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+```
+
+### business_hours
+
+Defines salon operating hours per day of week.
+
+```prisma
+model BusinessHours {
+  id         String   @id @default(uuid())
+  dayOfWeek  Int      @map("day_of_week") // 0=Sunday, 6=Saturday
+  openTime   String   @map("open_time") // "07:00"
+  closeTime  String   @map("close_time") // "19:00"
+  isActive   Boolean  @default(true) @map("is_active")
+  metadata    Json?          @default("{}")
+
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([dayOfWeek])
+  @@map("business_hours")
 }
 ```
 
@@ -451,13 +772,67 @@ model AuditLog {
 | From | To | Cardinality | FK |
 |---|---|---|---|
 | Customer | Booking | 1:N | bookings.customer_id |
-| NailService | Booking | 1:N | bookings.service_id |
+| NailService | BookingService | 1:N | booking_services.service_id |
+| Booking | BookingService | 1:N | booking_services.booking_id |
+| User | BookingService (stylist) | 1:N | booking_services.stylist |
 | User | Booking | 1:N (approved_by) | bookings.approved_by_id |
 | Booking | BookingStatusHistory | 1:N | booking_status_history.booking_id |
 | Booking | Payment | 1:1 | payments.booking_id |
 | Payment | PaymentTransaction | 1:N | payment_transactions.payment_id |
-| Booking | Reminder | 1:N | reminders.booking_id |
-| Customer | ConversationSession | 1:1 | conversation_sessions.customer_id |
+| Booking | Notification | 1:N | notifications.booking_id |
+| User | Notification | 1:N | notifications.recipient_id |
+| User | PushSubscription | 1:N | push_subscriptions.user_id |
+| User | NotificationSubscription | 1:N | notification_subscriptions.recipient_id |
+| Customer | Conversation | 1:N | conversations.customer_id |
+| Conversation | ConversationSession | 1:N | conversation_sessions.conversation_id |
+| Conversation | Message | 1:N | messages.conversation_id |
+| ConversationSession | Message | 1:N | messages.conversation_session_id |
+| User | AuditLog | 1:N | audit_logs.actor_id |
+
+---
+
+## Enum Values
+
+### PaymentStatus
+| Value | Description |
+|---|---|
+| PENDING | Awaiting payment initiation |
+| SUCCESS | Payment completed successfully |
+| FAILED | Payment failed |
+| CANCELLED | Payment was cancelled |
+| EXPIRED | STK push timed out |
+| REFUNDED | Payment refunded |
+| RECONCILING | Callback received, side effects not yet committed |
+
+### ServiceStatus
+| Value | Description |
+|---|---|
+| PENDING | Service not yet started |
+| IN_PROGRESS | Service being performed |
+| COMPLETED | Service completed |
+| CANCELLED | Service cancelled |
+
+### NotificationType
+| Value | Description |
+|---|---|
+| BOOKING_CREATED | Booking created by customer |
+| BOOKING_PENDING_CONFIRMATION | Awaiting staff approval |
+| BOOKING_CONFIRMED | Booking approved |
+| BOOKING_REJECTED | Booking rejected |
+| BOOKING_CANCELLED | Booking cancelled |
+| BOOKING_RESCHEDULED | Booking rescheduled |
+| BOOKING_COMPLETED | Service completed |
+| BOOKING_NO_SHOW | Customer no-show |
+| APPOINTMENT_REMINDER | 24h or 1h reminder |
+| PAYMENT_REQUEST | Payment requested |
+| PAYMENT_RECEIVED | Payment received |
+| PAYMENT_REFUNDED | Payment refunded |
+| PAYMENT_SUCCESS | Payment successful |
+| PAYMENT_FAILED | Payment failed |
+| PAYMENT_EXPIRED | Payment expired |
+| REVIEW_RECEIPT | Receipt for review |
+| FEEDBACK_REQUEST | Request for feedback |
+| REVIEW_REQUEST | Request for review |
 
 ---
 
@@ -465,19 +840,13 @@ model AuditLog {
 
 ```sql
 -- Prevent double-booking: no two non-cancelled bookings can overlap
--- Implemented as a partial unique index + application-layer check
+-- Implemented as application-layer check with Serializable isolation
 -- (PostgreSQL doesn't support range overlap constraints natively without btree_gist)
-CREATE UNIQUE INDEX bookings_no_overlap_idx
-ON bookings (
-  date_trunc('minute', appointment_at),
-  duration_minutes
-)
-WHERE status NOT IN ('CANCELLED', 'NO_SHOW') AND deleted_at IS NULL;
 
 -- Reference format constraint
 ALTER TABLE bookings
 ADD CONSTRAINT bookings_reference_format
-CHECK (reference ~ '^NB-[0-9]{4}-[0-9]{5}$');
+CHECK (reference ~ '^WN-[0-9]{4}-[0-9]{5}$');
 
 -- Phone number E.164 format
 ALTER TABLE customers
@@ -486,7 +855,7 @@ CHECK (phone ~ '^\+254[0-9]{9}$');
 
 -- Price must be positive
 ALTER TABLE bookings ADD CONSTRAINT bookings_price_positive CHECK (price_kes > 0);
-ALTER TABLE salon_services ADD CONSTRAINT services_price_positive CHECK (price_kes > 0);
+ALTER TABLE nail_services ADD CONSTRAINT services_price_positive CHECK (price_kes > 0);
 
 -- Duration must be positive
 ALTER TABLE bookings ADD CONSTRAINT bookings_duration_positive CHECK (duration_minutes > 0);
@@ -507,8 +876,8 @@ CREATE INDEX idx_bookings_created_at ON bookings(created_at DESC);
 CREATE UNIQUE INDEX idx_payments_receipt ON payments(mpesa_receipt_number)
   WHERE mpesa_receipt_number IS NOT NULL;
 
--- Reminders: scheduled reminder processing
-CREATE INDEX idx_reminders_scheduled ON reminders(scheduled_at)
+-- Notifications: scheduled notification processing
+CREATE INDEX idx_notifications_scheduled ON notifications(scheduled_at)
   WHERE status = 'SCHEDULED';
 
 -- Audit log: entity history lookups
@@ -569,4 +938,3 @@ prisma.$extends({
     },
   },
 });
-```
