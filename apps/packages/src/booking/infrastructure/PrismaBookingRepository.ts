@@ -1,5 +1,5 @@
 import type { PrismaClient } from "../../generated/prisma/internal/class.js";
-import type { BookingRepository, CreateBookingRecord } from "../ports/BookingRepository.js";
+import type { BookingRepository, CreateBookingRecord, UpdateBookingRecord } from "../ports/BookingRepository.js";
 import type { BookingCandidate, ServiceData } from "../types.js";
 
 /**
@@ -38,7 +38,7 @@ export class PrismaBookingRepository implements BookingRepository {
   }
 
   async getById(id: string): Promise<{ id: string; reference: string; customerId: string; appointmentAt: Date; durationMinutes: number; priceKes: number; status: string; paymentStatus: string; notes: string | null; services: ServiceData[]; createdAt: Date; }> {
-    return await this.prisma.findUnique({
+    return await this.prisma.booking.findUnique({
       where: {id}
     })
   }
@@ -94,7 +94,6 @@ export class PrismaBookingRepository implements BookingRepository {
       },
     });
 
-
     return {
       id: booking.id,
       reference: booking.reference,
@@ -106,6 +105,62 @@ export class PrismaBookingRepository implements BookingRepository {
       paymentStatus: booking.paymentStatus,
       notes: booking.notes,
       services,
+      createdAt: booking.createdAt,
+    };
+  }
+
+  async update(
+    data: UpdateBookingRecord,
+    ctx?: unknown,
+  ): Promise<{
+    id: string;
+    reference: string;
+    customerId: string;
+    appointmentAt: Date;
+    durationMinutes: number;
+    priceKes: number;
+    status: string;
+    paymentStatus: string;
+    notes: string | null;
+    services: ServiceData[];
+    createdAt: Date;
+  }> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tx = (ctx as any) ?? this.prisma;
+
+    const updateData: Record<string, unknown> = {
+      status: data.status,
+      statusHistory: {
+        create: {
+          fromStatus: data.statusHistory.fromStatus,
+          toStatus: data.statusHistory.toStatus,
+          actorType: data.statusHistory.actorType,
+          ...(data.statusHistory.actorId ? { actorId: data.statusHistory.actorId } : {}),
+          ...(data.statusHistory.reason ? { reason: data.statusHistory.reason } : {}),
+        },
+      },
+    };
+
+    if (data.appointmentAt) {
+      updateData.appointmentAt = data.appointmentAt;
+    }
+
+    const booking = await tx.booking.update({
+      where: { id: data.id },
+      data: updateData,
+    });
+
+    return {
+      id: booking.id,
+      reference: booking.reference,
+      customerId: booking.customerId,
+      appointmentAt: booking.appointmentAt,
+      durationMinutes: booking.durationMinutes,
+      priceKes: booking.priceKes,
+      status: booking.status,
+      paymentStatus: booking.paymentStatus,
+      notes: booking.notes,
+      services: booking.services ?? [],
       createdAt: booking.createdAt,
     };
   }
