@@ -13,6 +13,12 @@ export interface CreateBookingInput {
   stylist?: string | undefined;
 }
 
+export interface CancelBookingInput {
+  id: string;
+  actorType: ActorType;
+  reason?: string | undefined;
+}
+
 export interface BookingResult {
   id: string;
   reference: string;
