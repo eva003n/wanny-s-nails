@@ -20,7 +20,7 @@ import {
 } from "@/hooks/useCustomerMutations";
 import { useUiStore } from "@/store/ui.store";
 import { formatDateShort, formatKes, formatPhoneForWhatsApp, formatTime } from "@/lib/format";
-import type { Customer } from "@/lib/schemas";
+// import type { Customer } from "@/lib/schemas";
 
 // ─── Form schema ─────────────────────────────────────────────────────────────
 
