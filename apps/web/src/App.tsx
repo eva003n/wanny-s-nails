@@ -187,8 +187,8 @@ function AppInner() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <AuthInitializer />
       <AppSSEProvider>
-        <AuthInitializer />
         <ServiceWorkerProvider>
           <BrowserRouter>
             <AppInner />
