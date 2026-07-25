@@ -19,6 +19,7 @@ import WhatsAppSection from "./sections/WhatsAppSection";
 import MPesaSection from "./sections/MPesaSection";
 import AccountSection from "./sections/AccountSection";
 import { NotificationSection } from "./sections/NotificationSection";
+import { AppInstallSection } from "./sections/AppInstallSection";
 
 interface SectionProps {
   title: string;
@@ -67,6 +68,10 @@ export default function SettingsPage() {
 
         <Section title="Notifications">
           <NotificationSection />
+        </Section>
+
+        <Section title="Installation">
+          <AppInstallSection/>
         </Section>
         <Section title="Reminders">
           <RemindersSection />
