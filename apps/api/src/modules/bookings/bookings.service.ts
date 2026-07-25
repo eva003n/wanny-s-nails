@@ -421,40 +421,36 @@ export const bookingsService = {
     return updated;
   },
 
-  async cancel(id: string, actorType: string, reason?: string) {
-    const booking = await this.getById(id);
-    if (booking.status === "CANCELLED" || booking.status === "COMPLETED") {
-      throw new InvalidStatusTransitionError(booking.status, "cancel");
-    }
+  async cancel(id: string, actorType: string = "USER", reason?: string) {
+    const bookingAppService = new BookingApplicationService({
+      unitOfWork: new PrismaUnitOfWork(prisma),
+      bookingRepository: new PrismaBookingRepository(prisma),
+      serviceRepository: new PrismaServiceRepository(prisma),
+      customerRepository: new PrismaCustomerRepository(prisma),
+      businessHoursRepository: new PrismaBusinessHoursRepository(prisma),
+    });
 
+    const result = await bookingAppService.cancel({
+      id,
+      actorType: actorType as "USER" | "CUSTOMER",
+      reason,
+    });
+
+    // Notification side effects (stay at API layer)
     try {
-      await onBookingCancelled(booking.id);
+      await onBookingCancelled(id);
     } catch (error) {
       log.error(
         {
           event: "booking.cancel.notify_failed",
-          bookingId: booking.id,
+          bookingId: id,
           error: String(error),
         },
         "Failed to dispatch cancellation notification",
       );
     }
 
-    return prisma.booking.update({
-      where: { id, status: booking.status },
-      data: {
-        status: "CANCELLED",
-        statusHistory: {
-          create: {
-            fromStatus: booking.status,
-            toStatus: "CANCELLED",
-            actorType,
-            ...(reason ? { reason } : {}),
-          },
-        },
-      },
-      include: BOOKING_INCLUDE,
-    });
+    return this.getById(id);
   },
 
   async reschedule(
@@ -463,106 +459,25 @@ export const bookingsService = {
     rescheduledById: string,
     reason?: string,
   ) {
-    const booking = await this.getById(id);
-    if (booking.status === "CANCELLED" || booking.status === "COMPLETED") {
-      throw new InvalidStatusTransitionError(booking.status, "reschedule");
-    }
-
-    const newDate = new Date(newAppointmentAt);
-
-    // Validate future date
-    if (newDate <= new Date()) {
-      throw new BookingConflictError();
-    }
-
-    // Calculate total duration from the booking's services
-    const totalDuration = booking.services?.reduce(
-      (sum: number, bs: { durationMin: number }) => sum + bs.durationMin,
-      booking.durationMinutes,
-    ) ?? booking.durationMinutes;
-
-    const newEnd = new Date(newDate.getTime() + totalDuration * 60 * 1000);
-
-    // Check business hours
-    const dayOfWeek = newDate.getDay();
-    const businessHours = await prisma.businessHours.findUnique({
-      where: { dayOfWeek },
-    });
-    if (!businessHours || !businessHours.isActive) {
-      throw new OutsideBusinessHoursError(newAppointmentAt);
-    }
-
-    const [openHour, openMinute = 0] = businessHours.openTime
-      .split(":")
-      .map(Number);
-    const [closeHour, closeMinute = 0] = businessHours.closeTime
-      .split(":")
-      .map(Number);
-
-    const dayOpen = new Date(newDate);
-    dayOpen.setHours(openHour as number, openMinute, 0, 0);
-    const dayClose = new Date(newDate);
-    dayClose.setHours(closeHour as number, closeMinute, 0, 0);
-
-    if (newDate < dayOpen || newEnd > dayClose) {
-      throw new OutsideBusinessHoursError(newAppointmentAt);
-    }
-
-    // Check slot availability
-    const candidates = await prisma.booking.findMany({
-      where: {
-        id: { not: id },
-        status: { notIn: ["CANCELLED", "NO_SHOW"] },
-        appointmentAt: {
-          gt: new Date(newDate.getTime() - 2 * 60 * 60 * 1000),
-          lt: newEnd,
-        },
-      },
-      select: { appointmentAt: true, durationMinutes: true },
+    const bookingAppService = new BookingApplicationService({
+      unitOfWork: new PrismaUnitOfWork(prisma),
+      bookingRepository: new PrismaBookingRepository(prisma),
+      serviceRepository: new PrismaServiceRepository(prisma),
+      customerRepository: new PrismaCustomerRepository(prisma),
+      businessHoursRepository: new PrismaBusinessHoursRepository(prisma),
     });
 
-    const conflicting = candidates.find((c: { appointmentAt: Date; durationMinutes: number }) => {
-      const cStart = c.appointmentAt.getTime();
-      const cEnd = cStart + c.durationMinutes * 60 * 1000;
-      return cStart < newEnd.getTime() && cEnd > newDate.getTime();
+    const result = await bookingAppService.reschedule({
+      id,
+      newAppointmentAt,
+      rescheduledById,
+      actorType: "USER",
+      ...(reason ? { reason } : {}),
     });
 
-    if (conflicting) {
-      throw new BookingConflictError();
-    }
-
-    let updated;
+    // Notification side effects (stay at API layer)
     try {
-      updated = await prisma.booking.update({
-        where: { id, status: booking.status },
-        data: {
-          appointmentAt: newDate,
-          status: "RESCHEDULED",
-          statusHistory: {
-            create: {
-              fromStatus: booking.status,
-              toStatus: "RESCHEDULED",
-              actorType: "USER",
-              actorId: rescheduledById,
-              ...(reason ? { reason } : {}),
-            },
-          },
-        },
-        include: BOOKING_INCLUDE,
-      });
-    } catch (error: unknown) {
-      if (
-        error instanceof PrismaClientKnownRequestError &&
-        error.code === "P2025"
-      ) {
-        const current = await this.getById(id);
-        throw new InvalidStatusTransitionError(current.status, "reschedule");
-      }
-      throw error;
-    }
-
-    try {
-      await onBookingRescheduled(updated.id, newDate);
+      await onBookingRescheduled(id, new Date(newAppointmentAt));
     } catch (error: unknown) {
       const err = error as { message?: string };
       log.error(
@@ -574,7 +489,8 @@ export const bookingsService = {
         "Booking rescheduled but failed to update reminder notifications",
       );
     }
-    return updated;
+
+    return this.getById(id);
   },
 
   async markPaid(id: string, method: string, notes?: string) {

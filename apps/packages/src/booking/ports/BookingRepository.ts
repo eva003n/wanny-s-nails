@@ -1,4 +1,4 @@
-import type { BookingCandidate, ServiceData } from "../types.js";
+import type { BookingCandidate, ServiceData, StatusHistoryEntry } from "../types.js";
 
 export interface CreateBookingRecord {
   reference: string;
@@ -9,6 +9,13 @@ export interface CreateBookingRecord {
   notes: string | null;
   services: Array<ServiceData>;
   actorType: string
+}
+
+export interface UpdateBookingRecord {
+  id: string;
+  status: string;
+  appointmentAt?: Date;
+  statusHistory: StatusHistoryEntry;
 }
 
 export interface BookingRepository {
@@ -40,6 +47,26 @@ export interface BookingRepository {
    */
   save(
     data: CreateBookingRecord,
+    ctx?: unknown,
+  ): Promise<{
+    id: string;
+    reference: string;
+    customerId: string;
+    appointmentAt: Date;
+    durationMinutes: number;
+    priceKes: number;
+    status: string;
+    paymentStatus: string;
+    notes: string | null;
+    services: ServiceData[];
+    createdAt: Date;
+  }>;
+
+  /**
+   * Update an existing booking's status, optionally appointmentAt, and add a status history entry.
+   */
+  update(
+    data: UpdateBookingRecord,
     ctx?: unknown,
   ): Promise<{
     id: string;

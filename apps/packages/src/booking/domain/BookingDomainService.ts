@@ -1,4 +1,4 @@
-import type { ServiceData, BusinessHoursData, BookingCandidate, CreateBookingInput, RescheduleBookingInput } from "../types.js";
+import type { ServiceData, BusinessHoursData, BookingCandidate, CreateBookingInput, RescheduleBookingInput, CancelBookingInput } from "../types.js";
 import { BookingPolicy, BusinessClosedError } from "./BookingPolicy.js";
 import { BookingConflictService, BookingConflictError } from "./BookingConflictService.js";
 import type { BookingStatus } from "../../generated/prisma/enums.ts";
@@ -49,6 +49,13 @@ export class OutsideBusinessHoursError extends Error {
     );
   }
 }
+
+export class BookingPastDateError extends Error {
+  constructor() {
+    super("BOOKING_PAST_DATE\nThe selected date/time is in the past");
+    this.name = "BookingPastDateError";
+  }
+}
 /**
  * Pure domain service for booking business logic.
  * Validates all business rules and constructs the booking aggregate.
@@ -72,6 +79,22 @@ export interface ValidatedBooking {
   durationMinutes: number;
   priceKes: number;
   notes: string | null;
+}
+
+export interface ValidatedReschedule {
+  id: string;
+  newAppointmentAt: Date;
+  durationMinutes: number;
+  rescheduledById: string;
+  actorType: string;
+  reason?: string | undefined;
+}
+
+export interface ValidatedCancel {
+  id: string;
+  actorType: string;
+  reason?: string | undefined;
+  fromStatus: string;
 }
 
 function generateReference(): string {
@@ -162,24 +185,28 @@ export const BookingDomainService = {
     };
   },
 
+  /**
+   * Validate that a booking can be rescheduled to a new time.
+   * Checks: status transition, future date, business hours, slot alignment, conflict detection.
+   */
   async validateBookingReschedule(
     booking: { status: string; durationMinutes: number; services?: Array<{ durationMin: number }> },
-    businessHours: { isActive: boolean; openTime: string; closeTime: string },
-    data: RescheduleBookingInput,
-  ) {
+    input: RescheduleBookingInput,
+    deps: Pick<BookingDomainServiceDeps, 'findBusinessHours' | 'findBookingCandidates'>,
+  ): Promise<ValidatedReschedule> {
+    // 1. Status check
     if (booking.status === "CANCELLED" || booking.status === "COMPLETED") {
       throw new InvalidStatusTransitionError(booking.status, "reschedule");
     }
 
-    const newDate = new Date(data.newAppointmentAt);
+    const newDate = new Date(input.newAppointmentAt);
 
-     // Validate future date
+    // 2. Validate future date
     if (newDate <= new Date()) {
-      throw new BookingConflictError();
+      throw new BookingPastDateError();
     }
 
-    
-    // Calculate total duration from the booking's services
+    // 3. Calculate total duration from the booking's services
     const totalDuration = booking.services?.reduce(
       (sum: number, bs: { durationMin: number }) => sum + bs.durationMin,
       booking.durationMinutes,
@@ -187,27 +214,60 @@ export const BookingDomainService = {
 
     const newEnd = new Date(newDate.getTime() + totalDuration * 60 * 1000);
 
-    // Check business hours
+    // 4. Slot alignment check
+    BookingPolicy.assertSlotAlignment(newDate);
+
+    // 5. Business hours check
     const dayOfWeek = newDate.getDay();
-    if (!businessHours || !businessHours.isActive) {
-      throw new OutsideBusinessHoursError(data.newAppointmentAt);
+    const businessHours = await deps.findBusinessHours(dayOfWeek);
+    if (!businessHours) {
+      throw new BusinessClosedError();
+    }
+    BookingPolicy.assertWithinBusinessHours(newDate, newEnd, businessHours);
+
+    // 6. Conflict detection (exclude the current booking)
+    const window = BookingConflictService.buildQueryWindow(newDate, newEnd);
+    const candidates = await deps.findBookingCandidates(
+      window.lowerBound,
+      window.upperBound,
+      { excludeId: input.id },
+    );
+    const isAvailable = BookingConflictService.isAvailable(
+      newDate,
+      newEnd,
+      candidates,
+    );
+    if (!isAvailable) {
+      throw new BookingConflictError();
     }
 
-    const [openHour, openMinute = 0] = businessHours.openTime
-      .split(":")
-      .map(Number);
-    const [closeHour, closeMinute = 0] = businessHours.closeTime
-      .split(":")
-      .map(Number);
+    return {
+      id: input.id,
+      newAppointmentAt: newDate,
+      durationMinutes: totalDuration,
+      rescheduledById: input.rescheduledById,
+      actorType: input.actorType,
+      reason: input.reason,
+    };
+  },
 
-    const dayOpen = new Date(newDate);
-    dayOpen.setHours(openHour as number, openMinute, 0, 0);
-    const dayClose = new Date(newDate);
-    dayClose.setHours(closeHour as number, closeMinute, 0, 0);
-
-    if (newDate < dayOpen || newEnd > dayClose) {
-      throw new OutsideBusinessHoursError(data.newAppointmentAt);
+  /**
+   * Validate that a booking can be cancelled.
+   * Checks: status transition (can't cancel CANCELLED or COMPLETED).
+   */
+  async validateBookingCancel(
+    booking: { status: string },
+    input: CancelBookingInput,
+  ): Promise<ValidatedCancel> {
+    if (booking.status === "CANCELLED" || booking.status === "COMPLETED") {
+      throw new InvalidStatusTransitionError(booking.status, "cancel");
     }
-    
+
+    return {
+      id: input.id,
+      actorType: input.actorType,
+      reason: input.reason,
+      fromStatus: booking.status,
+    };
   },
 };

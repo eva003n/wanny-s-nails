@@ -102,6 +102,7 @@ erDiagram
         enum status
         json metadata
         timestamp createdAt
+        timestamp updatedAt
     }
 
     BookingStatusHistory {
@@ -271,6 +272,7 @@ erDiagram
     User ||--o{ NotificationSubscription : "preferences"
 ```
 
+![Diagram representing ERD for wanny nails](/assets/images/wanny-nails-ERD.png)
 ---
 
 ## Table Definitions

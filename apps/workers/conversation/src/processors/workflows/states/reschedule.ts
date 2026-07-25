@@ -2,9 +2,19 @@ import type { StateHandlerContext, StateTransitionResult } from "../types.js";
 import { resetInvalidCount, incrementInvalidCount } from "../session.js";
 import { buildDateOptions, formatDateEAT, formatTime12h } from "../helpers.js";
 
-import { log as logger } from "../../../lib/index.js";
+import { log as logger, notificationQueue  } from "../../../lib/index.js";
 
 import { prisma } from "../../../lib/prisma.js";
+import {
+  BookingApplicationService,
+  PrismaBookingRepository,
+  PrismaServiceRepository,
+  PrismaCustomerRepository,
+  PrismaBusinessHoursRepository,
+  PrismaUnitOfWork,
+  NotificationService,
+  createQueues,
+} from "@wannys-nails/packages";
 
 const log = logger.child({ module: "fsm-reschedule" });
 
@@ -362,26 +372,31 @@ export async function handleRescheduleConfirmation(
     }
 
     try {
-      const bookingToReschedule = await prisma.booking.findUnique({
-        where: { id: bookingId },
+      // Use shared BookingApplicationService for consistent business rules
+      const bookingAppService = new BookingApplicationService({
+        unitOfWork: new PrismaUnitOfWork(prisma),
+        bookingRepository: new PrismaBookingRepository(prisma),
+        serviceRepository: new PrismaServiceRepository(prisma),
+        customerRepository: new PrismaCustomerRepository(prisma),
+        businessHoursRepository: new PrismaBusinessHoursRepository(prisma),
       });
-      if (bookingToReschedule) {
-        await prisma.booking.update({
-          where: { id: bookingId },
-          data: {
-            appointmentAt: new Date(appointmentAt),
-            status: "RESCHEDULED",
-            statusHistory: {
-              create: {
-                fromStatus: bookingToReschedule.status,
-                toStatus: "RESCHEDULED",
-                actorType: "USER",
-                reason: "Rescheduled via WhatsApp",
-              },
-            },
-          },
-        });
-      }
+
+      await bookingAppService.reschedule({
+        id: bookingId,
+        newAppointmentAt: appointmentAt,
+        rescheduledById: ctx.phone,
+        actorType: "CUSTOMER",
+        reason: "Rescheduled via WhatsApp",
+      });
+
+      // Use shared NotificationService for notification side effects
+      const notificationService = new NotificationService({
+        prisma,
+        notificationQueue: notificationQueue,
+        log
+      });
+
+      await notificationService.onBookingRescheduled(bookingId, new Date(appointmentAt));
 
       const confirmText = [
         "Your appointment has been rescheduled! ✅",

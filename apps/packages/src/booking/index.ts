@@ -38,10 +38,13 @@ export {
 // Types
 export type {
   CreateBookingInput,
+  CancelBookingInput,
+  RescheduleBookingInput,
   BookingResult,
   ServiceData,
   CustomerData,
   BusinessHoursData,
   BookingCandidate,
+  StatusHistoryEntry,
 } from "./types.js";
 export { SLOT_GRANULARITY_MINUTES, MAX_SERVICE_MINUTES } from "./types.js";
