@@ -150,7 +150,12 @@ export const paymentsService = {
               reference: true,
               appointmentAt: true,
               customer: { select: { id: true, name: true } },
-              service: { select: { id: true, name: true } },
+              services: {
+                select: {
+                  service: { select: { id: true, name: true } },
+                },
+                take: 1,
+              },
             },
           },
         },
@@ -176,7 +181,12 @@ export const paymentsService = {
             id: true,
             reference: true,
             customer: { select: { id: true, name: true } },
-            service: { select: { id: true, name: true } },
+            services: {
+              select: {
+                service: { select: { id: true, name: true } },
+              },
+              take: 1,
+            },
           },
         },
       },

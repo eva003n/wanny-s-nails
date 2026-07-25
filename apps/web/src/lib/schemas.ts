@@ -90,8 +90,6 @@ export type TimeSlot = z.infer<typeof TimeSlotSchema>;
 
 export const AvailableSlotsResponseSchema = z.object({
   date: z.string(),
-  serviceId: z.string(),
-  serviceName: z.string(),
   durationMinutes: z.number().int().positive(),
   totalSlots: z.number().int().nonnegative(),
   availableSlots: z.number().int().nonnegative(),
@@ -103,6 +101,11 @@ export type AvailableSlotsResponse = z.infer<
 
 // ─── Response schemas ───────────────────────────────────────────────────────
 
+export const BookingServiceRefSchema = z.object({
+  service: ServiceRefSchema,
+});
+export type BookingServiceRef = z.infer<typeof BookingServiceRefSchema>;
+
 export const BookingSchema = z.object({
   id: z.string().uuid(),
   reference: z.string(),
@@ -112,7 +115,8 @@ export const BookingSchema = z.object({
   priceKes: z.number().int().positive(),
   durationMinutes: z.number().int().positive(),
   customer: CustomerRefSchema,
-  service: ServiceRefSchema,
+  services: z.array(BookingServiceRefSchema).optional(),
+  service: ServiceRefSchema.optional(), // fallback for backward compat
   payment: PaymentSchema.nullable().optional(),
   notes: z.string().nullable(),
   createdAt: z.string().datetime(),
@@ -224,7 +228,8 @@ export const RawPaymentSchema = z.object({
       id: z.string(),
       name: z.string(),
     }),
-    service: ServiceRefSchema,
+    service: ServiceRefSchema.optional(),
+    services: z.array(BookingServiceRefSchema).optional(),
   }),
   transactions: z.array(z.any()).optional(),
 });
@@ -241,6 +246,7 @@ export const PaymentTransactionSchema = z.object({
     id: z.string(),
     reference: z.string(),
     service: ServiceRefSchema,
+    services: z.array(BookingServiceRefSchema).optional(),
   }),
   customer: CustomerRefSchema,
   amountKes: z.number().int().positive(),

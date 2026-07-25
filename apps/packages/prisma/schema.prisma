@@ -28,6 +28,12 @@ enum BookingStatus {
   NO_SHOW
 }
 
+enum ServiceStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
 enum PaymentStatus {
   PENDING
   SUCCESS
@@ -59,7 +65,6 @@ enum NotificationType {
   PAYMENT_EXPIRED
   REVIEW_RECEIPT
   
-  THANK_YOU
   FEEDBACK_REQUEST
   REVIEW_REQUEST
 }
@@ -89,11 +94,6 @@ enum NotificationRecipient {
   CLIENT
 }
 
-enum ReminderType {
-  REMINDER_24H
-  REMINDER_1H
-}
-
 enum ServiceCategory {
   MANICURE // Natural nail care
   PEDICURE // Foot and toenail care
@@ -105,6 +105,22 @@ enum ServiceCategory {
   TREATMENT // Nail health treatments, paraffin wax, strengthening treatments, cuticle therapy
 }
 
+enum MessageRole {
+  USER
+  BOT
+  SYSTEM
+}
+
+enum Channel {
+  WHATSAPP
+  WEB
+}
+
+enum ConversationStatus {
+  ACTIVE
+  IDLE
+  CLOSED
+}
 // ============================================
 // Models
 // ============================================
@@ -122,8 +138,10 @@ model User {
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
 
-  approvedBookings Booking[]  @relation("ApprovedBy")
+  approvedBookings Booking[]  @relation("approvedBy")
   auditLogs        AuditLog[] @relation("Actor")
+  notifications      Notification[] @relation("notificationRecipient")
+  notificationSubscriptions NotificationSubscription[] @relation("subscriber")
   pushSubscriptions PushSubscription[]
 
 
@@ -143,8 +161,8 @@ model Customer {
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
 
-  bookings            Booking[]
-  conversationSession ConversationSession?
+  bookings     Booking[]
+  conversations Conversation[]
 
   @@map("customers")
 }
@@ -156,14 +174,14 @@ model NailService {
   durationMinutes Int       @map("duration_minutes")
   priceKes        Int       @map("price_kes")
   category        ServiceCategory
-  metadata    Json?          @default("{}")    
+  metadata        Json?     @default("{}")    
   isActive        Boolean   @default(true) @map("is_active")
   sortOrder       Int       @default(0) @map("sort_order")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
   deletedAt       DateTime? @map("deleted_at")
 
-  bookings Booking[]
+  bookingServices BookingService[]
 
   @@map("nail_services")
 }
@@ -172,7 +190,6 @@ model Booking {
   id              String        @id @default(uuid())
   reference       String        @unique
   customerId      String        @map("customer_id")
-  serviceId       String        @map("service_id")
   approvedById    String?       @map("approved_by_id")
   appointmentAt   DateTime      @map("appointment_at")
   durationMinutes Int           @map("duration_minutes")
@@ -185,22 +202,49 @@ model Booking {
   updatedAt       DateTime      @updatedAt @map("updated_at")
   deletedAt       DateTime?     @map("deleted_at")
 
-  customer      Customer              @relation(fields: [customerId], references: [id])
-  service       NailService          @relation(fields: [serviceId], references: [id])
-  approvedBy    User?                 @relation("ApprovedBy", fields: [approvedById], references: [id])
-  statusHistory BookingStatusHistory[]
-  payment       Payment?
-
-  notifications Notification[]
+  customer        Customer      @relation(fields: [customerId], references: [id])
+  approvedBy      User?         @relation("approvedBy", fields: [approvedById], references: [id])
+  
+  statusHistory   BookingStatusHistory[]
+  payment         Payment?
+  services        BookingService[]
+  notifications   Notification[]
 
 
   @@index([customerId])
-  @@index([serviceId])
   @@index([appointmentAt])
   @@index([status])
   @@index([paymentStatus])
   @@index([deletedAt])
   @@map("bookings")
+}
+
+model BookingService {
+  id          String   @id @default(uuid())
+  bookingId   String   @map("booking_id")
+  serviceId   String   @map("service_id")
+  stylist     String?
+  metadata    Json?    @default("{}")    
+
+  // Snapshotted fields — capture price/duration AT TIME OF BOOKING
+  serviceName String   @map("service_name") // in case service gets renamed/removed later
+  price       Decimal  @db.Decimal(10, 2)  // KES amount at booking time, not live-referenced
+  durationMin Int      @map("duration_min")// duration at booking time, for slot calculation
+
+  // Ordering, since a customer picks multiple services in sequence
+  position    Int      // 0, 1, 2... determines order services are performed
+  // Per-service status tracking (useful if staff mark each service done independently)
+  status      ServiceStatus @default(PENDING) // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+
+  booking     Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  service     NailService  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  @@index([bookingId])
+  @@index([serviceId])
+  @@map("booking_services")
 }
 
 model BookingStatusHistory {
@@ -212,7 +256,6 @@ model BookingStatusHistory {
   actorId    String?        @map("actor_id")
   reason     String?
   metadata    Json?          @default("{}")    
-
   createdAt  DateTime       @default(now()) @map("created_at")
 
   booking Booking @relation(fields: [bookingId], references: [id])
@@ -287,8 +330,11 @@ model Notification {
   correlationId   String?              @map("correlation_id")
   idempotencyKey  String               @unique @map("idempotency_key")
   createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
 
   booking   Booking  @relation(fields: [bookingId], references: [id])
+  recipient User?    @relation("notificationRecipient", fields: [recipientId], references: [id])
 
   @@index([bookingId])
   @@index([scheduledAt, status])
@@ -299,15 +345,17 @@ model Notification {
 
 model NotificationSubscription {
   id            String                @id @default(uuid())
-  recipientId   String                @map("recipient_id")
+  recipientId   String                @map("recipient_id") // Owner, staff customer 
   recipientType NotificationRecipient @map("recipient_type")
   channel       NotificationChannel
-  endpoint      String  // phone number (E.164) | push endpoint URL | email address  
+  endpoint      String  // phone number (E.164 no plus sign) | push endpoint URL | email address  
   metadata      Json?                 @default("{}")    
   isActive      Boolean               @map("is_active") @default(false)
 
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
+
+  recipient User? @relation("subscriber", fields: [recipientId], references: [id])
 
   @@unique([recipientId, channel, endpoint])
   @@index([recipientType, recipientId, channel])
@@ -321,9 +369,11 @@ model PushSubscription {
   endpoint  String   @unique
   p256dh    String
   auth      String
-  userAgent String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
+  userAgent String?  @map("user_agent")
+  isActive  Boolean  @default(true) @map("is_active")
+  metadata  Json?     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id])
 
@@ -331,18 +381,60 @@ model PushSubscription {
   @@map("push_subscriptions")
 }
 
+// Tracks whatsapp threads per phone number
+model Conversation {
+  id            String   @id @default(uuid())
+  phone         String   @unique // one conversation per phone
+  customerId    String?
+  customer      Customer? @relation(fields: [customerId], references: [id])
+  status        ConversationStatus @default(ACTIVE)
+  metadata      Json?       @default("{}")
+  startedAt     DateTime @default(now()) @map("started_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  messages      Message[]
+  conversationSessions  ConversationSession[] 
+  @@map("conversations")
+}
+
 model ConversationSession {
   id         String   @id @default(uuid())
-  customerId String   @unique @map("customer_id")
-  state      String
-  context    Json     @default("{}")
+  conversationId String   @unique
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+
+  currentState String  @map("current_state")
+  context    Json     @default("{}") // memory and slot filling
+  metadata   Json     @default("{}")
   expiresAt  DateTime @map("expires_at")
   createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  lastActivityAt  DateTime @updatedAt @map("last_activity_at")
 
-  customer Customer @relation(fields: [customerId], references: [id])
+  bookingId      String?  // set if this session resulted in a booking
+  messages       Message[] // messages scoped to this specific attempt
 
+  @@index([conversationId])
   @@map("conversation_sessions")
+}
+
+// Track both inbound and outbound messages
+model Message {
+  id             String   @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationSessionId String?
+  conversationSession   ConversationSession? @relation(fields: [conversationSessionId], references: [id])
+
+  role           MessageRole // USER, BOT, SYSTEM
+  content        String      @db.Text
+  contentType    String      @default("text") // text, image, location, interactive_reply
+  fsmState       String?  // snapshot at send-time — mirrors session.currentState but frozen
+  intent         String?
+  metadata       Json?       @default("{}")
+  createdAt      DateTime    @default(now())
+
+  @@index([conversationId, createdAt])
+  @@index([conversationSessionId])
+  @@map("messages")
 }
 
 model AuditLog {

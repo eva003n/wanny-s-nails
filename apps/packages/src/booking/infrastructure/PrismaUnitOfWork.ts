@@ -1,7 +1,9 @@
+import type { PrismaClient } from "../../generated/prisma/internal/class.js";
+import type { UnitOfWork } from "../ports/UnitOfWork.js";
+
 // Accept any PrismaClient-like object to be compatible with extended clients
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PrismaClientLike = any;
-import type { UnitOfWork } from "../ports/UnitOfWork.js";
 
 /**
  * Prisma-based Unit of Work that wraps operations in a transaction.

@@ -9,8 +9,8 @@
  * 🟢 You can import this file directly.
  */
 import type * as runtime from "@prisma/client/runtime/client"
-import type * as $Enums from "../enums.js"
-import type * as Prisma from "../internal/prismaNamespace.js"
+import type * as $Enums from "../enums.ts"
+import type * as Prisma from "../internal/prismaNamespace.ts"
 
 /**
  * Model NailService
@@ -276,7 +276,7 @@ export type NailServiceWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"NailService"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"NailService"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"NailService"> | Date | string | null
-  bookings?: Prisma.BookingListRelationFilter
+  bookingServices?: Prisma.BookingServiceListRelationFilter
 }
 
 export type NailServiceOrderByWithRelationInput = {
@@ -292,7 +292,7 @@ export type NailServiceOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
-  bookings?: Prisma.BookingOrderByRelationAggregateInput
+  bookingServices?: Prisma.BookingServiceOrderByRelationAggregateInput
 }
 
 export type NailServiceWhereUniqueInput = Prisma.AtLeast<{
@@ -311,7 +311,7 @@ export type NailServiceWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"NailService"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"NailService"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"NailService"> | Date | string | null
-  bookings?: Prisma.BookingListRelationFilter
+  bookingServices?: Prisma.BookingServiceListRelationFilter
 }, "id">
 
 export type NailServiceOrderByWithAggregationInput = {
@@ -365,7 +365,7 @@ export type NailServiceCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
-  bookings?: Prisma.BookingCreateNestedManyWithoutServiceInput
+  bookingServices?: Prisma.BookingServiceCreateNestedManyWithoutServiceInput
 }
 
 export type NailServiceUncheckedCreateInput = {
@@ -381,7 +381,7 @@ export type NailServiceUncheckedCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
-  bookings?: Prisma.BookingUncheckedCreateNestedManyWithoutServiceInput
+  bookingServices?: Prisma.BookingServiceUncheckedCreateNestedManyWithoutServiceInput
 }
 
 export type NailServiceUpdateInput = {
@@ -397,7 +397,7 @@ export type NailServiceUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  bookings?: Prisma.BookingUpdateManyWithoutServiceNestedInput
+  bookingServices?: Prisma.BookingServiceUpdateManyWithoutServiceNestedInput
 }
 
 export type NailServiceUncheckedUpdateInput = {
@@ -413,7 +413,7 @@ export type NailServiceUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  bookings?: Prisma.BookingUncheckedUpdateManyWithoutServiceNestedInput
+  bookingServices?: Prisma.BookingServiceUncheckedUpdateManyWithoutServiceNestedInput
 }
 
 export type NailServiceCreateManyInput = {
@@ -533,21 +533,21 @@ export type EnumServiceCategoryFieldUpdateOperationsInput = {
   set?: $Enums.ServiceCategory
 }
 
-export type NailServiceCreateNestedOneWithoutBookingsInput = {
-  create?: Prisma.XOR<Prisma.NailServiceCreateWithoutBookingsInput, Prisma.NailServiceUncheckedCreateWithoutBookingsInput>
-  connectOrCreate?: Prisma.NailServiceCreateOrConnectWithoutBookingsInput
+export type NailServiceCreateNestedOneWithoutBookingServicesInput = {
+  create?: Prisma.XOR<Prisma.NailServiceCreateWithoutBookingServicesInput, Prisma.NailServiceUncheckedCreateWithoutBookingServicesInput>
+  connectOrCreate?: Prisma.NailServiceCreateOrConnectWithoutBookingServicesInput
   connect?: Prisma.NailServiceWhereUniqueInput
 }
 
-export type NailServiceUpdateOneRequiredWithoutBookingsNestedInput = {
-  create?: Prisma.XOR<Prisma.NailServiceCreateWithoutBookingsInput, Prisma.NailServiceUncheckedCreateWithoutBookingsInput>
-  connectOrCreate?: Prisma.NailServiceCreateOrConnectWithoutBookingsInput
-  upsert?: Prisma.NailServiceUpsertWithoutBookingsInput
+export type NailServiceUpdateOneRequiredWithoutBookingServicesNestedInput = {
+  create?: Prisma.XOR<Prisma.NailServiceCreateWithoutBookingServicesInput, Prisma.NailServiceUncheckedCreateWithoutBookingServicesInput>
+  connectOrCreate?: Prisma.NailServiceCreateOrConnectWithoutBookingServicesInput
+  upsert?: Prisma.NailServiceUpsertWithoutBookingServicesInput
   connect?: Prisma.NailServiceWhereUniqueInput
-  update?: Prisma.XOR<Prisma.XOR<Prisma.NailServiceUpdateToOneWithWhereWithoutBookingsInput, Prisma.NailServiceUpdateWithoutBookingsInput>, Prisma.NailServiceUncheckedUpdateWithoutBookingsInput>
+  update?: Prisma.XOR<Prisma.XOR<Prisma.NailServiceUpdateToOneWithWhereWithoutBookingServicesInput, Prisma.NailServiceUpdateWithoutBookingServicesInput>, Prisma.NailServiceUncheckedUpdateWithoutBookingServicesInput>
 }
 
-export type NailServiceCreateWithoutBookingsInput = {
+export type NailServiceCreateWithoutBookingServicesInput = {
   id?: string
   name: string
   description?: string | null
@@ -562,7 +562,7 @@ export type NailServiceCreateWithoutBookingsInput = {
   deletedAt?: Date | string | null
 }
 
-export type NailServiceUncheckedCreateWithoutBookingsInput = {
+export type NailServiceUncheckedCreateWithoutBookingServicesInput = {
   id?: string
   name: string
   description?: string | null
@@ -577,23 +577,23 @@ export type NailServiceUncheckedCreateWithoutBookingsInput = {
   deletedAt?: Date | string | null
 }
 
-export type NailServiceCreateOrConnectWithoutBookingsInput = {
+export type NailServiceCreateOrConnectWithoutBookingServicesInput = {
   where: Prisma.NailServiceWhereUniqueInput
-  create: Prisma.XOR<Prisma.NailServiceCreateWithoutBookingsInput, Prisma.NailServiceUncheckedCreateWithoutBookingsInput>
+  create: Prisma.XOR<Prisma.NailServiceCreateWithoutBookingServicesInput, Prisma.NailServiceUncheckedCreateWithoutBookingServicesInput>
 }
 
-export type NailServiceUpsertWithoutBookingsInput = {
-  update: Prisma.XOR<Prisma.NailServiceUpdateWithoutBookingsInput, Prisma.NailServiceUncheckedUpdateWithoutBookingsInput>
-  create: Prisma.XOR<Prisma.NailServiceCreateWithoutBookingsInput, Prisma.NailServiceUncheckedCreateWithoutBookingsInput>
+export type NailServiceUpsertWithoutBookingServicesInput = {
+  update: Prisma.XOR<Prisma.NailServiceUpdateWithoutBookingServicesInput, Prisma.NailServiceUncheckedUpdateWithoutBookingServicesInput>
+  create: Prisma.XOR<Prisma.NailServiceCreateWithoutBookingServicesInput, Prisma.NailServiceUncheckedCreateWithoutBookingServicesInput>
   where?: Prisma.NailServiceWhereInput
 }
 
-export type NailServiceUpdateToOneWithWhereWithoutBookingsInput = {
+export type NailServiceUpdateToOneWithWhereWithoutBookingServicesInput = {
   where?: Prisma.NailServiceWhereInput
-  data: Prisma.XOR<Prisma.NailServiceUpdateWithoutBookingsInput, Prisma.NailServiceUncheckedUpdateWithoutBookingsInput>
+  data: Prisma.XOR<Prisma.NailServiceUpdateWithoutBookingServicesInput, Prisma.NailServiceUncheckedUpdateWithoutBookingServicesInput>
 }
 
-export type NailServiceUpdateWithoutBookingsInput = {
+export type NailServiceUpdateWithoutBookingServicesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -608,7 +608,7 @@ export type NailServiceUpdateWithoutBookingsInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
-export type NailServiceUncheckedUpdateWithoutBookingsInput = {
+export type NailServiceUncheckedUpdateWithoutBookingServicesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -629,11 +629,11 @@ export type NailServiceUncheckedUpdateWithoutBookingsInput = {
  */
 
 export type NailServiceCountOutputType = {
-  bookings: number
+  bookingServices: number
 }
 
 export type NailServiceCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  bookings?: boolean | NailServiceCountOutputTypeCountBookingsArgs
+  bookingServices?: boolean | NailServiceCountOutputTypeCountBookingServicesArgs
 }
 
 /**
@@ -649,8 +649,8 @@ export type NailServiceCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.
 /**
  * NailServiceCountOutputType without action
  */
-export type NailServiceCountOutputTypeCountBookingsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.BookingWhereInput
+export type NailServiceCountOutputTypeCountBookingServicesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.BookingServiceWhereInput
 }
 
 
@@ -667,7 +667,7 @@ export type NailServiceSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
-  bookings?: boolean | Prisma.NailService$bookingsArgs<ExtArgs>
+  bookingServices?: boolean | Prisma.NailService$bookingServicesArgs<ExtArgs>
   _count?: boolean | Prisma.NailServiceCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["nailService"]>
 
@@ -718,7 +718,7 @@ export type NailServiceSelectScalar = {
 
 export type NailServiceOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "description" | "durationMinutes" | "priceKes" | "category" | "metadata" | "isActive" | "sortOrder" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["nailService"]>
 export type NailServiceInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  bookings?: boolean | Prisma.NailService$bookingsArgs<ExtArgs>
+  bookingServices?: boolean | Prisma.NailService$bookingServicesArgs<ExtArgs>
   _count?: boolean | Prisma.NailServiceCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type NailServiceIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -727,7 +727,7 @@ export type NailServiceIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.
 export type $NailServicePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "NailService"
   objects: {
-    bookings: Prisma.$BookingPayload<ExtArgs>[]
+    bookingServices: Prisma.$BookingServicePayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1136,7 +1136,7 @@ readonly fields: NailServiceFieldRefs;
  */
 export interface Prisma__NailServiceClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  bookings<T extends Prisma.NailService$bookingsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.NailService$bookingsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$BookingPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  bookingServices<T extends Prisma.NailService$bookingServicesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.NailService$bookingServicesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$BookingServicePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1571,27 +1571,27 @@ export type NailServiceDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.I
 }
 
 /**
- * NailService.bookings
+ * NailService.bookingServices
  */
-export type NailService$bookingsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+export type NailService$bookingServicesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   /**
-   * Select specific fields to fetch from the Booking
+   * Select specific fields to fetch from the BookingService
    */
-  select?: Prisma.BookingSelect<ExtArgs> | null
+  select?: Prisma.BookingServiceSelect<ExtArgs> | null
   /**
-   * Omit specific fields from the Booking
+   * Omit specific fields from the BookingService
    */
-  omit?: Prisma.BookingOmit<ExtArgs> | null
+  omit?: Prisma.BookingServiceOmit<ExtArgs> | null
   /**
    * Choose, which related nodes to fetch as well
    */
-  include?: Prisma.BookingInclude<ExtArgs> | null
-  where?: Prisma.BookingWhereInput
-  orderBy?: Prisma.BookingOrderByWithRelationInput | Prisma.BookingOrderByWithRelationInput[]
-  cursor?: Prisma.BookingWhereUniqueInput
+  include?: Prisma.BookingServiceInclude<ExtArgs> | null
+  where?: Prisma.BookingServiceWhereInput
+  orderBy?: Prisma.BookingServiceOrderByWithRelationInput | Prisma.BookingServiceOrderByWithRelationInput[]
+  cursor?: Prisma.BookingServiceWhereUniqueInput
   take?: number
   skip?: number
-  distinct?: Prisma.BookingScalarFieldEnum | Prisma.BookingScalarFieldEnum[]
+  distinct?: Prisma.BookingServiceScalarFieldEnum | Prisma.BookingServiceScalarFieldEnum[]
 }
 
 /**

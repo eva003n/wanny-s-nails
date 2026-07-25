@@ -128,7 +128,7 @@ export const customersService = {
       const existingEmail = await prisma.customer.findFirst({
         where: { email: data.email },
       });
-      if (!isDeleted && !existingEmail) {
+      if (!isDeleted && existingEmail) {
         throw new EmailAlreadyExistsError();
       }
     }
@@ -200,7 +200,7 @@ export const customersService = {
     const [bookings, total] = await Promise.all([
       prisma.booking.findMany({
         where,
-        include: { service: true, payment: true, customer: true },
+        include: { services: true, payment: true, customer: true },
         orderBy: { appointmentAt: "desc" },
         skip,
         take: limit,
@@ -233,7 +233,7 @@ export const customersService = {
           booking: {
             include: {
               customer: { select: { name: true } },
-              service: { select: { name: true } },
+              services: { select: { serviceName: true } },
             },
           },
         },

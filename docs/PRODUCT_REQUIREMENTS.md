@@ -16,7 +16,7 @@ The platform addresses the salon's core operational pain: manual appointment tra
 
 ## Product Vision
 
-> Enable every nail salon customer in Kenya to book, pay, and manage their appointment in under 3 minutes — entirely through WhatsApp — while giving the salon owner complete operational visibility from their iPhone or any other device.
+> Enable the nail salon customer to book, and manage their appointment in under 3 minutes — entirely through WhatsApp — while giving the salon owner complete operational visibility from their iPhone or any other device.
 
 ---
 
@@ -65,7 +65,7 @@ The result is revenue loss from no-shows and an inability to grow the business w
 
 **Goals:**
 - Know her full schedule at a glance each morning
-- Ensure every booking is paid before the customer arrives
+- Ensure every booking is approved before the customer arrives
 - Reduce time spent on phone calls confirming bookings
 - Track which services are most popular and most profitable
 
@@ -320,15 +320,15 @@ The result is revenue loss from no-shows and an inability to grow the business w
 | ID | Requirement |
 |---|---|
 | FR-WA-01 | System must handle all customer interactions via WhatsApp Cloud API |
-| FR-WA-02 | WhatsApp workflow must be implemented as a finite state machine and an LLM as a fallback |
+| FR-WA-02 | WhatsApp workflow must be implemented as a finite state machine and a human agent as a fallback |
 | FR-WA-03 | Session state must be stored in Redis with a 30-minute TTL |
-| FR-WA-04 | System must handle invalid/unrecognised inputs gracefully |
+| FR-WA-04 | System must handle invalid/unrecognized inputs gracefully |
 | FR-WA-05 | System must timeout stalled sessions after 30 minutes and send a friendly message |
 | FR-WA-06 | System must support human escalation (transfer to owner's WhatsApp) |
 | FR-WA-07 | System must verify incoming webhook messages with the Meta webhook signature |
 | FR-WA-08 | Outbound messages must be rate-limited to comply with WhatsApp API limits |
 | FR-WA-09 | System must support WhatsApp message templates for reminders and notifications |
-
+| FR-WA-010 | System must store a record of each conversation for future improvements eg Rule based chatbot -> Ai chatbot -> Ai agent |
 ### FR-NT: Notifications
 
 | ID | Requirement |

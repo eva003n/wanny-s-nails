@@ -29,6 +29,16 @@ export const BookingStatus = {
 export type BookingStatus = (typeof BookingStatus)[keyof typeof BookingStatus]
 
 
+export const ServiceStatus = {
+  PENDING: 'PENDING',
+  IN_PROGRESS: 'IN_PROGRESS',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED'
+} as const
+
+export type ServiceStatus = (typeof ServiceStatus)[keyof typeof ServiceStatus]
+
+
 export const PaymentStatus = {
   PENDING: 'PENDING',
   SUCCESS: 'SUCCESS',
@@ -59,7 +69,6 @@ export const NotificationType = {
   PAYMENT_FAILED: 'PAYMENT_FAILED',
   PAYMENT_EXPIRED: 'PAYMENT_EXPIRED',
   REVIEW_RECEIPT: 'REVIEW_RECEIPT',
-  THANK_YOU: 'THANK_YOU',
   FEEDBACK_REQUEST: 'FEEDBACK_REQUEST',
   REVIEW_REQUEST: 'REVIEW_REQUEST'
 } as const
@@ -85,6 +94,7 @@ export const NotificationStatus = {
   DELIVERED: 'DELIVERED',
   READ: 'READ',
   FAILED: 'FAILED',
+  DEAD_LETTER: 'DEAD_LETTER',
   CANCELLED: 'CANCELLED'
 } as const
 
@@ -100,14 +110,6 @@ export const NotificationRecipient = {
 export type NotificationRecipient = (typeof NotificationRecipient)[keyof typeof NotificationRecipient]
 
 
-export const ReminderType = {
-  REMINDER_24H: 'REMINDER_24H',
-  REMINDER_1H: 'REMINDER_1H'
-} as const
-
-export type ReminderType = (typeof ReminderType)[keyof typeof ReminderType]
-
-
 export const ServiceCategory = {
   MANICURE: 'MANICURE',
   PEDICURE: 'PEDICURE',
@@ -120,3 +122,29 @@ export const ServiceCategory = {
 } as const
 
 export type ServiceCategory = (typeof ServiceCategory)[keyof typeof ServiceCategory]
+
+
+export const MessageRole = {
+  USER: 'USER',
+  BOT: 'BOT',
+  SYSTEM: 'SYSTEM'
+} as const
+
+export type MessageRole = (typeof MessageRole)[keyof typeof MessageRole]
+
+
+export const Channel = {
+  WHATSAPP: 'WHATSAPP',
+  WEB: 'WEB'
+} as const
+
+export type Channel = (typeof Channel)[keyof typeof Channel]
+
+
+export const ConversationStatus = {
+  ACTIVE: 'ACTIVE',
+  IDLE: 'IDLE',
+  CLOSED: 'CLOSED'
+} as const
+
+export type ConversationStatus = (typeof ConversationStatus)[keyof typeof ConversationStatus]

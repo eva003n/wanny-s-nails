@@ -5,25 +5,34 @@ CREATE TYPE "UserRole" AS ENUM ('OWNER', 'STAFF');
 CREATE TYPE "BookingStatus" AS ENUM ('PENDING', 'APPROVED', 'RESCHEDULED', 'COMPLETED', 'CANCELLED', 'NO_SHOW');
 
 -- CreateEnum
+CREATE TYPE "ServiceStatus" AS ENUM ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED');
+
+-- CreateEnum
 CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'SUCCESS', 'FAILED', 'CANCELLED', 'EXPIRED', 'REFUNDED', 'RECONCILING');
 
 -- CreateEnum
-CREATE TYPE "NotificationType" AS ENUM ('BOOKING_CREATED', 'BOOKING_PENDING_CONFIRMATION', 'BOOKING_CONFIRMED', 'BOOKING_REJECTED', 'BOOKING_CANCELLED', 'BOOKING_RESCHEDULED', 'BOOKING_COMPLETED', 'BOOKING_NO_SHOW', 'APPOINTMENT_REMINDER', 'PAYMENT_REQUEST', 'PAYMENT_RECEIVED', 'PAYMENT_REFUNDED', 'PAYMENT_SUCCESS', 'PAYMENT_FAILED', 'PAYMENT_EXPIRED', 'REVIEW_RECEIPT', 'THANK_YOU', 'FEEDBACK_REQUEST', 'REVIEW_REQUEST');
+CREATE TYPE "NotificationType" AS ENUM ('BOOKING_CREATED', 'BOOKING_PENDING_CONFIRMATION', 'BOOKING_CONFIRMED', 'BOOKING_REJECTED', 'BOOKING_CANCELLED', 'BOOKING_RESCHEDULED', 'BOOKING_COMPLETED', 'BOOKING_NO_SHOW', 'APPOINTMENT_REMINDER', 'PAYMENT_REQUEST', 'PAYMENT_RECEIVED', 'PAYMENT_REFUNDED', 'PAYMENT_SUCCESS', 'PAYMENT_FAILED', 'PAYMENT_EXPIRED', 'REVIEW_RECEIPT', 'FEEDBACK_REQUEST', 'REVIEW_REQUEST');
 
 -- CreateEnum
 CREATE TYPE "NotificationChannel" AS ENUM ('WHATSAPP', 'EMAIL', 'PUSH');
 
 -- CreateEnum
-CREATE TYPE "NotificationStatus" AS ENUM ('SCHEDULED', 'PENDING', 'QUEUED', 'PROCESSING', 'SENT', 'DELIVERED', 'READ', 'FAILED', 'CANCELLED');
+CREATE TYPE "NotificationStatus" AS ENUM ('SCHEDULED', 'PENDING', 'QUEUED', 'PROCESSING', 'SENT', 'DELIVERED', 'READ', 'FAILED', 'DEAD_LETTER', 'CANCELLED');
 
 -- CreateEnum
 CREATE TYPE "NotificationRecipient" AS ENUM ('OWNER', 'STAFF', 'CLIENT');
 
 -- CreateEnum
-CREATE TYPE "ReminderType" AS ENUM ('REMINDER_24H', 'REMINDER_1H');
+CREATE TYPE "ServiceCategory" AS ENUM ('MANICURE', 'PEDICURE', 'ENHANCEMENTS', 'NAIL_ART', 'EXTENSIONS', 'REMOVAL', 'REPAIR', 'TREATMENT');
 
 -- CreateEnum
-CREATE TYPE "ServiceCategory" AS ENUM ('MANICURE', 'PEDICURE', 'ENHANCEMENTS', 'NAIL_ART', 'EXTENSIONS', 'REMOVAL', 'REPAIR', 'TREATMENT');
+CREATE TYPE "MessageRole" AS ENUM ('USER', 'BOT', 'SYSTEM');
+
+-- CreateEnum
+CREATE TYPE "Channel" AS ENUM ('WHATSAPP', 'WEB');
+
+-- CreateEnum
+CREATE TYPE "ConversationStatus" AS ENUM ('ACTIVE', 'IDLE', 'CLOSED');
 
 -- CreateTable
 CREATE TABLE "users" (
@@ -80,7 +89,6 @@ CREATE TABLE "bookings" (
     "id" TEXT NOT NULL,
     "reference" TEXT NOT NULL,
     "customer_id" TEXT NOT NULL,
-    "service_id" TEXT NOT NULL,
     "approved_by_id" TEXT,
     "appointment_at" TIMESTAMP(3) NOT NULL,
     "duration_minutes" INTEGER NOT NULL,
@@ -94,6 +102,23 @@ CREATE TABLE "bookings" (
     "deleted_at" TIMESTAMP(3),
 
     CONSTRAINT "bookings_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "booking_services" (
+    "id" TEXT NOT NULL,
+    "booking_id" TEXT NOT NULL,
+    "service_id" TEXT NOT NULL,
+    "stylist" TEXT,
+    "metadata" JSONB DEFAULT '{}',
+    "service_name" TEXT NOT NULL,
+    "price" DECIMAL(10,2) NOT NULL,
+    "duration_min" INTEGER NOT NULL,
+    "position" INTEGER NOT NULL,
+    "status" "ServiceStatus" NOT NULL DEFAULT 'PENDING',
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "booking_services_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -167,6 +192,7 @@ CREATE TABLE "notifications" (
     "correlation_id" TEXT,
     "idempotency_key" TEXT NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "notifications_pkey" PRIMARY KEY ("id")
 );
@@ -193,24 +219,57 @@ CREATE TABLE "push_subscriptions" (
     "endpoint" TEXT NOT NULL,
     "p256dh" TEXT NOT NULL,
     "auth" TEXT NOT NULL,
-    "userAgent" TEXT,
-    "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "user_agent" TEXT,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "metadata" JSONB DEFAULT '{}',
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "push_subscriptions_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "conversation_sessions" (
+CREATE TABLE "conversations" (
     "id" TEXT NOT NULL,
-    "customer_id" TEXT NOT NULL,
-    "state" TEXT NOT NULL,
-    "context" JSONB NOT NULL DEFAULT '{}',
-    "expires_at" TIMESTAMP(3) NOT NULL,
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "phone" TEXT NOT NULL,
+    "customerId" TEXT,
+    "status" "ConversationStatus" NOT NULL DEFAULT 'ACTIVE',
+    "metadata" JSONB DEFAULT '{}',
+    "started_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
+    CONSTRAINT "conversations_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "conversation_sessions" (
+    "id" TEXT NOT NULL,
+    "conversationId" TEXT NOT NULL,
+    "current_state" TEXT NOT NULL,
+    "context" JSONB NOT NULL DEFAULT '{}',
+    "metadata" JSONB NOT NULL DEFAULT '{}',
+    "expires_at" TIMESTAMP(3) NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "last_activity_at" TIMESTAMP(3) NOT NULL,
+    "bookingId" TEXT,
+
     CONSTRAINT "conversation_sessions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "messages" (
+    "id" TEXT NOT NULL,
+    "conversationId" TEXT NOT NULL,
+    "conversationSessionId" TEXT,
+    "role" "MessageRole" NOT NULL,
+    "content" TEXT NOT NULL,
+    "contentType" TEXT NOT NULL DEFAULT 'text',
+    "fsmState" TEXT,
+    "intent" TEXT,
+    "metadata" JSONB DEFAULT '{}',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "messages_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -256,9 +315,6 @@ CREATE UNIQUE INDEX "bookings_reference_key" ON "bookings"("reference");
 CREATE INDEX "bookings_customer_id_idx" ON "bookings"("customer_id");
 
 -- CreateIndex
-CREATE INDEX "bookings_service_id_idx" ON "bookings"("service_id");
-
--- CreateIndex
 CREATE INDEX "bookings_appointment_at_idx" ON "bookings"("appointment_at");
 
 -- CreateIndex
@@ -269,6 +325,12 @@ CREATE INDEX "bookings_payment_status_idx" ON "bookings"("payment_status");
 
 -- CreateIndex
 CREATE INDEX "bookings_deleted_at_idx" ON "bookings"("deleted_at");
+
+-- CreateIndex
+CREATE INDEX "booking_services_booking_id_idx" ON "booking_services"("booking_id");
+
+-- CreateIndex
+CREATE INDEX "booking_services_service_id_idx" ON "booking_services"("service_id");
 
 -- CreateIndex
 CREATE INDEX "booking_status_history_booking_id_idx" ON "booking_status_history"("booking_id");
@@ -319,7 +381,19 @@ CREATE UNIQUE INDEX "push_subscriptions_endpoint_key" ON "push_subscriptions"("e
 CREATE INDEX "push_subscriptions_userId_idx" ON "push_subscriptions"("userId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "conversation_sessions_customer_id_key" ON "conversation_sessions"("customer_id");
+CREATE UNIQUE INDEX "conversations_phone_key" ON "conversations"("phone");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "conversation_sessions_conversationId_key" ON "conversation_sessions"("conversationId");
+
+-- CreateIndex
+CREATE INDEX "conversation_sessions_conversationId_idx" ON "conversation_sessions"("conversationId");
+
+-- CreateIndex
+CREATE INDEX "messages_conversationId_createdAt_idx" ON "messages"("conversationId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "messages_conversationSessionId_idx" ON "messages"("conversationSessionId");
 
 -- CreateIndex
 CREATE INDEX "audit_logs_entity_type_entity_id_idx" ON "audit_logs"("entity_type", "entity_id");
@@ -337,10 +411,13 @@ CREATE UNIQUE INDEX "business_hours_day_of_week_key" ON "business_hours"("day_of
 ALTER TABLE "bookings" ADD CONSTRAINT "bookings_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "customers"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "bookings" ADD CONSTRAINT "bookings_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "nail_services"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "bookings" ADD CONSTRAINT "bookings_approved_by_id_fkey" FOREIGN KEY ("approved_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "bookings" ADD CONSTRAINT "bookings_approved_by_id_fkey" FOREIGN KEY ("approved_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "booking_services" ADD CONSTRAINT "booking_services_booking_id_fkey" FOREIGN KEY ("booking_id") REFERENCES "bookings"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "booking_services" ADD CONSTRAINT "booking_services_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "nail_services"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "booking_status_history" ADD CONSTRAINT "booking_status_history_booking_id_fkey" FOREIGN KEY ("booking_id") REFERENCES "bookings"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -355,10 +432,25 @@ ALTER TABLE "payment_transactions" ADD CONSTRAINT "payment_transactions_payment_
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_booking_id_fkey" FOREIGN KEY ("booking_id") REFERENCES "bookings"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "notifications" ADD CONSTRAINT "notifications_recipient_id_fkey" FOREIGN KEY ("recipient_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "notification_subscriptions" ADD CONSTRAINT "notification_subscriptions_recipient_id_fkey" FOREIGN KEY ("recipient_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "push_subscriptions" ADD CONSTRAINT "push_subscriptions_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "conversation_sessions" ADD CONSTRAINT "conversation_sessions_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "customers"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "conversations" ADD CONSTRAINT "conversations_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "customers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "conversation_sessions" ADD CONSTRAINT "conversation_sessions_conversationId_fkey" FOREIGN KEY ("conversationId") REFERENCES "conversations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "messages" ADD CONSTRAINT "messages_conversationId_fkey" FOREIGN KEY ("conversationId") REFERENCES "conversations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "messages" ADD CONSTRAINT "messages_conversationSessionId_fkey" FOREIGN KEY ("conversationSessionId") REFERENCES "conversation_sessions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_actor_id_fkey" FOREIGN KEY ("actor_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;

@@ -14,7 +14,7 @@ const __dirName = dirname(__fileName)
 if(isDevelopment) {
   const dotenv = await import("dotenv")
 
-dotenv.config({ path: resolve(__dirName, `../.env.${environment}`) });
+dotenv.config({ path: resolve(__dirName, `../.env`) });
 }
 
 

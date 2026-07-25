@@ -2,7 +2,7 @@ import {
   BookingDomainService,
   type BookingDomainServiceDeps,
 } from "../domain/BookingDomainService.js";
-import type { CreateBookingInput, BookingResult } from "../types.js";
+import type { CreateBookingInput, BookingResult, RescheduleBookingInput } from "../types.js";
 import type { UnitOfWork } from "../ports/UnitOfWork.js";
 import type { BookingRepository } from "../ports/BookingRepository.js";
 import type { ServiceRepository } from "../ports/ServiceRepository.js";
@@ -14,12 +14,12 @@ export interface CreateBookingResult {
 }
 
 /**
- * Application service that orchestrates the booking creation workflow.
+ * Application service that orchestrates the booking  workflow.
  *
  * Responsibilities:
  * 1. Accept input from API controller or Worker
- * 2. Call BookingDomainService to validate business rules
- * 3. Execute persistence within a UnitOfWork transaction
+ * 2. Call BookingDomainService to validate business rules(Domain layer)
+ * 3. Execute persistence within a UnitOfWork transaction(persistence layer)
  * 4. Return the result
  *
  * Contains NO business rules and NO direct Prisma calls.
@@ -37,7 +37,7 @@ export class BookingApplicationService {
 
   /**
    * Create a new booking.
-   * Shared entry point for both the API controller and the WhatsApp Worker.
+   * Shared entry point for both the API controller and the WhatsApp Worker(bot).
    */
   async create(input: CreateBookingInput): Promise<BookingResult> {
     // Build domain service deps from the repositories
@@ -66,29 +66,31 @@ export class BookingApplicationService {
         {
           reference: validated.reference,
           customerId: validated.customerId,
-          serviceId: validated.serviceId,
+          services: validated.services,
           appointmentAt: validated.appointmentAt,
           durationMinutes: validated.durationMinutes,
           priceKes: validated.priceKes,
           notes: validated.notes,
+          actorType: validated.actorType
+
         },
         ctx,
       );
     });
 
     // 3. Load customer and service details for the result
-    const [customer, service] = await Promise.all([
-      this.deps.customerRepository.findById(saved.customerId),
-      this.deps.serviceRepository.findById(saved.serviceId),
-    ]);
+    const customer = await 
+      this.deps.customerRepository.findById(saved.customerId);
 
-    // 4. Build and return result DTO
+    // 4. Build and return result DTO matching the frontend BookingSchema
     return {
       id: saved.id,
       reference: saved.reference,
       customerId: saved.customerId,
-      serviceId: saved.serviceId,
-      appointmentAt: saved.appointmentAt,
+      services: saved.services.map((s) => ({
+        service: { id: s.id, name: s.name },
+      })),
+      appointmentAt: saved.appointmentAt.toISOString(),
       durationMinutes: saved.durationMinutes,
       priceKes: saved.priceKes,
       status: saved.status,
@@ -99,11 +101,16 @@ export class BookingApplicationService {
         name: customer?.name ?? "",
         phone: customer?.phone ?? "",
       },
-      service: {
-        id: saved.serviceId,
-        name: service?.name ?? "",
-      },
       payment: null,
+      createdAt: saved.createdAt.toISOString(),
     };
   }
+
+  async reschedule(input: RescheduleBookingInput) {
+const booking = await this.deps.bookingRepository.getById(input.id)
+  }
+  async cancel() {
+
+  }
+
 }

@@ -1,8 +1,10 @@
+import type { PrismaClient } from "../../generated/prisma/internal/class.js";
+import type { ServiceRepository } from "../ports/ServiceRepository.js";
+import type { ServiceData } from "../types.js";
+
 // Accept any PrismaClient-like object to be compatible with extended clients
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PrismaClientLike = any;
-import type { ServiceRepository } from "../ports/ServiceRepository.js";
-import type { ServiceData } from "../types.js";
 
 export class PrismaServiceRepository implements ServiceRepository {
   constructor(private readonly prisma: PrismaClientLike) {}

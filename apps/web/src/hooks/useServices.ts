@@ -78,14 +78,14 @@ export function useDeleteService() {
 }
 
 export function useAvailableSlots(
-  serviceId: string | undefined,
+  serviceIds: string[],
   date: string | undefined,
 ) {
   return useQuery({
-    queryKey: ["slots", serviceId, date],
+    queryKey: ["slots", serviceIds, date],
     queryFn: async () => {
       const { data } = await api.get("/slots/availability", {
-        params: { serviceId, date },
+        params: { serviceIds: serviceIds.join(","), date },
       });
       const validated = validateOrThrow(
         AvailableSlotsResponseSchema,
@@ -94,7 +94,7 @@ export function useAvailableSlots(
       );
       return validated.slots;
     },
-    enabled: !!serviceId && !!date,
+    enabled: serviceIds.length > 0 && !!date,
     staleTime: 15_000,
   });
 }

@@ -171,11 +171,20 @@ export async function handleBookingConfirmation(
             data: {
               reference: generateReference(),
               customerId,
-              serviceId,
               appointmentAt: start,
               durationMinutes: service.durationMinutes,
               priceKes: service.priceKes,
               notes: null,
+              services: {
+                create: {
+                  serviceId,
+                  serviceName: service.name,
+                  price: service.priceKes,
+                  durationMin: service.durationMinutes,
+                  position: 0,
+                  stylist: "", // Will be assigned by staff later
+                },
+              },
               payment: {
                 create: { amountKes: service.priceKes },
               },
@@ -185,7 +194,11 @@ export async function handleBookingConfirmation(
             },
             include: {
               customer: { select: { id: true, name: true, phone: true } },
-              service: { select: { id: true, name: true } },
+              services: {
+                include: {
+                  service: { select: { id: true, name: true } },
+                },
+              },
               payment: true,
             },
           });

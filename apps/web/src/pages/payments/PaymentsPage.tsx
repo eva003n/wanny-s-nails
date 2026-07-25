@@ -96,7 +96,7 @@ export default function PaymentsListPage() {
                       {p.customer.name}
                     </p>
                     <p className="truncate text-xs text-text-secondary">
-                      {p.booking.service.name} · {formatDateShort(p.createdAt)}{" "}
+                      {p.booking.services?.[0]?.service?.name ?? "Nail Service"} · {formatDateShort(p.createdAt)}{" "}
                       {formatTime(p.createdAt)}
                     </p>
                   </div>

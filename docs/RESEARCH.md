@@ -15,6 +15,49 @@
 ## Chatbots
 -[Whatsapp chatbot by infobip](https://www.infobip.com/blog/whatsapp-chatbot-quick-guide)
 
+## Whatsapp automation
+To automate WhatsApp for your business, you can either use the built-in features on the WhatsApp Business App for simple tasks, or integrate the WhatsApp Business API via Meta with third-party tools (like ManyChat, Zapier, or AI builders) or directly for full sales, booking, and support automation
+
+### Method 1: Basic Automation (For Small Teams & Local Stores)
+You can manage basic replies natively using the free WhatsApp Business App.
+1. Download/Open the WhatsApp Business App.
+2. Tap the three dots (top right) and go to Settings > Business Tools.
+3. Set up a Greeting Message to automatically welcome new customers or people messaging you for the first time.
+4. Set up an Away Message to let customers know your operating hours and when to expect a response.
+5. Create Quick Replies (keyboard shortcuts like /thanks) to send standard product info, pricing, or locations instantly.
+
+### Method 2: Advanced Automation (For Scaling and Sales)
+For advanced 24/7 AI chatbots, order tracking, and CRM integration, you must use the WhatsApp Business API.Get API Access: Set up a Meta Business Portfolio and connect your WhatsApp number via the Meta for Developers WhatsApp Hub.Connect a Third-Party Tool: Choose an automation platform to build your conversational flows or connect with your tech stack:Chatbots & Flows.
+
+Draft Pre-Approved Templates: For marketing or outbound messages, you will need to create and submit message templates (e.g., appointment reminders, shipping updates) for Meta's approval.Deploy: 
+
+- [Conversational Integration with WhatsApp](https://www.servicenow.com/docs/r/conversational-interfaces/virtual-agent/messg-direct-whatsapp-setup.html)
+
+## Conversation systems
+### Dialogue understanding
+- Performed for every incoming message 
+- Intent detection using a language model, NLP model or keyword matching
+- Generate a set of commands that dictate how the user wants to progress the conversation
+- Commands are passed to dialogue manager
+
+- [Extracting-user-intent-and-inputs-in-conversation](https://medium.com/@hemantkohli1612/extracting-user-intent-and-inputs-in-conversation-91c66b14740e)
+- [Intent detenction wuthout ai](https://leadnotifi.com/articles/whatsapp-bot-keyword-intent-detection-without-ai)
+
+### Dialogue manager
+Receives the commands and decides how to execute them
+
+Can decide to:
+- Start, stop or resume a flow
+- Answer a question with a knowledge base using RAG
+- Leverage a conversation pattern to handle unexpected interactions automatically
+- Activate a backend integration (custom action)
+
+### Response rephraser
+- Respond to a message using templated messages
+- Use AI for contextual responses
+
+### Reference
+- [Conversational AI with language model](https://www.rasa.com/docs/learn/concepts/calm/)
 ## LLM providers
 Here's every legitimate free LLM option with no self-hosting as of June 2026.
 

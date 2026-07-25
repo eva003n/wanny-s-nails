@@ -16,6 +16,12 @@ import {
 } from "../notifications/notifications.service.js";
 import type { NotificationContext } from "../notifications/notification-triggers.js";
 import {
+  BookingApplicationService,
+  PrismaBookingRepository,
+  PrismaServiceRepository,
+  PrismaCustomerRepository,
+  PrismaBusinessHoursRepository,
+  PrismaUnitOfWork,
   PrismaClientKnownRequestError,
 } from "@wannys-nails/packages";
 
@@ -23,10 +29,31 @@ const log = logger.child({ module: "bookings.service" });
 
 interface CreateBookingInput {
   customerId: string;
-  serviceId: string;
+  phoneNumber?: string;
+  serviceIds: string[];
   appointmentAt: string;
   notes?: string | undefined;
+  stylist: string | undefined
 }
+
+const BOOKING_INCLUDE = {
+  customer: { select: { id: true, name: true, phone: true, email: true } },
+  approvedBy: { select: { id: true, name: true } },
+  payment: { include: { transactions: true } },
+  statusHistory: {
+    orderBy: { createdAt: "asc" },
+  },
+  notifications: {
+    orderBy: { scheduledAt: "asc" },
+  },
+  services: {
+    include: {
+      service: { select: { id: true, name: true, durationMinutes: true, priceKes: true,  } },
+      
+    },
+    orderBy: { position: "asc" },
+  },
+} as const;
 
 function generateReference(): string {
   const year = new Date().getFullYear();
@@ -86,7 +113,10 @@ export const bookingsService = {
     }
 
     if (serviceId) {
-      where.serviceId = serviceId;
+      // Filter by serviceId through the booking_services join table
+      where.services = {
+        some: { serviceId },
+      };
     }
 
     if (date) {
@@ -111,12 +141,7 @@ export const bookingsService = {
     const [bookings, total] = await Promise.all([
       prisma.booking.findMany({
         where,
-        include: {
-          customer: { select: { id: true, name: true, phone: true } },
-          service: { select: { id: true, name: true } },
-          approvedBy: { select: { id: true, name: true } },
-          payment: true,
-        },
+        include: BOOKING_INCLUDE,
         orderBy,
         skip,
         take: limit,
@@ -130,18 +155,7 @@ export const bookingsService = {
   async getById(id: string) {
     const booking = await prisma.booking.findUnique({
       where: { id },
-      include: {
-        customer: { select: { id: true, name: true, phone: true } },
-        service: { select: { id: true, name: true, durationMinutes: true } },
-        approvedBy: { select: { id: true, name: true } },
-        payment: { include: { transactions: true } },
-        statusHistory: {
-          orderBy: { createdAt: "asc" },
-        },
-        notifications: {
-          orderBy: { scheduledAt: "asc" },
-        },
-      },
+      include: BOOKING_INCLUDE,
     });
     if (!booking || booking.deletedAt) {
       throw new BookingNotFoundError();
@@ -152,11 +166,7 @@ export const bookingsService = {
   async getByReference(reference: string) {
     const booking = await prisma.booking.findUnique({
       where: { reference },
-      include: {
-        customer: true,
-        service: true,
-        payment: true,
-      },
+      include: BOOKING_INCLUDE,
     });
     if (!booking) {
       throw new BookingNotFoundError(reference);
@@ -164,13 +174,23 @@ export const bookingsService = {
     return booking;
   },
 
-  async create(input: CreateBookingInput) {
-    const service = await prisma.nailService.findUnique({
-      where: { id: input.serviceId },
+ /*  async create(input: CreateBookingInput) {
+    // Validate all services exist and are active
+    const services = await prisma.nailService.findMany({
+      where: {
+        id: { in: input.serviceIds },
+        deletedAt: null,
+        isActive: true,
+      },
     });
-    if (!service || service.deletedAt || !service.isActive) {
+
+    if (services.length !== input.serviceIds.length) {
       throw new ServiceInactiveError();
     }
+
+    // Calculate total duration and price from all services
+    const totalDuration = services.reduce((sum, s) => sum + s.durationMinutes, 0);
+    const totalPrice = services.reduce((sum, s) => sum + s.priceKes, 0);
 
     const customer = await prisma.customer.findUnique({
       where: { id: input.customerId },
@@ -180,22 +200,16 @@ export const bookingsService = {
     }
 
     const start = new Date(input.appointmentAt);
-    const end = new Date(start.getTime() + service.durationMinutes * 60 * 1000);
+    const end = new Date(start.getTime() + totalDuration * 60 * 1000);
 
     // Slot alignment check — align to the salon's fixed booking grid
-    // (e.g. every 15 minutes), NOT to the service duration. Aligning to
-    // duration rejects valid times for any service whose length isn't a
-    // divisor of 60 (45-min services could only start on the hour or :45).
     const SLOT_GRANULARITY_MINUTES = 15;
     const totalMinutes = start.getHours() * 60 + start.getMinutes();
     if (totalMinutes % SLOT_GRANULARITY_MINUTES !== 0) {
       throw new BookingConflictError();
     }
 
-    // Check business hours — compare full start/end timestamps, not just
-    // the hour, so e.g. an 18:50 start with a 19:00 close is correctly
-    // rejected (the old code only checked appointmentHour < closeHour,
-    // which would wrongly allow a service that runs past closing).
+    // Check business hours
     const dayOfWeek = start.getDay();
     const businessHours = await prisma.businessHours.findUnique({
       where: { dayOfWeek },
@@ -222,16 +236,7 @@ export const bookingsService = {
 
     return prisma.$transaction(
       async (tx) => {
-        // Narrow the conflict scan to a bounded window instead of fetching
-        // every non-cancelled booking ever made. We can't filter the exact
-        // overlap in SQL because `end` is computed (not stored), but we can
-        // let the DB cut the candidate set down to "anything that could
-        // possibly overlap this appointment" — i.e. bookings starting
-        // before `end` and after some reasonable lower bound (start minus
-        // the longest plausible service duration). Replace MAX_SERVICE_MINUTES
-        // with the actual max durationMinutes across active services if you
-        // want a tighter, schema-driven bound instead of a constant.
-        const MAX_SERVICE_MINUTES = 240; // adjust to your longest service
+        const MAX_SERVICE_MINUTES = 240;
         const lowerBound = new Date(
           start.getTime() - MAX_SERVICE_MINUTES * 60 * 1000,
         );
@@ -244,7 +249,7 @@ export const bookingsService = {
           select: { appointmentAt: true, durationMinutes: true },
         });
 
-        const hasConflict = candidates.some((b) => {
+        const hasConflict = candidates.some((b: { appointmentAt: Date; durationMinutes: number }) => {
           const bStart = b.appointmentAt;
           const bEnd = new Date(
             bStart.getTime() + b.durationMinutes * 60 * 1000,
@@ -256,31 +261,27 @@ export const bookingsService = {
           throw new BookingConflictError();
         }
 
-        // NOTE: even inside $transaction, Prisma's default isolation level
-        // is READ COMMITTED, which does NOT prevent two concurrent requests
-        // from both passing this check and both inserting overlapping rows.
-        // For correctness under concurrency you need one of:
-        //   (a) run this transaction with isolation: 'Serializable', e.g.
-        //       prisma.$transaction(fn, { isolationLevel: 'Serializable' })
-        //       and be ready to retry on serialization failures, or
-        //   (b) add a DB-level exclusion constraint (Postgres: EXCLUDE USING
-        //       gist on a tsrange computed from appointmentAt/duration) so
-        //       the database itself rejects overlapping inserts, with this
-        //       JS check kept only as a fast, friendly pre-check for UX.
-        // Pick (b) for production; (a) alone will retry-loop under load.
-
         return tx.booking.create({
           data: {
             reference: generateReference(),
             customerId: input.customerId,
-            serviceId: input.serviceId,
             appointmentAt: start,
-            durationMinutes: service.durationMinutes,
-            priceKes: service.priceKes,
+            durationMinutes: totalDuration,
+            priceKes: totalPrice,
             notes: input.notes ?? null,
+            services: {
+              create: services.map((svc, idx) => ({
+                serviceId: svc.id,
+                serviceName: svc.name,
+                price: svc.priceKes,
+                durationMin: svc.durationMinutes,
+                position: idx,
+                stylist: input.stylist,
+              })),
+            },
             payment: {
               create: {
-                amountKes: service.priceKes,
+                amountKes: totalPrice,
               },
             },
             statusHistory: {
@@ -290,19 +291,30 @@ export const bookingsService = {
               },
             },
           },
-          include: {
-            customer: {
-              select: { id: true, name: true, phone: true },
-            },
-            service: {
-              select: { id: true, name: true },
-            },
-            payment: true,
-          },
+          include: BOOKING_INCLUDE,
         });
       },
-      { isolationLevel: "Serializable" }, // see NOTE above — pair with retry logic or a DB constraint
+      { isolationLevel: "Serializable" },
     );
+  }, */
+
+  async create(input: CreateBookingInput) {
+    const bookingServiceApplication = new BookingApplicationService({
+      unitOfWork: new PrismaUnitOfWork(prisma),
+      bookingRepository: new PrismaBookingRepository(prisma),
+      serviceRepository: new PrismaServiceRepository(prisma),
+      customerRepository: new PrismaCustomerRepository(prisma),
+      businessHoursRepository: new PrismaBusinessHoursRepository(prisma),
+    });
+
+    return bookingServiceApplication.create({
+      customerId: input.customerId,
+      serviceIds: input.serviceIds,
+      appointmentAt: input.appointmentAt,
+      actorType: "USER",
+      notes: input.notes ?? null,
+      stylist: input.stylist,
+    });
   },
 
   async approve(id: string, approvedById: string) {
@@ -311,8 +323,6 @@ export const bookingsService = {
       throw new InvalidStatusTransitionError(booking.status, "approve");
     }
 
-    // Guard the transition atomically in the WHERE clause so two concurrent
-    // approve() calls can't both pass the pre-check and both write.
     let updated;
     try {
       updated = await prisma.booking.update({
@@ -333,13 +343,16 @@ export const bookingsService = {
           customer: {
             select: { id: true, name: true, phone: true, email: true },
           },
-          service: { select: { id: true, name: true } },
+          services: {
+            include: {
+              service: { select: { id: true, name: true, durationMinutes: true, priceKes: true } },
+            },
+            orderBy: { position: "asc" },
+          },
           approvedBy: { select: { id: true, name: true } },
         },
       });
     } catch (error: unknown) {
-      // P2025 = record not found matching the WHERE clause — someone else
-      // already transitioned this booking out of PENDING between our read and write.
       if (
         error instanceof PrismaClientKnownRequestError &&
         error.code === "P2025"
@@ -351,7 +364,6 @@ export const bookingsService = {
     }
 
     // side effects (notifications)
-    // ── Schedule reminder jobs ──────────────────────────────────
     const eventType = "APPOINTMENT_REMINDER";
     const channel = "WHATSAPP";
     const recipientType = "CLIENT";
@@ -359,6 +371,8 @@ export const bookingsService = {
       updated.appointmentAt.getTime() - 24 * 60 * 60 * 1000,
     );
     const templateName = "reminder_24h";
+
+    const serviceName = updated.services[0]?.service?.name ?? "Nail Service";
 
     if (!updated.customer.phone) {
       log.error(
@@ -377,7 +391,7 @@ export const bookingsService = {
           customerName: updated.customer.name,
           customerPhone: updated.customer.phone,
           customerEmail: updated.customer.email ?? "",
-          serviceName: updated.service.name,
+          serviceName,
           appointmentAt: twentyFourHoursBefore.toISOString(),
           amountKes: updated.priceKes,
         };
@@ -392,7 +406,6 @@ export const bookingsService = {
           context,
         });
       } catch (error: unknown) {
-        // Don't fail the approval if reminder scheduling fails
         const err = error as { message?: string };
         log.error(
           {
@@ -410,12 +423,10 @@ export const bookingsService = {
 
   async cancel(id: string, actorType: string, reason?: string) {
     const booking = await this.getById(id);
-    // do not cancel an already cancelled or completed booking
     if (booking.status === "CANCELLED" || booking.status === "COMPLETED") {
       throw new InvalidStatusTransitionError(booking.status, "cancel");
     }
 
-    // side effects
     try {
       await onBookingCancelled(booking.id);
     } catch (error) {
@@ -429,7 +440,6 @@ export const bookingsService = {
       );
     }
 
-  
     return prisma.booking.update({
       where: { id, status: booking.status },
       data: {
@@ -443,11 +453,7 @@ export const bookingsService = {
           },
         },
       },
-      include: {
-        customer: { select: { id: true, name: true, phone: true } },
-        service: { select: { id: true, name: true } },
-        approvedBy: { select: { id: true, name: true } },
-      },
+      include: BOOKING_INCLUDE,
     });
   },
 
@@ -468,16 +474,14 @@ export const bookingsService = {
     if (newDate <= new Date()) {
       throw new BookingConflictError();
     }
-    // Fetch service first — we need its duration for both the business-hours
-    // check and the slot-alignment/conflict checks below.
-    const service = await prisma.nailService.findUnique({
-      where: { id: booking.serviceId },
-    });
-    if (!service) {
-      throw new Error("Service not found");
-    }
-    const serviceDuration = service.durationMinutes;
-    const newEnd = new Date(newDate.getTime() + serviceDuration * 60 * 1000);
+
+    // Calculate total duration from the booking's services
+    const totalDuration = booking.services?.reduce(
+      (sum: number, bs: { durationMin: number }) => sum + bs.durationMin,
+      booking.durationMinutes,
+    ) ?? booking.durationMinutes;
+
+    const newEnd = new Date(newDate.getTime() + totalDuration * 60 * 1000);
 
     // Check business hours
     const dayOfWeek = newDate.getDay();
@@ -488,47 +492,38 @@ export const bookingsService = {
       throw new OutsideBusinessHoursError(newAppointmentAt);
     }
 
-    // Validate business hours
-    const openParts = businessHours.openTime.split(":");
-    const closeParts = businessHours.closeTime.split(":");
-    const openHour = Number(openParts[0]);
-    const closeHour = Number(closeParts[0]);
-    const appointmentStartHour = newDate.getHours();
-    const appointmentEndHour = newDate.getHours();
+    const [openHour, openMinute = 0] = businessHours.openTime
+      .split(":")
+      .map(Number);
+    const [closeHour, closeMinute = 0] = businessHours.closeTime
+      .split(":")
+      .map(Number);
 
-    // Both the start AND the end of the appointment must fall within business hours.
-    if (appointmentStartHour < openHour || appointmentEndHour >= closeHour) {
+    const dayOpen = new Date(newDate);
+    dayOpen.setHours(openHour as number, openMinute, 0, 0);
+    const dayClose = new Date(newDate);
+    dayClose.setHours(closeHour as number, closeMinute, 0, 0);
+
+    if (newDate < dayOpen || newEnd > dayClose) {
       throw new OutsideBusinessHoursError(newAppointmentAt);
     }
 
-    // Validate slot alignment (service-duration boundaries)
-    const minute = newDate.getMinutes();
-    const hour = newDate.getHours();
-    const totalMinutesSinceMidnight = hour * 60 + minute;
-    if (totalMinutesSinceMidnight % serviceDuration !== 0) {
-      throw new BookingConflictError();
-    }
-
-    // Check slot availability fetch nearby candidates, then check *actual*
-    // interval overlap using each candidate's own service duration, not just
-    // the new booking's duration.
+    // Check slot availability
     const candidates = await prisma.booking.findMany({
       where: {
         id: { not: id },
         status: { notIn: ["CANCELLED", "NO_SHOW"] },
-        // Wide net: anything that could conceivably overlap. Assumes no single
-        // service exceeds 4 hours — adjust the padding if that's not true.
         appointmentAt: {
           gt: new Date(newDate.getTime() - 2 * 60 * 60 * 1000),
           lt: newEnd,
         },
       },
-      include: { service: { select: { durationMinutes: true } } },
+      select: { appointmentAt: true, durationMinutes: true },
     });
 
-    const conflicting = candidates.find((c) => {
+    const conflicting = candidates.find((c: { appointmentAt: Date; durationMinutes: number }) => {
       const cStart = c.appointmentAt.getTime();
-      const cEnd = cStart + c.service.durationMinutes * 60 * 1000;
+      const cEnd = cStart + c.durationMinutes * 60 * 1000;
       return cStart < newEnd.getTime() && cEnd > newDate.getTime();
     });
 
@@ -536,9 +531,6 @@ export const bookingsService = {
       throw new BookingConflictError();
     }
 
-    // Atomic transition: guard on the status we validated against, so a
-    // concurrent reschedule/cancel that changed the booking between our read
-    // and this write causes a clean conflict instead of a silent double-write.
     let updated;
     try {
       updated = await prisma.booking.update({
@@ -556,10 +548,7 @@ export const bookingsService = {
             },
           },
         },
-        include: {
-          customer: { select: { id: true, name: true, phone: true } },
-          service: { select: { id: true, name: true } },
-        },
+        include: BOOKING_INCLUDE,
       });
     } catch (error: unknown) {
       if (
@@ -571,9 +560,7 @@ export const bookingsService = {
       }
       throw error;
     }
-    /* ________________ Side effects_______________ */
-    // Cancel the old reminder job and schedule a fresh one at the new time.
-    // Don't let a notification hiccup fail the reschedule itself.
+
     try {
       await onBookingRescheduled(updated.id, newDate);
     } catch (error: unknown) {
@@ -597,7 +584,6 @@ export const bookingsService = {
     }
 
     return await prisma.$transaction(async (tx) => {
-      // Create payment record if doesn't exist
       await tx.payment.upsert({
         where: { bookingId: id },
         update: {
@@ -613,7 +599,6 @@ export const bookingsService = {
           status: "SUCCESS",
         },
       });
-      // Update booking payment status
 
       return tx.booking.update({
         where: { id },
@@ -621,11 +606,7 @@ export const bookingsService = {
           paymentStatus: "SUCCESS",
           ...(notes ? { notes } : {}),
         },
-        include: {
-          customer: { select: { id: true, name: true, phone: true } },
-          service: { select: { id: true, name: true } },
-          payment: true,
-        },
+        include: BOOKING_INCLUDE,
       });
     });
   },
@@ -658,11 +639,7 @@ export const bookingsService = {
         appointmentAt: { gte: today, lt: tomorrow },
         status: { notIn: ["CANCELLED", "NO_SHOW"] },
       },
-      include: {
-        customer: { select: { id: true, name: true, phone: true } },
-        service: { select: { id: true, name: true } },
-        payment: true,
-      },
+      include: BOOKING_INCLUDE,
       orderBy: { appointmentAt: "desc" },
     });
   },
@@ -672,10 +649,7 @@ export const bookingsService = {
     return prisma.booking.update({
       where: { id },
       data: { notes },
-      include: {
-        customer: { select: { id: true, name: true, phone: true } },
-        service: { select: { id: true, name: true } },
-      },
+      include: BOOKING_INCLUDE,
     });
   },
 

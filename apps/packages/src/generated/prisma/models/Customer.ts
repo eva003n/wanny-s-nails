@@ -9,8 +9,8 @@
  * 🟢 You can import this file directly.
  */
 import type * as runtime from "@prisma/client/runtime/client"
-import type * as $Enums from "../enums.js"
-import type * as Prisma from "../internal/prismaNamespace.js"
+import type * as $Enums from "../enums.ts"
+import type * as Prisma from "../internal/prismaNamespace.ts"
 
 /**
  * Model Customer
@@ -219,7 +219,7 @@ export type CustomerWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"Customer"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"Customer"> | Date | string | null
   bookings?: Prisma.BookingListRelationFilter
-  conversationSession?: Prisma.XOR<Prisma.ConversationSessionNullableScalarRelationFilter, Prisma.ConversationSessionWhereInput> | null
+  conversations?: Prisma.ConversationListRelationFilter
 }
 
 export type CustomerOrderByWithRelationInput = {
@@ -234,7 +234,7 @@ export type CustomerOrderByWithRelationInput = {
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   bookings?: Prisma.BookingOrderByRelationAggregateInput
-  conversationSession?: Prisma.ConversationSessionOrderByWithRelationInput
+  conversations?: Prisma.ConversationOrderByRelationAggregateInput
 }
 
 export type CustomerWhereUniqueInput = Prisma.AtLeast<{
@@ -252,7 +252,7 @@ export type CustomerWhereUniqueInput = Prisma.AtLeast<{
   updatedAt?: Prisma.DateTimeFilter<"Customer"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"Customer"> | Date | string | null
   bookings?: Prisma.BookingListRelationFilter
-  conversationSession?: Prisma.XOR<Prisma.ConversationSessionNullableScalarRelationFilter, Prisma.ConversationSessionWhereInput> | null
+  conversations?: Prisma.ConversationListRelationFilter
 }, "id" | "phone">
 
 export type CustomerOrderByWithAggregationInput = {
@@ -299,7 +299,7 @@ export type CustomerCreateInput = {
   updatedAt?: Date | string
   deletedAt?: Date | string | null
   bookings?: Prisma.BookingCreateNestedManyWithoutCustomerInput
-  conversationSession?: Prisma.ConversationSessionCreateNestedOneWithoutCustomerInput
+  conversations?: Prisma.ConversationCreateNestedManyWithoutCustomerInput
 }
 
 export type CustomerUncheckedCreateInput = {
@@ -314,7 +314,7 @@ export type CustomerUncheckedCreateInput = {
   updatedAt?: Date | string
   deletedAt?: Date | string | null
   bookings?: Prisma.BookingUncheckedCreateNestedManyWithoutCustomerInput
-  conversationSession?: Prisma.ConversationSessionUncheckedCreateNestedOneWithoutCustomerInput
+  conversations?: Prisma.ConversationUncheckedCreateNestedManyWithoutCustomerInput
 }
 
 export type CustomerUpdateInput = {
@@ -329,7 +329,7 @@ export type CustomerUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   bookings?: Prisma.BookingUpdateManyWithoutCustomerNestedInput
-  conversationSession?: Prisma.ConversationSessionUpdateOneWithoutCustomerNestedInput
+  conversations?: Prisma.ConversationUpdateManyWithoutCustomerNestedInput
 }
 
 export type CustomerUncheckedUpdateInput = {
@@ -344,7 +344,7 @@ export type CustomerUncheckedUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   bookings?: Prisma.BookingUncheckedUpdateManyWithoutCustomerNestedInput
-  conversationSession?: Prisma.ConversationSessionUncheckedUpdateOneWithoutCustomerNestedInput
+  conversations?: Prisma.ConversationUncheckedUpdateManyWithoutCustomerNestedInput
 }
 
 export type CustomerCreateManyInput = {
@@ -428,6 +428,11 @@ export type CustomerScalarRelationFilter = {
   isNot?: Prisma.CustomerWhereInput
 }
 
+export type CustomerNullableScalarRelationFilter = {
+  is?: Prisma.CustomerWhereInput | null
+  isNot?: Prisma.CustomerWhereInput | null
+}
+
 export type NullableStringFieldUpdateOperationsInput = {
   set?: string | null
 }
@@ -446,18 +451,20 @@ export type CustomerUpdateOneRequiredWithoutBookingsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.CustomerUpdateToOneWithWhereWithoutBookingsInput, Prisma.CustomerUpdateWithoutBookingsInput>, Prisma.CustomerUncheckedUpdateWithoutBookingsInput>
 }
 
-export type CustomerCreateNestedOneWithoutConversationSessionInput = {
-  create?: Prisma.XOR<Prisma.CustomerCreateWithoutConversationSessionInput, Prisma.CustomerUncheckedCreateWithoutConversationSessionInput>
-  connectOrCreate?: Prisma.CustomerCreateOrConnectWithoutConversationSessionInput
+export type CustomerCreateNestedOneWithoutConversationsInput = {
+  create?: Prisma.XOR<Prisma.CustomerCreateWithoutConversationsInput, Prisma.CustomerUncheckedCreateWithoutConversationsInput>
+  connectOrCreate?: Prisma.CustomerCreateOrConnectWithoutConversationsInput
   connect?: Prisma.CustomerWhereUniqueInput
 }
 
-export type CustomerUpdateOneRequiredWithoutConversationSessionNestedInput = {
-  create?: Prisma.XOR<Prisma.CustomerCreateWithoutConversationSessionInput, Prisma.CustomerUncheckedCreateWithoutConversationSessionInput>
-  connectOrCreate?: Prisma.CustomerCreateOrConnectWithoutConversationSessionInput
-  upsert?: Prisma.CustomerUpsertWithoutConversationSessionInput
+export type CustomerUpdateOneWithoutConversationsNestedInput = {
+  create?: Prisma.XOR<Prisma.CustomerCreateWithoutConversationsInput, Prisma.CustomerUncheckedCreateWithoutConversationsInput>
+  connectOrCreate?: Prisma.CustomerCreateOrConnectWithoutConversationsInput
+  upsert?: Prisma.CustomerUpsertWithoutConversationsInput
+  disconnect?: Prisma.CustomerWhereInput | boolean
+  delete?: Prisma.CustomerWhereInput | boolean
   connect?: Prisma.CustomerWhereUniqueInput
-  update?: Prisma.XOR<Prisma.XOR<Prisma.CustomerUpdateToOneWithWhereWithoutConversationSessionInput, Prisma.CustomerUpdateWithoutConversationSessionInput>, Prisma.CustomerUncheckedUpdateWithoutConversationSessionInput>
+  update?: Prisma.XOR<Prisma.XOR<Prisma.CustomerUpdateToOneWithWhereWithoutConversationsInput, Prisma.CustomerUpdateWithoutConversationsInput>, Prisma.CustomerUncheckedUpdateWithoutConversationsInput>
 }
 
 export type CustomerCreateWithoutBookingsInput = {
@@ -471,7 +478,7 @@ export type CustomerCreateWithoutBookingsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
-  conversationSession?: Prisma.ConversationSessionCreateNestedOneWithoutCustomerInput
+  conversations?: Prisma.ConversationCreateNestedManyWithoutCustomerInput
 }
 
 export type CustomerUncheckedCreateWithoutBookingsInput = {
@@ -485,7 +492,7 @@ export type CustomerUncheckedCreateWithoutBookingsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
-  conversationSession?: Prisma.ConversationSessionUncheckedCreateNestedOneWithoutCustomerInput
+  conversations?: Prisma.ConversationUncheckedCreateNestedManyWithoutCustomerInput
 }
 
 export type CustomerCreateOrConnectWithoutBookingsInput = {
@@ -515,7 +522,7 @@ export type CustomerUpdateWithoutBookingsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  conversationSession?: Prisma.ConversationSessionUpdateOneWithoutCustomerNestedInput
+  conversations?: Prisma.ConversationUpdateManyWithoutCustomerNestedInput
 }
 
 export type CustomerUncheckedUpdateWithoutBookingsInput = {
@@ -529,10 +536,10 @@ export type CustomerUncheckedUpdateWithoutBookingsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  conversationSession?: Prisma.ConversationSessionUncheckedUpdateOneWithoutCustomerNestedInput
+  conversations?: Prisma.ConversationUncheckedUpdateManyWithoutCustomerNestedInput
 }
 
-export type CustomerCreateWithoutConversationSessionInput = {
+export type CustomerCreateWithoutConversationsInput = {
   id?: string
   phone: string
   name: string
@@ -546,7 +553,7 @@ export type CustomerCreateWithoutConversationSessionInput = {
   bookings?: Prisma.BookingCreateNestedManyWithoutCustomerInput
 }
 
-export type CustomerUncheckedCreateWithoutConversationSessionInput = {
+export type CustomerUncheckedCreateWithoutConversationsInput = {
   id?: string
   phone: string
   name: string
@@ -560,23 +567,23 @@ export type CustomerUncheckedCreateWithoutConversationSessionInput = {
   bookings?: Prisma.BookingUncheckedCreateNestedManyWithoutCustomerInput
 }
 
-export type CustomerCreateOrConnectWithoutConversationSessionInput = {
+export type CustomerCreateOrConnectWithoutConversationsInput = {
   where: Prisma.CustomerWhereUniqueInput
-  create: Prisma.XOR<Prisma.CustomerCreateWithoutConversationSessionInput, Prisma.CustomerUncheckedCreateWithoutConversationSessionInput>
+  create: Prisma.XOR<Prisma.CustomerCreateWithoutConversationsInput, Prisma.CustomerUncheckedCreateWithoutConversationsInput>
 }
 
-export type CustomerUpsertWithoutConversationSessionInput = {
-  update: Prisma.XOR<Prisma.CustomerUpdateWithoutConversationSessionInput, Prisma.CustomerUncheckedUpdateWithoutConversationSessionInput>
-  create: Prisma.XOR<Prisma.CustomerCreateWithoutConversationSessionInput, Prisma.CustomerUncheckedCreateWithoutConversationSessionInput>
+export type CustomerUpsertWithoutConversationsInput = {
+  update: Prisma.XOR<Prisma.CustomerUpdateWithoutConversationsInput, Prisma.CustomerUncheckedUpdateWithoutConversationsInput>
+  create: Prisma.XOR<Prisma.CustomerCreateWithoutConversationsInput, Prisma.CustomerUncheckedCreateWithoutConversationsInput>
   where?: Prisma.CustomerWhereInput
 }
 
-export type CustomerUpdateToOneWithWhereWithoutConversationSessionInput = {
+export type CustomerUpdateToOneWithWhereWithoutConversationsInput = {
   where?: Prisma.CustomerWhereInput
-  data: Prisma.XOR<Prisma.CustomerUpdateWithoutConversationSessionInput, Prisma.CustomerUncheckedUpdateWithoutConversationSessionInput>
+  data: Prisma.XOR<Prisma.CustomerUpdateWithoutConversationsInput, Prisma.CustomerUncheckedUpdateWithoutConversationsInput>
 }
 
-export type CustomerUpdateWithoutConversationSessionInput = {
+export type CustomerUpdateWithoutConversationsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   phone?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
@@ -590,7 +597,7 @@ export type CustomerUpdateWithoutConversationSessionInput = {
   bookings?: Prisma.BookingUpdateManyWithoutCustomerNestedInput
 }
 
-export type CustomerUncheckedUpdateWithoutConversationSessionInput = {
+export type CustomerUncheckedUpdateWithoutConversationsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   phone?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
@@ -611,10 +618,12 @@ export type CustomerUncheckedUpdateWithoutConversationSessionInput = {
 
 export type CustomerCountOutputType = {
   bookings: number
+  conversations: number
 }
 
 export type CustomerCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   bookings?: boolean | CustomerCountOutputTypeCountBookingsArgs
+  conversations?: boolean | CustomerCountOutputTypeCountConversationsArgs
 }
 
 /**
@@ -634,6 +643,13 @@ export type CustomerCountOutputTypeCountBookingsArgs<ExtArgs extends runtime.Typ
   where?: Prisma.BookingWhereInput
 }
 
+/**
+ * CustomerCountOutputType without action
+ */
+export type CustomerCountOutputTypeCountConversationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ConversationWhereInput
+}
+
 
 export type CustomerSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -647,7 +663,7 @@ export type CustomerSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   updatedAt?: boolean
   deletedAt?: boolean
   bookings?: boolean | Prisma.Customer$bookingsArgs<ExtArgs>
-  conversationSession?: boolean | Prisma.Customer$conversationSessionArgs<ExtArgs>
+  conversations?: boolean | Prisma.Customer$conversationsArgs<ExtArgs>
   _count?: boolean | Prisma.CustomerCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["customer"]>
 
@@ -693,7 +709,7 @@ export type CustomerSelectScalar = {
 export type CustomerOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "phone" | "name" | "email" | "consentGiven" | "consentAt" | "metadata" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["customer"]>
 export type CustomerInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   bookings?: boolean | Prisma.Customer$bookingsArgs<ExtArgs>
-  conversationSession?: boolean | Prisma.Customer$conversationSessionArgs<ExtArgs>
+  conversations?: boolean | Prisma.Customer$conversationsArgs<ExtArgs>
   _count?: boolean | Prisma.CustomerCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type CustomerIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -703,7 +719,7 @@ export type $CustomerPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
   name: "Customer"
   objects: {
     bookings: Prisma.$BookingPayload<ExtArgs>[]
-    conversationSession: Prisma.$ConversationSessionPayload<ExtArgs> | null
+    conversations: Prisma.$ConversationPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1111,7 +1127,7 @@ readonly fields: CustomerFieldRefs;
 export interface Prisma__CustomerClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   bookings<T extends Prisma.Customer$bookingsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Customer$bookingsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$BookingPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  conversationSession<T extends Prisma.Customer$conversationSessionArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Customer$conversationSessionArgs<ExtArgs>>): Prisma.Prisma__ConversationSessionClient<runtime.Types.Result.GetResult<Prisma.$ConversationSessionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  conversations<T extends Prisma.Customer$conversationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Customer$conversationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ConversationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1568,22 +1584,27 @@ export type Customer$bookingsArgs<ExtArgs extends runtime.Types.Extensions.Inter
 }
 
 /**
- * Customer.conversationSession
+ * Customer.conversations
  */
-export type Customer$conversationSessionArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+export type Customer$conversationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   /**
-   * Select specific fields to fetch from the ConversationSession
+   * Select specific fields to fetch from the Conversation
    */
-  select?: Prisma.ConversationSessionSelect<ExtArgs> | null
+  select?: Prisma.ConversationSelect<ExtArgs> | null
   /**
-   * Omit specific fields from the ConversationSession
+   * Omit specific fields from the Conversation
    */
-  omit?: Prisma.ConversationSessionOmit<ExtArgs> | null
+  omit?: Prisma.ConversationOmit<ExtArgs> | null
   /**
    * Choose, which related nodes to fetch as well
    */
-  include?: Prisma.ConversationSessionInclude<ExtArgs> | null
-  where?: Prisma.ConversationSessionWhereInput
+  include?: Prisma.ConversationInclude<ExtArgs> | null
+  where?: Prisma.ConversationWhereInput
+  orderBy?: Prisma.ConversationOrderByWithRelationInput | Prisma.ConversationOrderByWithRelationInput[]
+  cursor?: Prisma.ConversationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ConversationScalarFieldEnum | Prisma.ConversationScalarFieldEnum[]
 }
 
 /**

@@ -7,7 +7,7 @@ import { asyncHandler } from "../../shared/utils/asyncHandler.js";
 // --- Validation schemas (exported for use in routes) ---
 
 export const availabilitySchema = z.object({
-  serviceId: z.uuid("Invalid UUID"),
+  serviceIds: z.string(),
   date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD format"),
@@ -22,14 +22,14 @@ export const getAvailability = asyncHandler(async (req: Request, res: Response, 
   if (input.timePeriod) {
     const result = await slotsService.getRecommendedSlots(
       input.date,
-      input.serviceId,
+      input.serviceIds,
       input.timePeriod,
     );
     success(res, result);
   } else {
     const result = await slotsService.getAvailableSlots(
       input.date,
-      input.serviceId,
+      input.serviceIds,
     );
     success(res, result);
   }

@@ -228,8 +228,12 @@ export async function findOrCreateCustomer(
 */
 type BookingWithPayment = Prisma.BookingGetPayload<{
   include: {
-    service: {
-      select: { id: true; name: true; durationMinutes: true; priceKes: true };
+    services: {
+      include: {
+        service: {
+          select: { id: true; name: true; durationMinutes: true; priceKes: true };
+        };
+      };
     };
     payment: true;
   };
@@ -243,8 +247,12 @@ export const findActiveBooking = async (
       status: { in: ["PENDING", "APPROVED", "RESCHEDULED"] },
     },
     include: {
-      service: {
-        select: { id: true, name: true, durationMinutes: true, priceKes: true },
+      services: {
+        include: {
+          service: {
+            select: { id: true, name: true, durationMinutes: true, priceKes: true },
+          },
+        },
       },
       payment: true,
     },

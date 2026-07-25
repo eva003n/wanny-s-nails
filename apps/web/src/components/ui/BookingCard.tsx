@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check, RefreshCw, X } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
@@ -17,6 +17,14 @@ export default function BookingCard({ booking, onApprove, onReschedule, onCancel
   const navigate = useNavigate();
   const startX = useRef<number | null>(null);
   const [swipeOffset, setSwipeOffset] = useState(0);
+
+  const serviceNames = useMemo(() => {
+    if (booking.service?.name) return booking.service.name;
+    if (booking.services && booking.services.length > 0) {
+      return booking.services[0].service.name + (booking.services.length > 1 ? ` +${booking.services.length - 1} more` : "");
+    }
+    return "Nail Service";
+  }, [booking]);
 
   const canApprove = booking.status === "PENDING" && onApprove;
   const canReschedule =
@@ -108,7 +116,7 @@ export default function BookingCard({ booking, onApprove, onReschedule, onCancel
         <Avatar name={booking.customer.name} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-md font-semibold text-text-primary">{booking.customer.name}</p>
-          <p className="truncate text-sm text-text-secondary">{booking.service.name}</p>
+          <p className="truncate text-sm text-text-secondary">{serviceNames}</p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           <span className="text-base text-text-primary">{formatTime(booking.appointmentAt)}</span>
