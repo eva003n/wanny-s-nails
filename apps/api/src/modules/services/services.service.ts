@@ -93,7 +93,11 @@ export const servicesService = {
     // Check for future confirmed bookings
     const futureBookings = await prisma.booking.count({
       where: {
-        serviceId: id,
+        services: {
+          some: {
+            serviceId: id,
+          },
+        },
         appointmentAt: { gte: new Date() },
         status: { in: ["PENDING", "APPROVED"] },
       },
