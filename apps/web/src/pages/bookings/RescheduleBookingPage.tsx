@@ -20,7 +20,12 @@ export default function RescheduleBookingPage() {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const { data: slots, isLoading: slotsLoading } = useAvailableSlots(booking?.service.id, selectedDate);
+  const serviceIds = useMemo(() => {
+    if (!booking) return [];
+    return booking.services?.map((bs) => bs.service.id) ?? (booking.service ? [booking.service.id] : []);
+  }, [booking]);
+
+  const { data: slots, isLoading: slotsLoading } = useAvailableSlots(serviceIds, selectedDate);
   const slotsArray: { time: string; available: boolean; appointmentAt: string }[] = slots ?? [];
   const rescheduleMutation = useRescheduleBooking();
 
