@@ -27,6 +27,8 @@ const BookingDetailPage = lazy(
 import RescheduleBookingPage from "@/pages/bookings/RescheduleBookingPage";
 import CreateBookingPage from "@/pages/bookings/CreateBookingPage";
 import { Button } from "./components/ui";
+import { InstallPromptProvider } from "./hooks/useInstallPrompt";
+import PublicRoute from "./components/layout/PublicRoute";
 const CustomersPage = lazy(() => import("./pages/customers/CustomersPage"));
 const CustomerDetailPage = lazy(
   () => import("./pages/customers/CustomerDetailPage"),
@@ -105,6 +107,7 @@ const isDevMode = import.meta.env.DEV;
 
 function AppInner() {
  const { setRegistration, setRegistrationError } = useServiceWorkerContext();
+ 
 
  const {
    needRefresh: [needRefresh, _setNeedRefresh],
@@ -143,14 +146,23 @@ function AppInner() {
         </div>
       )}
       <Routes>
-        <Route path="/login" element={<Login />} />
+        <Route
+          path="/login"
+          element={
+            <PublicRoute>
+              <Login />
+            </PublicRoute>
+          }
+        />
         <Route
           path="/"
           element={
             <ProtectedRoute>
-              {/* <AppSSEProvider > */}
-              <Layout />
-              {/* </AppSSEProvider> */}
+              <AppSSEProvider>
+                <InstallPromptProvider>
+                  <Layout />
+                </InstallPromptProvider>
+              </AppSSEProvider>
             </ProtectedRoute>
           }
         >
@@ -191,14 +203,14 @@ function AppInner() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AppSSEProvider >
       <AuthInitializer />
       <ServiceWorkerProvider>
         <BrowserRouter>
-          <AppInner />
+          {/* <AppSSEProvider> */}
+            <AppInner />
+          {/* </AppSSEProvider> */}
         </BrowserRouter>
       </ServiceWorkerProvider>
-      </AppSSEProvider>
     </QueryClientProvider>
   );
 }

@@ -1,4 +1,3 @@
-// src/hooks/useServiceWorkerContext.tsx
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 
 interface ServiceWorkerContextValue {
