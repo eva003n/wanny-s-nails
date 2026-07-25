@@ -102,6 +102,7 @@ function AppSSEProvider({ children }: { children: React.ReactNode }) {
 }
 
 const isDevMode = import.meta.env.DEV;
+
 function AppInner() {
  const { setRegistration, setRegistrationError } = useServiceWorkerContext();
 
@@ -130,6 +131,7 @@ function AppInner() {
   return (
     <>
       <ToastContainer />
+
       {(needRefresh || offlineReady) && (
         <div className="toast">
           {offlineReady
@@ -146,7 +148,9 @@ function AppInner() {
           path="/"
           element={
             <ProtectedRoute>
+              {/* <AppSSEProvider > */}
               <Layout />
+              {/* </AppSSEProvider> */}
             </ProtectedRoute>
           }
         >
@@ -187,13 +191,13 @@ function AppInner() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <AppSSEProvider >
       <AuthInitializer />
-      <AppSSEProvider>
-        <ServiceWorkerProvider>
-          <BrowserRouter>
-            <AppInner />
-          </BrowserRouter>
-        </ServiceWorkerProvider>
+      <ServiceWorkerProvider>
+        <BrowserRouter>
+          <AppInner />
+        </BrowserRouter>
+      </ServiceWorkerProvider>
       </AppSSEProvider>
     </QueryClientProvider>
   );
