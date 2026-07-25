@@ -8,8 +8,8 @@ services:
       context: .
       dockerfile: apps/packages/prisma/Dockerfile.migrate
     container_name: wannys-db-migrate
-    env_file:
-      - ./apps/packages/.env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
     depends_on:
       postgres:
         condition: service_healthy
@@ -23,8 +23,8 @@ services:
       context: .
       dockerfile: apps/packages/prisma/Dockerfile.migrate
     container_name: wannys-db-seed
-    env_file:
-      - ./apps/packages/.env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
     depends_on:
       db-migrate:
         condition: service_completed_successfully
@@ -54,7 +54,8 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - wanny-net  
+      - wanny-net
+
   redis:
     image: redis:7-alpine
     container_name: wannys-redis
@@ -68,7 +69,8 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - wanny-net  
+      - wanny-net
+
   # ─── API Server ───────────────────────────────────────────
 
   api:
@@ -78,8 +80,34 @@ services:
     container_name: wannys-api
     ports:
       - "8000:8000"
-    env_file:
-      - ./apps/api/.env.production
+    environment:
+      BASE_URL: ${BASE_URL}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      COOKIE_SECRET: ${COOKIE_SECRET}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID}
+      WHATSAPP_BUSINESS_ACCOUNT_ID: ${WHATSAPP_BUSINESS_ACCOUNT_ID}
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN}
+      META_APP_SECRET: ${META_APP_SECRET}
+      DARAJA_CONSUMER_KEY: ${DARAJA_CONSUMER_KEY}
+      DARAJA_CONSUMER_SECRET: ${DARAJA_CONSUMER_SECRET}
+      DARAJA_SHORTCODE: ${DARAJA_SHORTCODE}
+      DARAJA_PASSKEY: ${DARAJA_PASSKEY}
+      DARAJA_STK_PUSH_URL: ${DARAJA_STK_PUSH_URL}
+      DARAJA_CALLBACK_URL: ${DARAJA_CALLBACK_URL}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      APP_NAME: ${APP_NAME}
+      LOG_LEVEL: ${LOG_LEVEL}
+      LOGTAIL_INGESTION_HOST: ${LOGTAIL_INGESTION_HOST}
+      LOGTAIL_SOURCE_TOKEN: ${LOGTAIL_SOURCE_TOKEN}
+      NODE_ENV: ${NODE_ENV}
+      PORT: ${PORT}
     depends_on:
       db-migrate:
         condition: service_completed_successfully
@@ -89,17 +117,25 @@ services:
         condition: service_healthy
     command: ["node", "dist/index.js"]
     networks:
-      - wanny-net  
-  # ─── Workers (same image, different entry points) ─────────
+      - wanny-net
 
+  # ─── Workers (same image, different entry points) ─────────
 
   worker-notification:
     build:
       context: .
       dockerfile: apps/workers/notification/Dockerfile
     container_name: wannys-worker-notification
-    env_file:
-      - ./apps/api/.env.production
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      REDIS_URL: ${REDIS_URL}
+      DATABASE_URL: ${DATABASE_URL}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      LOG_LEVEL: ${LOG_LEVEL}
+      LOGTAIL_INGESTION_HOST: ${LOGTAIL_INGESTION_HOST}
+      LOGTAIL_SOURCE_TOKEN: ${LOGTAIL_SOURCE_TOKEN}
     depends_on:
       db-migrate:
         condition: service_completed_successfully
@@ -108,14 +144,28 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - wanny-net  
+      - wanny-net
+
   worker-payment:
     build:
       context: .
       dockerfile: apps/workers/payment/Dockerfile
     container_name: wannys-worker-payment
-    env_file:
-      - ./apps/api/.env.production
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      REDIS_URL: ${REDIS_URL}
+      DATABASE_URL: ${DATABASE_URL}
+      DARAJA_BASE_URL: ${DARAJA_BASE_URL}
+      DARAJA_CONSUMER_KEY: ${DARAJA_CONSUMER_KEY}
+      DARAJA_CONSUMER_SECRET: ${DARAJA_CONSUMER_SECRET}
+      DARAJA_SHORTCODE: ${DARAJA_SHORTCODE}
+      DARAJA_PASSKEY: ${DARAJA_PASSKEY}
+      DARAJA_STK_PUSH_URL: ${DARAJA_STK_PUSH_URL}
+      DARAJA_STK_QUERY_URL: ${DARAJA_STK_QUERY_URL}
+      DARAJA_CALLBACK_URL: ${DARAJA_CALLBACK_URL}
+      LOG_LEVEL: ${LOG_LEVEL}
+      LOGTAIL_INGESTION_HOST: ${LOGTAIL_INGESTION_HOST}
+      LOGTAIL_SOURCE_TOKEN: ${LOGTAIL_SOURCE_TOKEN}
     depends_on:
       db-migrate:
         condition: service_completed_successfully
@@ -124,14 +174,22 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - wanny-net  
+      - wanny-net
+
   worker-conversation:
     build:
       context: .
       dockerfile: apps/workers/conversation/Dockerfile
     container_name: wannys-worker-conversation
-    env_file:
-      - ./apps/api/.env.production
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      REDIS_URL: ${REDIS_URL}
+      DATABASE_URL: ${DATABASE_URL}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID}
+      LOG_LEVEL: ${LOG_LEVEL}
+      LOGTAIL_INGESTION_HOST: ${LOGTAIL_INGESTION_HOST}
+      LOGTAIL_SOURCE_TOKEN: ${LOGTAIL_SOURCE_TOKEN}
     depends_on:
       db-migrate:
         condition: service_completed_successfully
@@ -140,7 +198,7 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - wanny-net  
+      - wanny-net
 
   # ─── Frontend (PWA) ──────────────────────────────────────
 
@@ -149,18 +207,21 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
     container_name: wannys-web
-    env_file:
-      - ./apps/web/.env
+    environment:
+      VITE_API_URL: ${VITE_API_URL}
+      VITE_VAPID_PUBLIC_KEY: ${VITE_VAPID_PUBLIC_KEY}
+      VITE_ENV: ${VITE_ENV}
     ports:
       - "5173:80"
     depends_on:
       - api
     networks:
-      - wanny-net  
+      - wanny-net
 
 volumes:
   postgres_data:
   redis_data:
+
 networks:
   wanny-net:
     driver: bridge
