@@ -56,9 +56,6 @@
     "vitest": "^4.1.9",
     "workbox-core": "^7.3.0",
     "workbox-window": "^7.4.0"
-  },
-  "resolutions": {
-    "sharp": "^0.33.5",
-    "sharp-ico": "^0.1.5"
   }
+
 }
