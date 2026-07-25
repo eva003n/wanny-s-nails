@@ -1,0 +1,171 @@
+services:
+  # ─── Infrastructure ────────────────────────────────────────
+
+  # ─── Database Migration (runs once on startup) ──────────
+
+  db-migrate:
+    build:
+      context: .
+      dockerfile: apps/packages/prisma/Dockerfile.migrate
+    container_name: wannys-db-migrate
+    env_file:
+      - ./apps/packages/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - wanny-net
+
+  # ─── Database Seed (runs once, after migrations succeed) ──
+
+  db-seed:
+    build:
+      context: .
+      dockerfile: apps/packages/prisma/Dockerfile.migrate
+    container_name: wannys-db-seed
+    env_file:
+      - ./apps/packages/.env
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    # Dockerfile's default ENTRYPOINT is `pnpm exec prisma` (for migrate
+    # deploy via CMD). Seeding uses a package.json script instead, so the
+    # entrypoint itself needs overriding here, not just the command.
+    entrypoint: ["pnpm", "db:seed"]
+    networks:
+      - wanny-net
+
+  postgres:
+    image: postgres:18-alpine
+    container_name: wannys-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: wannys_nails
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wanny-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: wannys-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wanny-net
+
+  # ─── API Server ───────────────────────────────────────────
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: wannys-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./apps/api/.env.development
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["node", "dist/index.js"]
+    networks:
+      - wanny-net
+
+  # ─── Workers (same image, different entry points) ─────────
+
+  worker-notification:
+    build:
+      context: .
+      dockerfile: apps/workers/notification/Dockerfile
+    container_name: wannys-worker-notification
+    env_file:
+      - ./apps/workers/notification/.env
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - wanny-net
+
+  worker-payment:
+    build:
+      context: .
+      dockerfile: apps/workers/payment/Dockerfile
+    container_name: wannys-worker-payment
+    env_file:
+      - ./apps/workers/payment/.env
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - wanny-net
+
+  worker-conversation:
+    build:
+      context: .
+      dockerfile: apps/workers/conversation/Dockerfile
+    container_name: wannys-worker-conversation
+    env_file:
+      - ./apps/workers/conversation/.env
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - wanny-net
+
+  # ─── Frontend (PWA) ──────────────────────────────────────
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: wannys-web
+    env_file:
+      - ./apps/web/.env
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+    networks:
+      - wanny-net
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  wanny-net:
+    driver: bridge
