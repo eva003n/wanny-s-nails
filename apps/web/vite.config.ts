@@ -22,17 +22,24 @@ export default defineConfig({
 
       // configurations for the generated manifest file
       manifest: {
-        name: "Nails by Wanny",
+        id: "/",
+        name: "Wanny's Nails",
         short_name: "Wannys Nails",
         description:
-          "Booking management application purposely built for Nails by Wanny nail salon",
+          "Booking management for Nails by Wanny salon — appointments, payments, and customers in one place.\n\nThe app can be installed to the home screen of your mobile device or desktop ",
         display: "standalone",
+        // display_override: ["window-controls-overlay"],
         orientation: "portrait",
         theme_color: "#C084A8",
         background_color: "#FAFAFA",
+        lang: "en-KE",
+        categories: ["business", "lifestyle"],
         start_url: "/",
         scope: "/",
-
+        launch_handler: {
+          client_mode: "focus-existing",
+        },
+        handle_links: "preferred",
         icons: [
           {
             src: "/icons/favicon/pwa-192x192.png",
@@ -59,6 +66,7 @@ export default defineConfig({
             purpose: "maskable",
           },
         ],
+
         /**
          * Only 8 screenshots at max
          * Only jpeg and png
@@ -68,18 +76,18 @@ export default defineConfig({
 
         screenshots: [
           {
-            src: "/images/dashboard-mobile.png",
-            sizes: "474x745",
+            src: "/images/screenshots/mobile/dashboard-758x1583.png",
+            sizes: "758x1584",
             type: "image/png",
             form_factor: "narrow",
-            label: "Mobile view of the dashboard in the booking app",
+            label: "Mobile view of the dashboard in the booking management app",
           },
           {
-            src: "/images/bookingpage-mobile.png",
-            sizes: "474x745",
+            src: "/images/screenshots/desktop/dashboard-2880x1584.png",
+            sizes: "2880x1584",
             type: "image/png",
-            form_factor: "narrow",
-            label: "Mobile view of bookings in the booking app",
+            form_factor: "wide",
+            label: "Desktop view of dashboard in the booking management app",
           },
         ],
 
@@ -87,22 +95,57 @@ export default defineConfig({
           {
             name: "Dashboard",
             url: "/dashboard",
+            icons: [
+              {
+                src: "/icons/shortcuts/layout-dashboard-96x96.png",
+                sizes: "96x96",
+                type: "image/png",
+              },
+            ],
           },
           {
             name: "Bookings",
             url: "/bookings",
+            icons: [
+              {
+                src: "/icons/shortcuts/calendar-96x96.png",
+                sizes: "96x96",
+                type: "image/png",
+              },
+            ],
           },
           {
             name: "Payments",
             url: "/payments",
+            icons: [
+              {
+                src: "/icons/shortcuts/credit-card-96x96.png",
+                sizes: "96x96",
+                type: "image/png",
+              },
+            ],
           },
           {
             name: "Customers",
             url: "/customers",
+            icons: [
+              {
+                src: "/icons/shortcuts/users-96x96.png",
+                sizes: "96x96",
+                type: "image/png",
+              },
+            ],
           },
           {
             name: "Settings",
             url: "/settings",
+            icons: [
+              {
+                src: "/icons/shortcuts/settings-96x96.png",
+                sizes: "96x96",
+                type: "image/png",
+              },
+            ],
           },
         ],
       },
