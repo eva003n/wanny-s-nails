@@ -29,7 +29,7 @@ export default defineConfig({
         orientation: "portrait",
         theme_color: "#C084A8",
         background_color: "#FAFAFA",
-        start_url: "/dashboard",
+        start_url: "/",
         scope: "/",
 
         icons: [
