@@ -10,7 +10,7 @@ export const  createPrismaClient = (url: string | undefined, env: string = "deve
   if(!url) {
     throw new Error("DATABASE_URL is required")
   }
-  const adapter = new PrismaPg({ connectionString: url });
+  const adapter = new PrismaPg({ connectionString: url, ssl: { rejectUnauthorized: false } });
 
   const prisma = globalThis.prisma ?? new PrismaClient({
     adapter,

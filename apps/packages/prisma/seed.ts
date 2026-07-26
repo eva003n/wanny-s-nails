@@ -20,7 +20,7 @@ const SALT_ROUNDS = 12;
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL,
-  ssl: !isDevelopment ? { rejectUnauthorized: false } : undefined,
+  ssl: { rejectUnauthorized: false },
 });
 const prisma = new PrismaClient({ adapter });
 
