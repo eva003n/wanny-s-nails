@@ -39,6 +39,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/packages/node_modules ./apps/packages/node_modules
 COPY apps/packages/package.json ./apps/packages/package.json
 COPY apps/packages/prisma ./apps/packages/prisma
+COPY apps/packages/entrypoint.sh ./apps/packages/entrypoint.sh
 
 # Generated client comes from the deps stage build, not the host filesystem —
 # guarantees it's always fresh and always present regardless of .gitignore
