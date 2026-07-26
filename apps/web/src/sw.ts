@@ -17,14 +17,14 @@ declare let self: ServiceWorkerGlobalScope & {
  */
 
 const CACHE_NAME = "wannys-nails-v1";
-const OFFLINE_URL = "/offline.html";
+// const OFFLINE_URL = "/offline.html";
 
 // ─── Install: cache offline fallback + precache manifest ─────
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      const urls = [...new Set([OFFLINE_URL, ...self.__WB_MANIFEST.map((e) => e.url)])];
+      const urls = [...new Set([ ...self.__WB_MANIFEST.map((e) => e.url)])];
       return cache.addAll(urls);
     }),
   );
