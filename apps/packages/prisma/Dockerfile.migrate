@@ -47,7 +47,10 @@ COPY --from=deps /app/apps/packages/src/generated ./apps/packages/src/generated
 
 WORKDIR /app/apps/packages
 
+RUN chmod +x ./entrypoint.sh
+
 # ENTRYPOINT fixed, CMD swappable — lets you override just the prisma
 # subcommand at `docker run` time instead of replacing the whole entrypoint.
-ENTRYPOINT ["pnpm", "exec", "prisma"]
-CMD ["migrate", "deploy", "--config", "prisma/prisma.config.ts"]
+# ENTRYPOINT ["pnpm", "exec", "prisma"]
+# CMD ["migrate", "deploy", "--config", "prisma/prisma.config.ts"]
+CMD [ "./entrypoint.sh" ]
