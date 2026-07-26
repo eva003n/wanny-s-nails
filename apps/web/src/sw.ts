@@ -17,7 +17,7 @@ declare let self: ServiceWorkerGlobalScope & {
  */
 
 const CACHE_NAME = "wannys-nails-v1";
-// const OFFLINE_URL = "/offline.html";
+const OFFLINE_URL = "/offline.html";
 
 // ─── Install: cache offline fallback + precache manifest ─────
 
