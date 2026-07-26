@@ -17,8 +17,8 @@ if(isDevelopment) {
 
 
 const SALT_ROUNDS = 12;
-console.log(process.env.DATABASE_URL)
-const adapter = new PrismaPg(process.env.DATABASE_URL!);
+
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL});
 const prisma = new PrismaClient({ adapter });
 
 // ============================================
