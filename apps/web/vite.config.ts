@@ -20,9 +20,10 @@ export default defineConfig({
         config: true,
       },
 
+      // configurations for the generated manifest file
       manifest: {
         name: "Nails by Wanny",
-        short_name: "Wanny Nails",
+        short_name: "Wannys Nails",
         description:
           "Booking management application purposely built for Nails by Wanny nail salon",
         display: "standalone",
@@ -67,15 +68,15 @@ export default defineConfig({
 
         screenshots: [
           {
-            src: "/images/dashboard-mobile",
+            src: "/images/dashboard-mobile.png",
             sizes: "474x745",
             type: "image/png",
             form_factor: "narrow",
             label: "Mobile view of the dashboard in the booking app",
           },
           {
-            src: "/images/bookingpage-mobile",
-            sizes: "472x744",
+            src: "/images/bookingpage-mobile.png",
+            sizes: "474x745",
             type: "image/png",
             form_factor: "narrow",
             label: "Mobile view of bookings in the booking app",
