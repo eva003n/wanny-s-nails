@@ -3,6 +3,10 @@
     {
       "source": "/(.*)",
       "destination": "/index.html"
+    }, 
+    {
+      "source": "/api/:path*",
+      "destination": "https://backend-production-463c7.up.railway.app/:path*"
     }
   ]
 }
