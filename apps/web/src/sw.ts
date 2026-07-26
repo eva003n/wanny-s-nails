@@ -24,7 +24,8 @@ const OFFLINE_URL = "/offline.html";
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll([OFFLINE_URL, ...self.__WB_MANIFEST.map((e) => e.url)]);
+      const urls = [...new Set([OFFLINE_URL, ...self.__WB_MANIFEST.map((e) => e.url)])];
+      return cache.addAll(urls);
     }),
   );
   // Activate immediately — don't wait for existing pages to close
