@@ -8,6 +8,5 @@
 /**/**/dist
 /**/**/logs
 /**/**/coverage
-# /**/**/*.d.ts
 /**/**/*.tsbuildinfo
 notes.txt
