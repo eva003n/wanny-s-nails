@@ -33,21 +33,37 @@ export default defineConfig({
         scope: "/",
 
         icons: [
-          { src: "/icons/192.png", sizes: "192x192", type: "image/png" },
-          { src: "/icons/512.png", sizes: "512x512", type: "image/png" },
           {
-            src: "/icons/512.png",
+            src: "/icons/favicon/pwa-192x192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: "/icons/favicon/pwa-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: "/icons/favicon/pwa-maskable-192x192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "maskable",
+          },
+          {
+            src: "/icons/favicon/pwa-maskable-512x512.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "maskable",
           },
         ],
-       /**
-        * Only 8 screenshots at max
-        * Only jpeg and png
-        * Same form-factor must have same aspect ratio
-        * Width and height within 320px-3840px
-        */
+        /**
+         * Only 8 screenshots at max
+         * Only jpeg and png
+         * Same form-factor must have same aspect ratio
+         * Width and height within 320px-3840px
+         */
 
         screenshots: [
           {
@@ -69,23 +85,24 @@ export default defineConfig({
         shortcuts: [
           {
             name: "Dashboard",
-            url: "/dashboard"
+            url: "/dashboard",
           },
           {
             name: "Bookings",
-            url: "/bookings"
+            url: "/bookings",
           },
           {
             name: "Payments",
-            url: "/payments"
+            url: "/payments",
           },
           {
             name: "Customers",
-            url: "/customers"
-          }, {
+            url: "/customers",
+          },
+          {
             name: "Settings",
-            url: "/settings"
-          }
+            url: "/settings",
+          },
         ],
       },
 
