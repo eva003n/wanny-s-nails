@@ -106,7 +106,7 @@ function AppSSEProvider({ children }: { children: React.ReactNode }) {
 const isDevMode = import.meta.env.DEV;
 
 function AppInner() {
- const { setRegistration, setRegistrationError } = useServiceWorkerContext();
+ const { setRegistration, setRegistrationError,  } = useServiceWorkerContext();
  
 
  const {

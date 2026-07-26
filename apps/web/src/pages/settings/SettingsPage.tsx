@@ -20,6 +20,7 @@ import MPesaSection from "./sections/MPesaSection";
 import AccountSection from "./sections/AccountSection";
 import { NotificationSection } from "./sections/NotificationSection";
 import { AppInstallSection } from "./sections/AppInstallSection";
+import { useInstallPromptContext } from "@/hooks/useInstallPrompt";
 
 interface SectionProps {
   title: string;
@@ -49,6 +50,8 @@ function Section({ title, children }: SectionProps) {
 }
 
 export default function SettingsPage() {
+      const {isInstallable, promptInstall} = useInstallPromptContext()
+  
   return (
     <div>
       <PageHeader title="Settings" showBack={false} />
@@ -69,10 +72,16 @@ export default function SettingsPage() {
         <Section title="Notifications">
           <NotificationSection />
         </Section>
+        {isInstallable && (
+          <Section title="Installation">
+            <AppInstallSection
+              isInstallable
+              isInstalled
+              promptInstall={promptInstall}
+            />
+          </Section>
+        )}
 
-        <Section title="Installation">
-          <AppInstallSection/>
-        </Section>
         <Section title="Reminders">
           <RemindersSection />
         </Section>

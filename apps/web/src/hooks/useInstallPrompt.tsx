@@ -1,10 +1,19 @@
 // hooks/useInstallPrompt.js
 import type { BeforeInstallPromptEvent } from "@/types/global";
-import { useState, useEffect, useCallback, createContext, useContext, type ReactNode } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  createContext,
+  useContext,
+  type ReactNode,
+} from "react";
 
 export function useInstallPrompt() {
-  const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
+  const [installEvent, setInstallEvent] =
+    useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false)
 
   useEffect(() => {
     const handler = (event: BeforeInstallPromptEvent) => {
@@ -16,6 +25,7 @@ export function useInstallPrompt() {
     };
 
     window.addEventListener("beforeinstallprompt", handler);
+
 
     // if the app gets installed, clear state so you can hide the button
     const installedHandler = () => {
@@ -36,22 +46,27 @@ export function useInstallPrompt() {
     const { outcome } = await installEvent.userChoice;
     // outcome is 'accepted' or 'dismissed'
     setInstallEvent(null);
-    setIsInstallable(false);
+    setIsInstallable(outcome === "accepted" ? false : true);
+    setIsInstalled(window.matchMedia("(display-mode: standalone)").matches); 
+
     return outcome;
   }, [installEvent]);
 
-  return { isInstallable, promptInstall };
+  return { isInstallable, isInstalled, promptInstall };
 }
 
-interface InstallPromptContextValue {
-    isInstallable: boolean;
-   promptInstall: () => Promise<"accepted" | "dismissed" | undefined>
+export interface InstallPromptContextValue {
+  isInstallable: boolean;
+  isInstalled: boolean;
+  promptInstall: () => Promise<"accepted" | "dismissed" | undefined>;
 }
 
-const InstallPromptContext = createContext<InstallPromptContextValue | null>(null);
+const InstallPromptContext = createContext<InstallPromptContextValue | null>(
+  null,
+);
 
-export function InstallPromptProvider({ children }: {children: ReactNode}) {
-  const value = useInstallPrompt(); // { isInstallable, promptInstall }
+export function InstallPromptProvider({ children }: { children: ReactNode }) {
+  const value = useInstallPrompt(); // { isInstallable, isInstalled, promptInstall }
 
   return (
     <InstallPromptContext.Provider value={value}>
@@ -63,7 +78,9 @@ export function InstallPromptProvider({ children }: {children: ReactNode}) {
 export function useInstallPromptContext() {
   const context = useContext(InstallPromptContext);
   if (!context) {
-    throw new Error('useInstallPromptContext must be used within InstallPromptProvider');
+    throw new Error(
+      "useInstallPromptContext must be used within InstallPromptProvider",
+    );
   }
   return context;
 }

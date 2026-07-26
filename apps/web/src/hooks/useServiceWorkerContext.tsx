@@ -43,6 +43,9 @@ export function ServiceWorkerProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+
+  
+
   // Apply any queued values once the component mounts
   useEffect(() => {
     mountedRef.current = true;

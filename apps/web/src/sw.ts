@@ -20,6 +20,8 @@ const CACHE_NAME = "wannys-nails-v1";
 const OFFLINE_URL = "/offline.html";
 
 // ─── Install: cache offline fallback + precache manifest ─────
+// Fired once after service worker is registered and the browser has downloaded and parse it
+// it will only be fire again when the service worker is updated
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -36,6 +38,7 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
+    // prune old caches
     caches.keys().then((keys) => {
       return Promise.all(
         keys
@@ -44,7 +47,7 @@ self.addEventListener("activate", (event) => {
       );
     }),
   );
-  // Take control of all clients immediately
+  // Take control of all clients immediately(First updates but may interrupt critical operations)
   self.clients.claim();
 });
 

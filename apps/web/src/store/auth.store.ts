@@ -59,7 +59,7 @@ export const useAuthStore = create<AuthState>()(
       logout: async () => {
           set({ isLoading: true });
         try {
-          await api.post("/auth/logout");
+          await api.delete("/auth/logout");
         } catch {
           // Ignore errors — proceed with clearing client state
         } finally {
