@@ -29,22 +29,22 @@ self.addEventListener("install", (event) => {
     }),
   );
   // Activate immediately — don't wait for existing pages to close
-  self.skipWaiting();
+  // self.skipWaiting();
 });
 
-// ─── Activate: clean old caches ────────────────────────────────
-
+// ─── Activate: clean old caches(avoid eceeding storage qoutas) ────────────────────────────────
+const cacheAllowList = ["wannys-nails-v2"]; // deleting the keys that aren;t in this allowlist
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
         keys
-          .filter((key) => key !== CACHE_NAME)
+          .filter((key) => !cacheAllowList.includes(key))
           .map((key) => caches.delete(key)),
       );
     }),
   );
-  // Take control of all clients immediately
+  // (new service worker)Take control of all clients immediately(triggers controllerchange event on navigator.serviceWorker on affected clients)
   self.clients.claim();
 });
 
