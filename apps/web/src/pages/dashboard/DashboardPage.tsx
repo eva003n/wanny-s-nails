@@ -112,7 +112,7 @@ export default function DashboardPage() {
     );
   }
 
-  const greetingName = user?.name || "Wanny";
+  const greetingName = user?.name || "there";
   const todayLabel = formatDate(new Date().toISOString());
   const hour = new Date().getHours();
   const greeting =
