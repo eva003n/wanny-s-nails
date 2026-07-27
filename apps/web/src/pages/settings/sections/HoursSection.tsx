@@ -74,7 +74,7 @@ export default function HoursSection() {
           })
           .map((entry) => (
             <Card key={entry.dayOfWeek}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "var(--space-8)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "var(--space-12)" }}>
                   <Toggle
                     checked={entry.isActive}
@@ -95,7 +95,7 @@ export default function HoursSection() {
                 </div>
 
                 {entry.isActive ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)", flexWrap: "wrap", minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
                     <input
                       type="time"
                       value={entry.openTime}
