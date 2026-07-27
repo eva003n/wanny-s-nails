@@ -15,8 +15,16 @@ import ProtectedRoute from "@/components/layout/ProtectedRoute";
 import ErrorBoundary from "@/components/layout/ErrorBoundary";
 import ToastContainer from "@/components/ui/Toast";
 import { useRegisterSW } from "virtual:pwa-register/react";
-import { ServiceWorkerProvider, useServiceWorkerContext } from "@/hooks/useServiceWorkerContext";
+import {
+  ServiceWorkerProvider,
+  useServiceWorkerContext,
+} from "@/hooks/useServiceWorkerContext";
 
+const ReactQueryDevTools = lazy(() => 
+  import("@tanstack/react-query-devtools").then((module) => ({
+    default: module.ReactQueryDevtools
+
+})))
 /* Lazy loaded pages */
 const Login = lazy(() => import("./pages/Login"));
 const DashboardPage = lazy(() => import("./pages/dashboard/DashboardPage"));
@@ -26,8 +34,8 @@ const BookingDetailPage = lazy(
 );
 import RescheduleBookingPage from "@/pages/bookings/RescheduleBookingPage";
 import CreateBookingPage from "@/pages/bookings/CreateBookingPage";
-import { Button } from "./components/ui";
 import { InstallPromptProvider } from "./hooks/useInstallPrompt";
+import ServiceWorkerPrompt from "@/components/ui/ServiceWorkerPrompt";
 import PublicRoute from "./components/layout/PublicRoute";
 const CustomersPage = lazy(() => import("./pages/customers/CustomersPage"));
 const CustomerDetailPage = lazy(
@@ -38,7 +46,9 @@ const PaymentDetailPage = lazy(
   () => import("./pages/payments/PaymentDetailPage"),
 );
 const SettingsPage = lazy(() => import("./pages/settings/SettingsPage"));
-const NotificationsPage = lazy(() => import("./pages/notifications/NotificationsPage"));
+const NotificationsPage = lazy(
+  () => import("./pages/notifications/NotificationsPage"),
+);
 
 /**
  * §7.1: Minimal loading indicator — NOT a full-page spinner.
@@ -106,45 +116,54 @@ function AppSSEProvider({ children }: { children: React.ReactNode }) {
 const isDevMode = import.meta.env.DEV;
 
 function AppInner() {
- const { setRegistration, setRegistrationError,  } = useServiceWorkerContext();
- 
+  const { setRegistration, setRegistrationError } = useServiceWorkerContext();
 
- const {
-   needRefresh: [needRefresh, _setNeedRefresh],
-   offlineReady: [offlineReady, _setOfflineReady],
-   updateServiceWorker,
- } = useRegisterSW({
-   immediate: true,
-   onRegisteredSW(_swScriptUrl, registration) {
-     if (registration) {
-       setRegistration(registration);
-     }
-     if (isDevMode) {
-       console.log("Service worker registered", registration);
-     }
-   },
-   onRegisterError(error) {
-     setRegistrationError(error instanceof Error ? error : new Error(String(error)));
-     if (isDevMode) {
-       console.error("Service worker registration failed", error);
-     }
-   },
- });
+  const {
+    needRefresh: [needRefresh, setNeedRefresh],
+    offlineReady: [offlineReady, setOfflineReady],
+    updateServiceWorker,
+  } = useRegisterSW({
+    immediate: true,
+    onRegisteredSW(_swScriptUrl, registration) {
+      if (registration) {
+        setRegistration(registration);
+      }
+      if (isDevMode) {
+        console.log("Service worker registered", registration);
+      }
+    },
+    onRegisterError(error) {
+      setRegistrationError(
+        error instanceof Error ? error : new Error(String(error)),
+      );
+      if (isDevMode) {
+        console.error("Service worker registration failed", error);
+      }
+    },
+
+    onOfflineReady() {
+      setOfflineReady(true);
+    },
+
+    onNeedRefresh() {
+      if (isDevMode) {
+        console.log("Worker waiting to move to activation");
+    }
+      setNeedRefresh(true);
+    },
+  });
 
   return (
     <>
       <ToastContainer />
 
-      {(needRefresh || offlineReady) && (
-        <div className="toast">
-          {offlineReady
-            ? "App ready to work offline"
-            : "New version available."}
-          {needRefresh && (
-            <Button onClick={() => updateServiceWorker(true)}>Reload/</Button>
-          )}
-        </div>
-      )}
+      <ServiceWorkerPrompt
+        needRefresh={needRefresh}
+        offlineReady={offlineReady}
+        setOfflineReady={setOfflineReady}
+        setNeedRefresh={setNeedRefresh}
+        onReload={() => updateServiceWorker(true)}
+      />
       <Routes>
         <Route
           path="/login"
@@ -203,11 +222,12 @@ function AppInner() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <Suspense fallback={null}>{import.meta.env.DEV && <ReactQueryDevTools />}</Suspense>
       <AuthInitializer />
       <ServiceWorkerProvider>
         <BrowserRouter>
           {/* <AppSSEProvider> */}
-            <AppInner />
+          <AppInner />
           {/* </AppSSEProvider> */}
         </BrowserRouter>
       </ServiceWorkerProvider>

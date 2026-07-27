@@ -4,6 +4,8 @@ import { useAuthStore } from "@/store/auth.store";
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
   withCredentials: true,
+  timeout: 120_000,
+  timeoutErrorMessage: "Network timeout",
   headers: { "Content-Type": "application/json" },
 });
 
@@ -19,10 +21,9 @@ api.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config;
+    const unallowedRetryUrls = ["/auth/login"];
     if (
-      original.url === "/auth/login" ||
-      original.url === "/auth/logout" ||
-      original.url === "/auth/refresh"
+     unallowedRetryUrls.includes(original.url)
     ) {
       return Promise.reject(error);
     }
@@ -35,6 +36,7 @@ api.interceptors.response.use(
           useAuthStore.getState().user!,
           data.data.accessToken,
         );
+        // token based auth
         original.headers.Authorization = `Bearer ${data.data.accessToken}`;
         return api(original);
       } catch {

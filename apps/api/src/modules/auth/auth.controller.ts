@@ -57,7 +57,7 @@ export const login = asyncHandler(async (req: Request, res: Response, next: Next
       accessToken: result.accessToken,
       expiresIn: 3600,
       user: result.user,
-    });
+    }, undefined, {type: "no-store"});
   } catch (error) {
     // Expose lockout info so the client can show a countdown
     if (error instanceof AccountLockedError) {
@@ -83,7 +83,7 @@ export const refresh = asyncHandler(async (req: Request, res: Response, next: Ne
   success(res, {
     accessToken: result.accessToken,
     expiresIn: 3600,
-  });
+  }, undefined, {type: "no-store"});
 });
 
 export const logout = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
@@ -114,5 +114,5 @@ export const me = asyncHandler(async (req: Request, res: Response, next: NextFun
     return next(new UnauthorizedError("User not found"));
   }
 
-  success(res, user);
+  success(res, user, undefined, {type: "private", revalidation: "must-revalidate"});
 });
