@@ -50,8 +50,8 @@ function Section({ title, children }: SectionProps) {
 }
 
 export default function SettingsPage() {
-      const {isInstallable} = useInstallPromptContext()
-  
+  const { isInstallable } = useInstallPromptContext();
+
   return (
     <div>
       <PageHeader title="Settings" showBack={false} />
