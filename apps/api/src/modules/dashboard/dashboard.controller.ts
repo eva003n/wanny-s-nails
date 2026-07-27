@@ -14,6 +14,6 @@ export const getStats = asyncHandler(
       "Fetching dashboard stats",
     );
     const stats = await dashboardService.getStats();
-    success(res, stats);
+    success(res, stats, undefined, {type: "no-cache", maxAgeSec: 15});
   },
 );
