@@ -54,3 +54,9 @@ export function useMarkAsRead() {
     },
   });
 }
+
+export function useSubscribePushNotification() {
+  // const mutate = useMutation()
+
+}
+export function useUnsubscribePushNotification() {}

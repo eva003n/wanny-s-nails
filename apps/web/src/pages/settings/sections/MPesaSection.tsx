@@ -43,7 +43,7 @@ export default function MPesaSection() {
               borderRadius: "var(--radius-sm)",
             }}
           >
-            {import.meta.env.VITE_MPESA_ENV === "production" ? "Production" : "Sandbox"}
+            {import.meta.env.PROD ? "Production" : "Sandbox"}
           </span>
         </div>
       </Card>
