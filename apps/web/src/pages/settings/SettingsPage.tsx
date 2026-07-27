@@ -50,7 +50,7 @@ function Section({ title, children }: SectionProps) {
 }
 
 export default function SettingsPage() {
-      const {isInstallable, isInstalled, promptInstall} = useInstallPromptContext()
+      const {isInstallable} = useInstallPromptContext()
   
   return (
     <div>
