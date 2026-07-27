@@ -20,14 +20,16 @@ router.post(
 router.post(
   "/refresh",
   authenticate,
+  validate(pushSubscriptionsController.refreshSubscriptionSchema),
   pushSubscriptionsController.refreshSubscription,
 );
 
-// DELETE /api/v1/push-subscriptions/:id — remove a subscription
+// DELETE /api/v1/push-subscriptions/unsubscribe — deactivate by endpoint
 router.delete(
-  "/:id",
+  "/unsubscribe",
   authenticate,
-  pushSubscriptionsController.deleteSubscription,
+  validate(pushSubscriptionsController.unsubscribeSchema),
+  pushSubscriptionsController.unsubscribeSubscription,
 );
 
 // GET /api/v1/push-subscriptions — list active subscriptions
