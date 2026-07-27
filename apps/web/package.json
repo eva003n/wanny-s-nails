@@ -31,6 +31,7 @@
   "devDependencies": {
     "@eslint/js": "^9.37.0",
     "@tailwindcss/vite": "^4.3.1",
+    "@tanstack/react-query-devtools": "^5.101.4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -57,5 +58,4 @@
     "workbox-core": "^7.3.0",
     "workbox-window": "^7.4.0"
   }
-
 }
