@@ -50,7 +50,7 @@ function Section({ title, children }: SectionProps) {
 }
 
 export default function SettingsPage() {
-      const {isInstallable, promptInstall} = useInstallPromptContext()
+      const {isInstallable, isInstalled, promptInstall} = useInstallPromptContext()
   
   return (
     <div>
@@ -74,11 +74,7 @@ export default function SettingsPage() {
         </Section>
         {isInstallable && (
           <Section title="Installation">
-            <AppInstallSection
-              isInstallable
-              isInstalled
-              promptInstall={promptInstall}
-            />
+            <AppInstallSection />
           </Section>
         )}
 
