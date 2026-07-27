@@ -95,7 +95,7 @@ export default function HoursSection() {
                 </div>
 
                 {entry.isActive ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-8)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)", flexWrap: "wrap", minWidth: 0 }}>
                     <input
                       type="time"
                       value={entry.openTime}
@@ -109,6 +109,9 @@ export default function HoursSection() {
                         borderRadius: "var(--radius-sm)",
                         fontSize: "14px",
                         color: "var(--color-text-primary)",
+                        width: "100px",
+                        maxWidth: "100%",
+                        boxSizing: "border-box",
                       }}
                     />
                     <span style={{ fontSize: "14px", color: "var(--color-text-secondary)" }}>–</span>
@@ -125,6 +128,9 @@ export default function HoursSection() {
                         borderRadius: "var(--radius-sm)",
                         fontSize: "14px",
                         color: "var(--color-text-primary)",
+                        width: "100px",
+                        maxWidth: "100%",
+                        boxSizing: "border-box",
                       }}
                     />
                   </div>
