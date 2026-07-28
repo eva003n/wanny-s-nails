@@ -146,10 +146,10 @@ function AppInner() {
     },
 
     onNeedRefresh() {
+      setNeedRefresh(true);
       if (isDevMode) {
         console.log("Worker waiting to move to activation");
     }
-      setNeedRefresh(true);
     },
   });
 

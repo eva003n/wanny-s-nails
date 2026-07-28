@@ -121,6 +121,7 @@
   }
 }
 
+
 /* ── §3.1 Page wrapper for safe area ── */
 .page {
   padding-top: env(safe-area-inset-top);

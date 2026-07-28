@@ -29,14 +29,15 @@ interface ServiceWorkerPromptProps {
 export default function ServiceWorkerPrompt({
   needRefresh,
   offlineReady,
-  setOfflineReady,
-  setNeedRefresh,
+  // setOfflineReady,
+  // setNeedRefresh,
   onReload,
 }: ServiceWorkerPromptProps) {
   const [dismissed, setDismissed] = useState(false);
   const [exiting, setExiting] = useState(false);
   const confirmRef = useRef<HTMLButtonElement>(null);
 
+  // console.log(needRefresh)
   /* Auto-dismiss the offline-ready toast after 4 s */
   useEffect(() => {
     if (!offlineReady || needRefresh) return;
@@ -48,7 +49,7 @@ export default function ServiceWorkerPrompt({
 
     return () => {
       clearTimeout(timer);
-      setOfflineReady(false);
+      // setOfflineReady(false);
     };
   }, [offlineReady, needRefresh]);
 
@@ -59,7 +60,7 @@ export default function ServiceWorkerPrompt({
     }
 
     return () => {
-      setNeedRefresh(false);
+      // setNeedRefresh(false);
     };
   }, [needRefresh]);
 
@@ -68,18 +69,12 @@ export default function ServiceWorkerPrompt({
 
   const isUpdate = needRefresh;
 
-
-  const handleClose = () => {
-      setOfflineReady(false);
-      setNeedRefresh(false);
-  }
-
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-label={isUpdate ? "New version available" : "Offline ready"}
-      className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center"
+      className="fixed inset-0 z-50 flex  justify-center p-4 items-center"
     >
       {/* Backdrop */}
       <div
@@ -186,8 +181,7 @@ export default function ServiceWorkerPrompt({
                   variant="primary"
                   fullWidth
                   onClick={() => {
-                    onReload
-                    handleClose()
+                    onReload()
                   }}
                 >
                   Reload

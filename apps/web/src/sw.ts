@@ -1,12 +1,3 @@
-/// <reference lib="webworker"/>
-
-import axios from "axios";
-
-declare let self: ServiceWorkerGlobalScope & {
-  __VAPID_PUBLIC_KEY__: string;
-  __WB_MANIFEST: Array<{ url: string; revision: string | null }>;
-};
-
 /**
  * Wanny's Nails — Service Worker
  *
@@ -16,44 +7,66 @@ declare let self: ServiceWorkerGlobalScope & {
  *  - Basic offline fallback
  */
 
-const CACHE_NAME = "wannys-nails-v1";
+/// <reference lib="webworker"/>
+import { precacheAndRoute, cleanupOutdatedCaches } from "workbox-precaching";
+import { clientsClaim } from "workbox-core";
+
+
+// This tells TS this file runs in service worker context not DOM
+declare let self: ServiceWorkerGlobalScope & {
+  __VAPID_PUBLIC_KEY__: string;
+  // __WB_MANIFEST: Array<{ url: string; revision: string | null }>;
+};
+
+
+/* __________ Pre-caching __________ */
+// __WB_MANIFEST replaced at build time by vite/workbox
+// with reall array of { url, revision } for every asset matched
+// by injectManifest.globPatterns in vite.config.ts.
+// You never populate this array yourself
+precacheAndRoute(self.__WB_MANIFEST);
+// Remove old pre-caches from previous service worker so storage doesn't grow unbounded across deploys
+cleanupOutdatedCaches();
+
+clientsClaim()
+// const CACHE_NAME = "wannys-nails-v1";
 const OFFLINE_URL = "/offline.html";
 
-// ─── Install: cache offline fallback + precache manifest ─────
+
 // Fired once after service worker is registered and the browser has downloaded and parse it
 // it will only be fire again when the service worker is updated
 
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      const urls = [...new Set([ ...self.__WB_MANIFEST.map((e) => e.url)])];
-      return cache.addAll(urls);
-    }),
-  );
-  // Activate immediately — don't wait for existing pages to close
-  // self.skipWaiting();
+self.addEventListener("install", () => {
+  // No self.skipWaiting() here. The new worker installs and
+  // sits in "waiting" until the user explicitly triggers activation
+  // via the SKIP_WAITING message below (see React hook from before).
 });
 
 // ─── Activate: clean old caches(avoid eceeding storage qoutas) ────────────────────────────────
-const cacheAllowList = ["wannys-nails-v2"]; // deleting the keys that aren;t in this allowlist
-self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    // prune old caches
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys
-          .filter((key) => !cacheAllowList.includes(key))
-          .map((key) => caches.delete(key)),
-      );
-    }),
-  );
+self.addEventListener("activate", () => {
+  // clientsClaim() lets this worker take control of already-open
+  // tabs immediately after activation, without needing a hard reload
+  // to "adopt" them. Combined with controllerchange + reload on the
+  // client side, this is what makes the update feel instant once
+  // the user clicks "Update now".
   // (new service worker)Take control of all clients immediately(triggers controllerchange event on navigator.serviceWorker on affected clients)
-  self.clients.claim();
+  // event.waitUntil();
+  
+});
+
+
+// 4. USER-TRIGGERED UPDATE (the SKIP_WAITING message contract)
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();// activate immediately
+  }
 });
 
 // ─── Push: display notification ────────────────────────────────
 self.addEventListener("push", (event) => {
-  const data = event.data?.json() ?? {
+  if(!event.data) return
+
+  const data = event.data.json() ?? {
     title: "Wanny's Nails",
     body: "You have a new notification.",
     icon: "/icons/192.png",
@@ -74,52 +87,8 @@ self.addEventListener("push", (event) => {
   };
 
   event.waitUntil(self.registration.showNotification(data.title, options));
-
-  //  Attempt to resubscribe after receiving a notification
-  // event.waitUntil(resubscribeToPush());
 });
 
-// resubscribe the user to push
-// function resubscribeToPush() {
-//   return self.registration.pushManager
-//     .getSubscription()
-//     .then(function (subscription) {
-//       if (subscription) {
-//         return subscription.unsubscribe();
-//       }
-//     })
-//     .then(function () {
-//       return self.registration.pushManager.subscribe({
-//         userVisibleOnly: true,
-//         applicationServerKey: urlBase64ToUint8Array(
-//           import.meta.env.VITE_VAPID_PUBLIC_KEY,
-//         ),
-//       });
-//     })
-//     .then(function (subscription) {
-//       if (import.meta.env.DEV) {
-//         console.log("Resubscribed to push notifications:", subscription);
-//       }
-
-//       // send new subscription details to your server
-//       const sub = subscription.toJSON();
-//       api
-//         .post("/push-subscriptions", {
-//           endpoint: sub.endpoint,
-//           p256dh: sub.keys?.p256dh ?? "",
-//           auth: sub.keys?.auth ?? "",
-//           userAgent: navigator.userAgent,
-//         })
-//         .then((response) => {
-//           {
-//             import.meta.env.DEV && console.log(response.data)
-//           }
-//         })
-//     })
-//     .catch(function (error) {
-//     import.meta.env.DEV && console.error("Failed to resubscribe:", error);
-//     });
-// }
 
 // ─── Notification Click: navigate to URL ───────────────────────
 
@@ -135,7 +104,8 @@ self.addEventListener("notificationclick", (event) => {
         includeUncontrolled: true,
       })
       .then((windowClients) => {
-        // If there's an existing window focused on the target, focus it
+          // Focus an already-open tab if one matches, instead of
+      // always opening a new one
         for (const client of windowClients) {
           const clientUrl = new URL(client.url);
           const targetUrl = new URL(urlToOpen, self.location.origin);
@@ -150,7 +120,7 @@ self.addEventListener("notificationclick", (event) => {
         }
 
         // Otherwise open a new window/tab
-          return self.clients.openWindow(urlToOpen);
+        return self.clients.openWindow(urlToOpen);
       }),
   );
 });
@@ -160,21 +130,27 @@ self.addEventListener("notificationclick", (event) => {
 self.addEventListener("pushsubscriptionchange", (event) => {
   event.waitUntil(
     self.registration.pushManager
-      .subscribe(event.oldSubscription?.options ?? {
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(
-          self.__VAPID_PUBLIC_KEY__,
-        ),
-      })
+      .subscribe(
+        event.oldSubscription?.options ?? {
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(
+            self.__VAPID_PUBLIC_KEY__,
+          ),
+        },
+      )
       .then((newSubscription) => {
         // Send the old and new subscription to the server
-        return axios.post("/api/v1/push-subscriptions/refresh", {
-          oldEndpoint: event.oldSubscription?.endpoint,
-          newSubscription: {
-            endpoint: newSubscription.endpoint,
-            p256dh: arrayBufferToBase64(newSubscription.getKey("p256dh")),
-            auth: arrayBufferToBase64(newSubscription.getKey("auth")),
-          },
+        return fetch("/api/v1/push-subscriptions/refresh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            oldEndpoint: event.oldSubscription?.endpoint,
+            newSubscription: {
+              endpoint: newSubscription.endpoint,
+              p256dh: arrayBufferToBase64(newSubscription.getKey("p256dh")),
+              auth: arrayBufferToBase64(newSubscription.getKey("auth")),
+            },
+          }),
         });
       }),
   );
@@ -187,7 +163,9 @@ self.addEventListener("fetch", (event) => {
   if (event.request.mode === "navigate") {
     event.respondWith(
       fetch(event.request).catch(() => {
-        return caches.match(OFFLINE_URL).then((res) => res ?? new Response("Offline", { status: 503 }));
+        return caches
+          .match(OFFLINE_URL)
+          .then((res) => res ?? new Response("Offline", { status: 503 }));
       }),
     );
   }
@@ -197,9 +175,7 @@ self.addEventListener("fetch", (event) => {
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding)
-    .replace(/-/g, "+")
-    .replace(/_/g, "/");
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
 
   const rawData = atob(base64);
   const outputArray = new Uint8Array(rawData.length);
@@ -210,7 +186,7 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
-// ─── Utility: ArrayBuffer to Base64 ───────────────────────────
+// ─── Utility: ArrayBuffer to Base64 
 
 function arrayBufferToBase64(buffer: ArrayBuffer | null) {
   if (!buffer) return "";
@@ -224,6 +200,3 @@ function arrayBufferToBase64(buffer: ArrayBuffer | null) {
 
 // VAPID public key placeholder (set at build/deploy time)
 self.__VAPID_PUBLIC_KEY__ = "";
-
-
-

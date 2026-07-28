@@ -12,13 +12,15 @@ export default defineConfig({
       strategies: "injectManifest", // need for custom push event handling
       srcDir: "src",
       filename: "sw.ts",
-      registerType: "autoUpdate",
-      injectRegister: "auto",
+      registerType: "prompt",
+      // injectRegister: "auto",
 
-      pwaAssets: {
-        disabled: false,
-        config: true,
+      injectManifest: {
+        globPatterns: ["**/*.{js,css,html,svg,png,ico}"],
+        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024 // adapt based on project
       },
+
+      
 
       // configurations for the generated manifest file
       manifest: {
@@ -150,55 +152,26 @@ export default defineConfig({
         ],
       },
 
-      workbox: {
-        navigateFallback: "/offline.html",
-        navigateFallbackDenylist: [/^\/api/],
-        runtimeCaching: [
-          {
-            urlPattern: ({ url }) => url.pathname.startsWith("/api"),
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "api-cache",
-              networkTimeoutSeconds: 5,
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          {
-            urlPattern: ({ request }) =>
-              ["style", "script", "worker", "font"].includes(
-                request.destination,
-              ),
-            handler: "CacheFirst",
-            options: { cacheName: "static-assets" },
-          },
-          {
-            urlPattern: ({ request }) => request.destination === "image",
-            handler: "CacheFirst",
-            options: {
-              cacheName: "images",
-              expiration: { maxEntries: 60, maxAgeSeconds: 30 * 24 * 60 * 60 },
-            },
-          },
-        ],
-        globPatterns: ["**/*.{js,css,html,svg,png}"],
-        cleanupOutdatedCaches: true,
-        clientsClaim: true,
-      },
-
       devOptions: {
         enabled: true,
-        navigateFallback: "index.html",
-        suppressWarnings: true,
+        // navigateFallback: "index.html",
+        // suppressWarnings: true,
         type: "module",
+
+        
       },
+
     }),
   ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    
   },
+  
   server: {
+    
     host: true,
   },
 });
