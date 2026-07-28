@@ -25,6 +25,10 @@
     "react-hook-form": "^7.79.0",
     "react-router-dom": "^7.17.0",
     "tailwind-merge": "^3.6.0",
+    "workbox-core": "^7.4.1",
+    "workbox-precaching": "^7.4.1",
+    "workbox-routing": "^7.4.1",
+    "workbox-window": "^7.4.1",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"
   },
@@ -54,8 +58,6 @@
     "typescript-eslint": "^8.45.0",
     "vite": "^7.1.9",
     "vite-plugin-pwa": "^1.1.0",
-    "vitest": "^4.1.9",
-    "workbox-core": "^7.3.0",
-    "workbox-window": "^7.4.0"
+    "vitest": "^4.1.9"
   }
 }
