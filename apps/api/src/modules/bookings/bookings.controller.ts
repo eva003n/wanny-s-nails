@@ -30,6 +30,9 @@ export const createBookingSchema = z.object({
 export const cancelSchema = z.object({
   reason: z.string().max(255).optional(),
 });
+export const missedBookingSchema = z.object({
+  reason: z.string().max(255).optional(),
+});
 
 export const rescheduleSchema = z.object({
   appointmentAt: z.string().datetime(),
@@ -224,7 +227,18 @@ export const rescheduleBooking = asyncHandler(
     const booking = await bookingsService.reschedule(
       params.id,
       input.appointmentAt,
-      req.user?.id,
+      req.user.userId,
+      input.reason,
+    );
+    success(res, booking);
+  },
+);
+export const markBookingAsMissed = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
+    const input = req.validated!.body as z.infer<typeof missedBookingSchema>;
+    const booking = await bookingsService.markMissed(
+      params.id,
       input.reason,
     );
     success(res, booking);

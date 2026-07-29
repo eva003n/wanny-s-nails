@@ -526,6 +526,23 @@ export const bookingsService = {
       });
     });
   },
+  async markMissed(id: string, notes?: string) {
+    const booking = await this.getById(id);
+    if (booking.status !== "APPROVED") {
+      throw new InvalidStatusTransitionError(booking.status, "mark as missed");
+    }
+
+    return await prisma.booking.update({
+        where: { id },
+        data: {
+          status:"NO_SHOW",
+          paymentStatus: "EXPIRED",
+          ...(notes ? { notes } : {}),
+        },
+        include: BOOKING_INCLUDE,
+      });
+    
+  },
 
   async markCompleted(id: string) {
     return prisma.booking.update({

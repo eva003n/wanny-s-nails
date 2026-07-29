@@ -14,6 +14,7 @@ import {
   patchNotesSchema,
   uuidParamSchema,
   listBookingsQuerySchema,
+  missedBookingSchema
 } from "./bookings.controller.js";
 
 const router: ReturnType<typeof Router> = Router();
@@ -56,6 +57,14 @@ router.post(
   validate({ params: uuidParamSchema, body: rescheduleSchema }),
   idempotencyMiddleware,
   bookingsController.rescheduleBooking,
+);
+// PATCH /api/v1/bookings/:id/mark-missed
+router.patch(
+  "/:id/mark-missed",
+  authenticate,
+  validate({ params: uuidParamSchema, body: missedBookingSchema }),
+  idempotencyMiddleware,
+  bookingsController.markBookingAsMissed,
 );
 
 // PATCH /api/v1/bookings/:id — update notes only
