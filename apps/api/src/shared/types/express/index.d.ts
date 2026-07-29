@@ -7,7 +7,7 @@ declare global {
   namespace Express {
     interface Request {
       requestId: string;
-      user?: JwtPayload;
+      user: {userId: string , role: "OWNER" | "STAFF", email: string};
    
       validated?: {
         body?: unknown;
