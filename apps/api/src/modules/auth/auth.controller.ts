@@ -108,7 +108,7 @@ export const changePassword = asyncHandler(async (req: Request, res: Response, _
 });
 
 export const me = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-  const user = await authService.me(req.user!.userId);
+  const user = await authService.me({id: req.user.userId});
 
   if (!user) {
     return next(new UnauthorizedError("User not found"));

@@ -46,7 +46,7 @@ export const authenticate = (
       throw new UnauthorizedError("Missing or invalid authorization header");
     }
 
-    const decoded = jwt.verify(token, _config.JWT_SECRET) as unknown as JwtPayload;
+    const decoded = jwt.verify(token, _config.JWT_SECRET) as unknown as {userId: string, role: "OWNER" | "STAFF", email: string};
     req.user = decoded;
     next();
   } catch (error) {
