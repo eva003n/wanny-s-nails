@@ -1,7 +1,16 @@
 import { type Job } from "bullmq";
-import { log as logger, prisma, _config as config, notificationQueue } from "../lib/index.js";
+import {
+  log as logger,
+  prisma,
+  _config as config,
+  notificationQueue,
+} from "../lib/index.js";
 
-import { parseStkCallbackBody, extractCallbackMetadata, isStkCallbackSuccess } from "../lib/schemas.js";
+import {
+  parseStkCallbackBody,
+  extractCallbackMetadata,
+  isStkCallbackSuccess,
+} from "../lib/schemas.js";
 import { JOB_NAMES } from "@wannys-nails/packages";
 import { getFailureReason, getTerminalStatus } from "../utils/index.js";
 
@@ -32,7 +41,9 @@ function parseDarajaDate(raw: string): Date {
   const hours = raw.slice(8, 10);
   const minutes = raw.slice(10, 12);
   const seconds = raw.slice(12, 14);
-  return new Date(`${year}-${month}-${day}T${hours}:${minutes}:${seconds}+03:00`);// EAT
+  return new Date(
+    `${year}-${month}-${day}T${hours}:${minutes}:${seconds}+03:00`,
+  ); // EAT
 }
 
 // ─── Processor ───────────────────────────────────────────────
@@ -70,8 +81,26 @@ export async function processStkCallback(
     return;
   }
 
+  // Ensure the booking is either complete or no_show before processing payment
+  const allowPaymentList = ["COMPLETED", "NO_SHOW"];
+
+  if (!allowPaymentList.includes(payment.booking.status)) {
+    log.info(
+      {
+        event: "booking.status.invalid",
+        paymentId: payment.id,
+        status: payment.booking.status,
+      },
+      "Booking status must be either completed or no_show state before payment collection , skipping",
+    );
+    return;
+  }
   // 2. Idempotency guard: if already completed, skip
-  if (payment.completedAt || payment.status === "SUCCESS" || payment.status === "REFUNDED") {
+  if (
+    payment.completedAt ||
+    payment.status === "SUCCESS" ||
+    payment.status === "REFUNDED"
+  ) {
     log.info(
       { event: "stk_callback.job.duplicate", paymentId: payment.id },
       "Duplicate callback, payment already completed",
@@ -81,7 +110,11 @@ export async function processStkCallback(
 
   // 3. Terminal-state guard: never let a late/duplicate callback
   //    overwrite an already-resolved payment
-  if (["SUCCESS", "FAILED", "CANCELLED", "EXPIRED", "RECONCILING"].includes(payment.status)) {
+  if (
+    ["SUCCESS", "FAILED", "CANCELLED", "EXPIRED", "RECONCILING"].includes(
+      payment.status,
+    )
+  ) {
     log.info(
       {
         event: "stk_callback.job.already_terminal",
@@ -113,7 +146,11 @@ export async function processStkCallback(
         transactionDate = metadata.transactionDate;
       } catch (err) {
         log.error(
-          { event: "stk_callback.job.parse_failed", paymentId: payment.id, error: String(err) },
+          {
+            event: "stk_callback.job.parse_failed",
+            paymentId: payment.id,
+            error: String(err),
+          },
           "Failed to parse callback metadata",
         );
         // Don't throw — we don't want BullMQ to retry a malformed callback
@@ -172,7 +209,6 @@ export async function processStkCallback(
         data: { paymentStatus: "SUCCESS" },
       });
 
-     
       log.info(
         {
           event: "stk_callback.job.success",
@@ -185,7 +221,7 @@ export async function processStkCallback(
       );
     } else {
       // --- Failed/cancelled/expired payment ---
-      const terminalStatus =  getTerminalStatus(resultCode)
+      const terminalStatus = getTerminalStatus(resultCode);
       await tx.paymentTransaction.create({
         data: {
           paymentId: payment.id,
@@ -196,7 +232,7 @@ export async function processStkCallback(
           rawCallback: rawCallback as any,
         },
       });
-// sync both payment and booking payment status
+      // sync both payment and booking payment status
       await tx.payment.update({
         where: { id: payment.id },
         data: {
@@ -204,16 +240,15 @@ export async function processStkCallback(
           failureReason: ` ${getFailureReason(resultCode)}`,
         },
       });
-        await tx.booking.update({
-          where: {
-            id: payment.bookingId,
-          },
-          data: {
-            paymentStatus: terminalStatus
-          },
-        });
+      await tx.booking.update({
+        where: {
+          id: payment.bookingId,
+        },
+        data: {
+          paymentStatus: terminalStatus,
+        },
+      });
 
-      
       log.info(
         {
           event: "stk_callback.job.failed",

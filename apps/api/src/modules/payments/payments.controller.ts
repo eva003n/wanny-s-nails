@@ -19,9 +19,11 @@ export const stkPushSchema = z.object({
 export const initiateStkPush = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
     const input = req.validated!.body as z.infer<typeof stkPushSchema>;
+    const userId = req.user.userId;
     const result = await paymentsService.initiateStkPush(
       input.bookingId,
       input.phoneNumber,
+      userId
     );
 
     success(res, result, 202);

@@ -5,10 +5,14 @@ import { paymentQueue } from "../../shared/lib/index.js";
 import { logger } from "../../shared/lib/logger.js";
 
 const log = logger.child({ module: "payments" });
-import { PaymentFailedError, PaymentNotAllowedError, NotFoundError } from "../../shared/types/errors.js";
+import {
+  PaymentFailedError,
+  PaymentNotAllowedError,
+  NotFoundError,
+} from "../../shared/types/errors.js";
 
 export const paymentsService = {
-  async initiateStkPush(bookingId: string, phoneNumber: string) {
+  async initiateStkPush(bookingId: string, phoneNumber: string, userId: string | null) {
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: { payment: true },
@@ -19,15 +23,22 @@ export const paymentsService = {
     }
 
     if (booking.status !== "APPROVED") {
-      throw new PaymentNotAllowedError("Booking must be in APPROVED status to initiate payment");
+      throw new PaymentNotAllowedError(
+        "Booking must be in APPROVED status to initiate payment",
+      );
     }
 
     // Check if there's an existing payment that's already resolved
-    if (booking.payment?.status === "SUCCESS" || booking.payment?.status === "REFUNDED") {
-      throw new PaymentNotAllowedError("Booking already has a completed payment");
+    if (
+      booking.payment?.status === "SUCCESS" ||
+      booking.payment?.status === "REFUNDED"
+    ) {
+      throw new PaymentNotAllowedError(
+        "Booking already has a completed payment",
+      );
     }
 
-    // If there's an existing failed/cancelled/expired payment, reset it to PENDING
+    // New payment Request
     let payment = booking.payment;
     if (!payment) {
       payment = await prisma.payment.create({
@@ -38,22 +49,7 @@ export const paymentsService = {
         },
       });
 
-      // await prisma.notification.create({
-      //   data: {
-      //     bookingId: payment.bookingId,
-      //     recipientId: booking.customerId,
-      //     recipientType: "CLIENT",
-      //     type: "PAYMENT_REQUEST",
-      //     channel: "WHATSAPP",
-      //     payload: {
-      //       phoneNumber: payment.phoneNumber,
-      //       bookingRef: booking.reference,
-      //       amountKes: payment.amountKes,
-      //     },
-      //     status: "PENDING",
-      //     idempotencyKey: `payment.${payment.id}.request`,
-      //   },
-      // });
+      // If there's an existing failed/cancelled/expired payment, reset it to PENDING
     } else if (["FAILED", "CANCELLED", "EXPIRED"].includes(payment.status)) {
       // Reset for retry
       payment = await prisma.payment.update({
@@ -71,6 +67,21 @@ export const paymentsService = {
         where: { id: payment.id },
         data: { phoneNumber },
       });
+
+      await prisma.booking.update({
+        where: { id: payment.bookingId },
+        data: {
+          status: "COMPLETED",
+          statusHistory: {
+            create: {
+              fromStatus: "APPROVED",
+              toStatus: "COMPLETED",
+              actorType: "USER",
+              actorId: userId
+            },
+          },
+        },
+      });
     }
 
     // Enqueue STK Push job to BullMQ (async processing)
@@ -86,15 +97,17 @@ export const paymentsService = {
       {
         jobId: payment.id, // idempotency
         attempts: 2,
-        backoff: { type: "fixed", 
-          delay: 30000 
-
-        },
+        backoff: { type: "fixed", delay: 30000 },
       },
     );
 
     log.info(
-      { event: "stk_push.enqueued", bookingId, paymentId: payment.id, jobId: job.id },
+      {
+        event: "stk_push.enqueued",
+        bookingId,
+        paymentId: payment.id,
+        jobId: job.id,
+      },
       "STK Push job enqueued",
     );
 
@@ -206,4 +219,3 @@ export const paymentsService = {
     });
   },
 };
-

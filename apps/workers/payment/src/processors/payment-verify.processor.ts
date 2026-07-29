@@ -84,7 +84,20 @@ export async function paymentVerifyProcessor(
     );
     return;
   }
+    const allowPaymentList = ["COMPLETED", "NO_SHOW"];
 
+  // Ensure the booking is either complete or no_show before processing payment
+  if (!allowPaymentList.includes(payment.booking.status)) {
+    log.info(
+      {
+        event: "booking.status.invalid",
+        paymentId: payment.id,
+        status: payment.booking.status,
+      },
+      "Booking status must be either completed or no_show state before payment collection , skipping",
+    );
+    return;
+  }
   // check if payment was resolved by the callback
   if (payment.status !== "PENDING") {
     log.info(
@@ -163,12 +176,10 @@ export async function paymentVerifyProcessor(
           where: { id: bookingId },
           data: { paymentStatus: "SUCCESS" },
         });
-
       });
 
       // side effects
-     // TODO: Notification
-
+      // TODO: Notification
     } else {
       // Payment definitely failed — decide whether to retry or expire
       const retryCount = await prisma.paymentTransaction.count({
@@ -204,8 +215,6 @@ export async function paymentVerifyProcessor(
               failureReason: `Attempt ${retryCount + 1} failed: ${ResultDesc}`,
             },
           });
-
-          
         });
 
         log.info(
@@ -271,10 +280,7 @@ export async function paymentVerifyProcessor(
               paymentStatus: terminalStatus,
             },
           });
-
-         
         });
-
       }
     }
   } catch (error: unknown) {
@@ -322,14 +328,28 @@ export async function reconcileStalePayments(): Promise<void> {
     include: { booking: { include: { customer: true } } },
   });
 
+  
   if (stuckPayments.length === 0) {
     log.info(
       { event: "reconciliation.sweep.stop" },
       "No stuck payments found, stopping stale payment reconciliation sweep",
     );
   } else {
+    const allowPaymentList = ["COMPLETED", "NO_SHOW"]
     for (const payment of stuckPayments) {
       try {
+        // Ensure the booking is either complete or no_show before processing payment
+        if (!allowPaymentList.includes(payment.booking.status) ) {
+          log.info(
+            {
+              event: "booking.status.invalid",
+              paymentId: payment.id,
+              status: payment.booking.status,
+            },
+            "Booking status must be either completed or no_show state before payment collection , skipping",
+          );
+          continue;
+        }
         // fresh password/timestamp per payment
         const timestamp = generateTimestamp();
         const password = generatePassword(timestamp);
@@ -410,8 +430,6 @@ export async function reconcileStalePayments(): Promise<void> {
               data: { paymentStatus: "SUCCESS" },
             });
 
-           
-
             log.info(
               { event: "reconciliation.sweep.resolved", paymentId: payment.id },
               "Stale payment resolved as SUCCESS via reconciliation",
@@ -432,7 +450,7 @@ export async function reconcileStalePayments(): Promise<void> {
               },
             });
 
-            const terminalStatus = getTerminalStatus(ResultCode)
+            const terminalStatus = getTerminalStatus(ResultCode);
 
             await tx.payment.update({
               where: { id: payment.id },
@@ -455,8 +473,7 @@ export async function reconcileStalePayments(): Promise<void> {
                 event: "reconciliation.sweep.failed",
                 paymentId: payment.id,
                 terminalStatus,
-                ResultCode
-
+                ResultCode,
               },
               `Stale payment marked as ${terminalStatus} via reconciliation`,
             );
@@ -464,9 +481,8 @@ export async function reconcileStalePayments(): Promise<void> {
         });
 
         // side effects (outside transaction)
-       
-        // TODO: notification
 
+        // TODO: notification
       } catch (error) {
         const err = error as unknown as HttpClientError;
         log.error(
