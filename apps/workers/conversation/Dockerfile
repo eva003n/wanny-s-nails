@@ -49,4 +49,4 @@ COPY --from=builder --chown=nodejs:nodejs /app/apps/workers/${WORKER_NAME}/dist 
 USER nodejs
 WORKDIR /app/apps/workers/${WORKER_NAME}
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 CMD node -e "process.exit(0)"
-CMD ["node", "dist/src/index.js"]
+CMD ["node", "dist/index.js"]
