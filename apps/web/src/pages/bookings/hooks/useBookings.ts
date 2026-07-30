@@ -235,16 +235,30 @@ export function useRescheduleBooking() {
   });
 }
 
-/** @deprecated No POST /bookings/:id/complete endpoint exists on the backend yet. */
+export function useMarkBookingAsMissed() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (bookingId: string) => {
+      const { data } = await api.patch(`/bookings/${bookingId}/mark-missed`);
+      return validateOrThrow(
+        BookingSchema,
+        data.data,
+        "PATCH /bookings/:id/mark-missed",
+      );
+    },
+    onSuccess: (updated) => updateCaches(queryClient, updated),
+  });
+}
+
 export function useMarkBookingComplete() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (bookingId: string) => {
-      const { data } = await api.post(`/bookings/${bookingId}/complete`);
+      const { data } = await api.patch(`/bookings/${bookingId}/complete`);
       return validateOrThrow(
         BookingSchema,
         data.data,
-        "POST /bookings/:id/complete",
+        "PATCH /bookings/:id/complete",
       );
     },
     onSuccess: (updated) => updateCaches(queryClient, updated),

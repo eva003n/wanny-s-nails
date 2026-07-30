@@ -14,13 +14,14 @@ import PageHeader from "@/components/layout/PageHeader";
 import Card from "@/components/ui/Card";
 import Badge, { bookingStatusToBadge, paymentStatusToBadge } from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
-import ErrorState from "@/components/ui/ErrorState";
+// import ErrorState from "@/components/ui/ErrorState";
 import Skeleton from "@/components/ui/Skeleton";
 import Button from "@/components/ui/Button";
 import Dialog from "@/components/ui/Dialog";
 import Pagination from "@/components/ui/Pagination";
 import { useAuthStore } from "@/store/auth.store";
 import { useUiStore } from "@/store/ui.store";
+import { ErrorState } from "@/components/ui";
 
 /* §8.1 KES format */
 function formatKES(amount: number): string {
@@ -49,7 +50,7 @@ export default function BookingsPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
-  const { data: result, isLoading, error, refetch } = useBookings({
+  const { data: result, isLoading, error, refetch  } = useBookings({
     status: filter || undefined,
     page,
     limit,
@@ -62,7 +63,7 @@ export default function BookingsPage() {
   const bookings = result?.data ?? [];
   const meta = result?.meta;
 
-  if (error) return <ErrorState message="Couldn't load your bookings." onRetry={refetch} />;
+  // if (error) return <ErrorState message="Couldn't load your bookings." onRetry={refetch} />;
 
   const handleDelete = () => {
     if (!deleteTarget) return;
@@ -111,8 +112,14 @@ export default function BookingsPage() {
                 padding: "0 var(--space-16)",
                 borderRadius: "var(--radius-full)",
                 border: `1.5px solid ${filter === status ? "var(--color-primary)" : "var(--color-border)"}`,
-                background: filter === status ? "var(--color-primary)" : "var(--color-surface)",
-                color: filter === status ? "var(--color-text-inverse)" : "var(--color-text-primary)",
+                background:
+                  filter === status
+                    ? "var(--color-primary)"
+                    : "var(--color-surface)",
+                color:
+                  filter === status
+                    ? "var(--color-text-inverse)"
+                    : "var(--color-text-primary)",
                 fontSize: "13px",
                 lineHeight: "18px",
                 fontWeight: 500,
@@ -127,7 +134,13 @@ export default function BookingsPage() {
 
         {/* §7.1 Loading skeleton */}
         {isLoading ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-12)" }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "var(--space-12)",
+            }}
+          >
             {[1, 2, 3].map((i) => (
               <Card key={i}>
                 <Skeleton shape="text" width="30%" height="16px" />
@@ -138,25 +151,47 @@ export default function BookingsPage() {
               </Card>
             ))}
           </div>
+        ) : error ? (
+          <ErrorState
+            message={error.message ?? "Couldn't load your bookings."}
+            onRetry={refetch}
+          ></ErrorState>
         ) : bookings.length === 0 && (!meta || meta.total === 0) ? (
           /* §7.2 Empty state */
           <EmptyState
             icon={CalendarDays}
             heading="No bookings yet"
             description="Your schedule is clear. Book a client to get started."
-            action={<Button onClick={() => navigate("/bookings/new")}>Book Appointment</Button>}
+            action={
+              <Button onClick={() => navigate("/bookings/new")}>
+                Book Appointment
+              </Button>
+            }
           />
         ) : (
           <>
             {/* §4.2 Single-column card list */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-12)" }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "var(--space-12)",
+              }}
+            >
               {bookings.map((booking) => (
                 <Card
                   key={booking.id}
                   onClick={() => navigate(`/bookings/${booking.id}`)}
                 >
                   {/* Time + Status */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-8)" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "var(--space-8)",
+                    }}
+                  >
                     <span
                       style={{
                         fontSize: "16px",
@@ -167,21 +202,49 @@ export default function BookingsPage() {
                     >
                       {formatDateTime(booking.appointmentAt)}
                     </span>
-                    <Badge variant={bookingStatusToBadge(booking.status).variant} ariaLabel={`Status: ${booking.status}`}>
+                    <Badge
+                      variant={bookingStatusToBadge(booking.status).variant}
+                      ariaLabel={`Status: ${booking.status}`}
+                    >
                       {bookingStatusToBadge(booking.status).label}
                     </Badge>
                   </div>
 
                   {/* Client + Service */}
-                  <p style={{ fontSize: "16px", lineHeight: "22px", color: "var(--color-text-primary)", margin: 0 }}>
+                  <p
+                    style={{
+                      fontSize: "16px",
+                      lineHeight: "22px",
+                      color: "var(--color-text-primary)",
+                      margin: 0,
+                    }}
+                  >
                     {booking.customer.name}
                   </p>
-                  <p style={{ fontSize: "13px", lineHeight: "18px", color: "var(--color-text-tertiary)", margin: "var(--space-2) 0 0" }}>
-                    {booking.service?.name ?? booking.services?.[0]?.service?.name ?? "Nail Service"}
+                  <p
+                    style={{
+                      fontSize: "13px",
+                      lineHeight: "18px",
+                      color: "var(--color-text-tertiary)",
+                      margin: "var(--space-2) 0 0",
+                    }}
+                  >
+                    {booking.service?.name ??
+                      booking.services?.[0]?.service?.name ??
+                      "Nail Service"}
                   </p>
 
                   {/* Amount + Payment status + Delete */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "var(--space-12)", paddingTop: "var(--space-12)", borderTop: "1px solid var(--color-border)" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginTop: "var(--space-12)",
+                      paddingTop: "var(--space-12)",
+                      borderTop: "1px solid var(--color-border)",
+                    }}
+                  >
                     <span
                       style={{
                         fontSize: "16px",
@@ -193,15 +256,29 @@ export default function BookingsPage() {
                     >
                       {formatKES(booking.priceKes)}
                     </span>
-                    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-8)" }}>
-                      <Badge variant={paymentStatusToBadge(booking.paymentStatus).variant} ariaLabel={`Status: ${booking.paymentStatus}`}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "var(--space-8)",
+                      }}
+                    >
+                      <Badge
+                        variant={
+                          paymentStatusToBadge(booking.paymentStatus).variant
+                        }
+                        ariaLabel={`Status: ${booking.paymentStatus}`}
+                      >
                         {paymentStatusToBadge(booking.paymentStatus).label}
                       </Badge>
                       {isOwner && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setDeleteTarget({ id: booking.id, name: booking.customer.name });
+                            setDeleteTarget({
+                              id: booking.id,
+                              name: booking.customer.name,
+                            });
                           }}
                           style={{
                             background: "none",
@@ -213,10 +290,16 @@ export default function BookingsPage() {
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            transition: "color var(--duration-fast) var(--ease-out)",
+                            transition:
+                              "color var(--duration-fast) var(--ease-out)",
                           }}
-                          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-error)")}
-                          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-text-tertiary)")}
+                          onMouseEnter={(e) =>
+                            (e.currentTarget.style.color = "var(--color-error)")
+                          }
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.color =
+                              "var(--color-text-tertiary)")
+                          }
                           aria-label={`Delete booking for ${booking.customer.name}`}
                         >
                           <Trash2 className="h-4 w-4" />

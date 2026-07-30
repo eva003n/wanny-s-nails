@@ -20,14 +20,15 @@ import {
   useBookingDetail,
   useApproveBooking,
   useCancelBooking,
-  useMarkBookingComplete,
+  useMarkBookingAsMissed,
   useMarkPaymentManually,
   useSendPaymentRequest,
+  useMarkBookingComplete,
 } from "@/pages/bookings/hooks/useBookings";
 import { useUiStore } from "@/store/ui.store";
 import { formatDateShort, formatKes, formatPhoneForWhatsApp, formatTime } from "@/lib/format";
 
-type DialogKind = "approve" | "cancel" | "complete" | "mark-paid" | null;
+type DialogKind = "approve" | "cancel" | "complete" | "mark-paid" | "no_show" | null;
 
 export default function BookingDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -40,8 +41,9 @@ export default function BookingDetailPage() {
   const { data: booking, isLoading, error, refetch } = useBookingDetail(id);
   const approveMutation = useApproveBooking();
   const cancelMutation = useCancelBooking();
-  const completeMutation = useMarkBookingComplete();
+  const missedMutation = useMarkBookingAsMissed();
   const markPaidMutation = useMarkPaymentManually();
+  const completedMutation = useMarkBookingComplete()
   const paymentRequestMutation = useSendPaymentRequest();
 
   if (isLoading) {
@@ -106,10 +108,22 @@ export default function BookingDetailPage() {
     });
   };
 
-  const handleComplete = () => {
-    completeMutation.mutate(booking.id, {
+  const handleBookingMissed = () => {
+    missedMutation.mutate(booking.id, {
       onSuccess: () => {
-        showToast({type: "success", message:"Booking marked complete."});
+        showToast({type: "success", message:"Booking marked as missed."});
+        closeDialog();
+      },
+      onError: () => {
+        showToast({type: "error", message: "Action failed — check your connection and try again"});
+        closeDialog();
+      },
+    });
+  };
+  const handleComplete = () => {
+    completedMutation.mutate(booking.id, {
+      onSuccess: () => {
+        showToast({type: "success", message:"Booking marked as completed."});
         closeDialog();
       },
       onError: () => {
@@ -160,8 +174,12 @@ export default function BookingDetailPage() {
         <div className="flex items-center gap-3">
           <Avatar name={booking.customer.name} size="lg" />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-lg font-semibold text-text-primary">{booking.customer.name}</p>
-            <p className="truncate text-sm text-text-secondary">{booking.customer.phone}</p>
+            <p className="truncate text-lg font-semibold text-text-primary">
+              {booking.customer.name}
+            </p>
+            <p className="truncate text-sm text-text-secondary">
+              {booking.customer.phone}
+            </p>
           </div>
           <a
             href={`https://wa.me/${formatPhoneForWhatsApp(booking.customer.phone)}`}
@@ -184,29 +202,40 @@ export default function BookingDetailPage() {
                 ? booking.services.map((bs, i) => (
                     <div key={i}>{bs.service.name}</div>
                   ))
-                : booking.service?.name ?? "Nail Service"}
+                : (booking.service?.name ?? "Nail Service")}
             </dd>
           </div>
           <div className="flex items-center justify-between px-4 py-3">
             <dt className="text-sm text-text-secondary">Date</dt>
-            <dd className="text-base font-medium text-text-primary">{formatDateShort(booking.appointmentAt)}</dd>
+            <dd className="text-base font-medium text-text-primary">
+              {formatDateShort(booking.appointmentAt)}
+            </dd>
           </div>
           <div className="flex items-center justify-between px-4 py-3">
             <dt className="text-sm text-text-secondary">Time</dt>
-            <dd className="text-base font-medium text-text-primary">{formatTime(booking.appointmentAt)}</dd>
+            <dd className="text-base font-medium text-text-primary">
+              {formatTime(booking.appointmentAt)}
+            </dd>
           </div>
           <div className="flex items-center justify-between px-4 py-3">
             <dt className="text-sm text-text-secondary">Duration</dt>
-            <dd className="text-base font-medium text-text-primary">{booking.durationMinutes} min</dd>
+            <dd className="text-base font-medium text-text-primary">
+              {booking.durationMinutes} min
+            </dd>
           </div>
           <div className="flex items-center justify-between px-4 py-3">
             <dt className="text-sm text-text-secondary">Price</dt>
-            <dd className="text-base font-medium text-text-primary">{formatKes(booking.priceKes)}</dd>
+            <dd className="text-base font-medium text-text-primary">
+              {formatKes(booking.priceKes)}
+            </dd>
           </div>
           <div className="flex items-center justify-between px-4 py-3">
             <dt className="text-sm text-text-secondary">Status</dt>
             <dd>
-              <Badge variant={bookingStatusToBadge(booking.status).variant} ariaLabel={`Status: ${booking.status}`}>
+              <Badge
+                variant={bookingStatusToBadge(booking.status).variant}
+                ariaLabel={`Status: ${booking.status}`}
+              >
                 {bookingStatusToBadge(booking.status).label}
               </Badge>
             </dd>
@@ -214,7 +243,10 @@ export default function BookingDetailPage() {
           <div className="flex items-center justify-between px-4 py-3">
             <dt className="text-sm text-text-secondary">Payment</dt>
             <dd>
-              <Badge variant={paymentStatusToBadge(booking.paymentStatus).variant} ariaLabel={`Status: ${booking.paymentStatus}`}>
+              <Badge
+                variant={paymentStatusToBadge(booking.paymentStatus).variant}
+                ariaLabel={`Status: ${booking.paymentStatus}`}
+              >
                 {paymentStatusToBadge(booking.paymentStatus).label}
               </Badge>
             </dd>
@@ -229,7 +261,9 @@ export default function BookingDetailPage() {
           </div>
         )}
 
-        <p className="mt-4 text-center text-xs text-text-secondary">REF: {booking.reference}</p>
+        <p className="mt-4 text-center text-xs text-text-secondary">
+          REF: {booking.reference}
+        </p>
 
         {/* Action buttons */}
         {!isReadOnly && (
@@ -239,27 +273,59 @@ export default function BookingDetailPage() {
                 Approve Booking
               </Button>
             )}
-            {booking.status !== "PENDING" && !isPaid && (
-              <Button onClick={handleSendPaymentRequest} loading={paymentRequestMutation.isPending}>
-                Send Payment Request
-              </Button>
-            )}
-            {booking.status !== "PENDING" && !isPaid && (
-              <Button variant="secondary" className="w-full" onClick={() => setActiveDialog("mark-paid")}>
-                Mark Paid (Cash)
-              </Button>
-            )}
-            {booking.status === "APPROVED" && isPaid && (
+            {booking.status !== "PENDING" &&
+              !isPaid &&
+              booking.status !== "NO_SHOW" && (
+                <Button
+                  onClick={handleSendPaymentRequest}
+                  loading={paymentRequestMutation.isPending}
+                >
+                  Send Payment Request
+                </Button>
+              )}
+            {booking.status !== "PENDING" &&
+              !isPaid &&
+              booking.status !== "NO_SHOW" && (
+                <Button
+                  variant="secondary"
+                  className="w-full"
+                  onClick={() => setActiveDialog("mark-paid")}
+                >
+                  Mark Paid (Cash)
+                </Button>
+              )}
+            {booking.status === "APPROVED" && !isPaid && (
               <Button onClick={() => setActiveDialog("complete")}>
                 Mark Complete
               </Button>
             )}
-            <Button variant="secondary" className="w-full" onClick={() => navigate(`/bookings/${booking.id}/reschedule`)}>
-              Reschedule
-            </Button>
-            <Button variant="destructive" onClick={() => setActiveDialog("cancel")}>
-              Cancel Booking
-            </Button>
+            {booking.status === "APPROVED" && (
+              <Button
+                variant="secondary"
+                className="w-full"
+                onClick={() => navigate(`/bookings/${booking.id}/reschedule`)}
+              >
+                Reschedule
+              </Button>
+            )}
+            {booking.status === "APPROVED" && !isPaid && (
+              <Button
+                variant="destructive"
+                onClick={() => setActiveDialog("cancel")}
+              >
+                Cancel Booking
+              </Button>
+            )}
+
+            {booking.status === "APPROVED" && !isPaid && (
+              <Button
+                variant="secondary"
+                className="w-full"
+                onClick={() => setActiveDialog("no_show")}
+              >
+                Mark as No show
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -286,13 +352,23 @@ export default function BookingDetailPage() {
         onConfirm={handleCancel}
         onCancel={closeDialog}
       />
+      <Dialog
+        open={activeDialog === "no_show"}
+        title="Missed appointment?"
+        description="The customer did not show up for the appointment?"
+        confirmLabel="Mark Missed"
+        cancelLabel="Cancel"
+        isConfirming={missedMutation.isPending}
+        onConfirm={handleBookingMissed}
+        onCancel={closeDialog}
+      />
 
       <Dialog
         open={activeDialog === "complete"}
         title="Mark booking complete?"
         description="This will move the booking to completed."
         confirmLabel="Mark Complete"
-        isConfirming={completeMutation.isPending}
+        isConfirming={completedMutation.isPending}
         onConfirm={handleComplete}
         onCancel={closeDialog}
       />
