@@ -21,7 +21,7 @@ export function connect(
   eventSource.onerror = () => {
     setBannerVisible(true);
     // close previous connection
-    eventSource?.close();
+    // eventSource?.close();
 
   // reconnects automatically via server sent retry field
   };

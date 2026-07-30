@@ -16,13 +16,19 @@ export default class ErrorBoundary extends Component<Props, State> {
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    // Log the error somewhere — Sentry, your own logging endpoint, etc.
+    import.meta.env.DEV && console.error(error, errorInfo);
+  }
 
   render() {
     if (this.state.hasError) {
       return (
         this.props.fallback ?? (
           <div className="flex min-h-[50vh] flex-col items-center justify-center px-4 text-center">
-            <h2 className="text-lg font-semibold text-text-primary">Something went wrong</h2>
+            <h2 className="text-lg font-semibold text-text-primary">
+              Something went wrong
+            </h2>
             <p className="mt-2 text-sm text-text-secondary">
               {this.state.error?.message ?? "An unexpected error occurred."}
             </p>

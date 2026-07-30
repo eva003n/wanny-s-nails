@@ -12,9 +12,10 @@ import {
   Clock,
   XCircle,
   BadgeCheck,
+  CalendarOff,
 } from "lucide-react";
 
-type BadgeVariant = "success" | "warning" | "error" | "info";
+type BadgeVariant = "success" | "warning" | "error" | "neutral" | "info";
 
 interface BadgeProps {
   variant?: BadgeVariant;
@@ -41,6 +42,10 @@ const variantStyles: Record<BadgeVariant, { bg: string; text: string }> = {
     bg: "bg-error-bg",
     text: "text-error",
   },
+  neutral: {
+    bg: "bg-gray-100",
+    text: "text-gray-400",
+  },
   info: {
     bg: "bg-info-bg",
     text: "text-info",
@@ -66,7 +71,7 @@ export function bookingStatusToBadge(status: string): {
       return { variant: "success", label: "Paid" };
     case "CANCELLED":
     case "NO_SHOW":
-      return { variant: "error", label: "Cancelled" };
+      return { variant: "neutral", label: "No show" };
     case "COMPLETED":
       return { variant: "success", label: "Completed" };
     case "RESCHEDULED":
@@ -100,6 +105,7 @@ const iconMap: Record<BadgeVariant, React.ComponentType<{ size?: number }>> = {
   success: BadgeCheck,
   warning: Clock,
   error: XCircle,
+  neutral: CalendarOff,
   info: CheckCircle2,
 };
 
@@ -140,7 +146,7 @@ export default function Badge({
   return (
     <span
       className={clsx(
-        "inline-flex items-center gap-1",
+        "inline-flex items-center gap-1 ",
         styles.bg,
         styles.text,
         "text-xs font-medium px-2 py-1 rounded-[--radius-sm]",

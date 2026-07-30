@@ -123,6 +123,11 @@
 
 
 /* ── §3.1 Page wrapper for safe area ── */
+/**
+* ensures content isn;t hidden behind a notch or dynamic island
+* Content stays above home indicator
+* Scrolling doesn't end underneath a fixed bottom navigation bar
+*/
 .page {
   padding-top: env(safe-area-inset-top);
   padding-bottom: calc(env(safe-area-inset-bottom) + 72px);

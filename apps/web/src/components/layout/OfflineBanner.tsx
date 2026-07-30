@@ -14,7 +14,7 @@ export default function OfflineBanner() {
       role="status"
     >
       <WifiOff className="h-4 w-4" aria-hidden="true" />
-      {!isOnline ? "You're offline — showing cached data" : "Live updates paused — reconnecting…"}
+      {!isOnline ? "You're offline" : "Live updates paused — reconnecting…"}
     </div>
   );
 }

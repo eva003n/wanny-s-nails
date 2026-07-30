@@ -10,7 +10,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useAuthStore } from "@/store/auth.store";
 import { useSSE } from "@/hooks/useSSE";
-import Layout from "@/components/Layout";
+import AppShell from "@/components/layout/AppShell";
 import ProtectedRoute from "@/components/layout/ProtectedRoute";
 import ErrorBoundary from "@/components/layout/ErrorBoundary";
 import ToastContainer from "@/components/ui/Toast";
@@ -20,23 +20,18 @@ import {
   useServiceWorkerContext,
 } from "@/hooks/useServiceWorkerContext";
 
-const ReactQueryDevTools = lazy(() => 
+const ReactQueryDevTools = lazy(() =>
   import("@tanstack/react-query-devtools").then((module) => ({
-    default: module.ReactQueryDevtools
-
-})))
-/* Lazy loaded pages */
+    default: module.ReactQueryDevtools,
+  })),
+);
+/*______________ Lazy loaded pages ________________ */
 const Login = lazy(() => import("./pages/Login"));
 const DashboardPage = lazy(() => import("./pages/dashboard/DashboardPage"));
 const BookingsPage = lazy(() => import("./pages/bookings/BookingsPage"));
 const BookingDetailPage = lazy(
   () => import("./pages/bookings/BookingDetailPage"),
 );
-import RescheduleBookingPage from "@/pages/bookings/RescheduleBookingPage";
-import CreateBookingPage from "@/pages/bookings/CreateBookingPage";
-import { InstallPromptProvider } from "./hooks/useInstallPrompt";
-import ServiceWorkerPrompt from "@/components/ui/ServiceWorkerPrompt";
-import PublicRoute from "./components/layout/PublicRoute";
 const CustomersPage = lazy(() => import("./pages/customers/CustomersPage"));
 const CustomerDetailPage = lazy(
   () => import("./pages/customers/CustomerDetailPage"),
@@ -49,6 +44,18 @@ const SettingsPage = lazy(() => import("./pages/settings/SettingsPage"));
 const NotificationsPage = lazy(
   () => import("./pages/notifications/NotificationsPage"),
 );
+const RescheduleBookingPage = lazy(() => import("@/pages/bookings/RescheduleBookingPage"));
+const CreateBookingPage = lazy(
+  () => import("@/pages/bookings/CreateBookingPage"),
+); ;
+
+
+import PublicRoute from "@/components/layout/PublicRoute";
+import { InstallPromptProvider } from "./hooks/useInstallPrompt";
+import ServiceWorkerPrompt from "@/components/ui/ServiceWorkerPrompt";
+// import OfflineFallback from "@/components/OfflineFallback";
+// import { useOnline } from "./hooks/useOnline";
+
 
 /**
  * §7.1: Minimal loading indicator — NOT a full-page spinner.
@@ -143,13 +150,14 @@ function AppInner() {
 
     onOfflineReady() {
       setOfflineReady(true);
+         if (isDevMode)  console.log("Service worker went offline");
     },
 
     onNeedRefresh() {
       setNeedRefresh(true);
       if (isDevMode) {
         console.log("Worker waiting to move to activation");
-    }
+      }
     },
   });
 
@@ -160,8 +168,6 @@ function AppInner() {
       <ServiceWorkerPrompt
         needRefresh={needRefresh}
         offlineReady={offlineReady}
-        setOfflineReady={setOfflineReady}
-        setNeedRefresh={setNeedRefresh}
         onReload={() => updateServiceWorker(true)}
       />
       <Routes>
@@ -179,7 +185,7 @@ function AppInner() {
             <ProtectedRoute>
               <AppSSEProvider>
                 <InstallPromptProvider>
-                  <Layout />
+                  <AppShell />
                 </InstallPromptProvider>
               </AppSSEProvider>
             </ProtectedRoute>
@@ -222,7 +228,9 @@ function AppInner() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Suspense fallback={null}>{import.meta.env.DEV && <ReactQueryDevTools />}</Suspense>
+      <Suspense fallback={null}>
+        {import.meta.env.DEV && <ReactQueryDevTools />}
+      </Suspense>
       <AuthInitializer />
       <ServiceWorkerProvider>
         <BrowserRouter>

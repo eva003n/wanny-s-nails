@@ -13,15 +13,16 @@ export default defineConfig({
       srcDir: "src",
       filename: "sw.ts",
       registerType: "prompt",
-      // injectRegister: "auto",
+      injectRegister: false,
 
       injectManifest: {
         globPatterns: ["**/*.{js,css,html,svg,png,ico}"],
-        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024 // adapt based on project
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024 // 5MB
+        
       },
+      showMaximumFileSizeToCacheInBytesWarning: true,
 
       
-
       // configurations for the generated manifest file
       manifest: {
         id: "/",
@@ -153,8 +154,9 @@ export default defineConfig({
       },
 
       devOptions: {
+        // make service worker available on dev
         enabled: true,
-        // navigateFallback: "index.html",
+        navigateFallback: "index.html",
         // suppressWarnings: true,
         type: "module",
 

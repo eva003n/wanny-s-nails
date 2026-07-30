@@ -7,10 +7,10 @@
  *  - Basic offline fallback
  */
 
-/// <reference lib="webworker"/>
-import { precacheAndRoute, cleanupOutdatedCaches } from "workbox-precaching";
+import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from "workbox-precaching";
 import { clientsClaim } from "workbox-core";
-
+import {offlineFallback} from "workbox-recipes"
+import {registerRoute, NavigationRoute} from "workbox-routing"
 
 // This tells TS this file runs in service worker context not DOM
 declare let self: ServiceWorkerGlobalScope & {
@@ -18,19 +18,29 @@ declare let self: ServiceWorkerGlobalScope & {
   // __WB_MANIFEST: Array<{ url: string; revision: string | null }>;
 };
 
-
+// Remove old pre-caches from previous service worker so storage doesn't grow unbounded across deploys
+cleanupOutdatedCaches();
 /* __________ Pre-caching __________ */
 // __WB_MANIFEST replaced at build time by vite/workbox
-// with reall array of { url, revision } for every asset matched
+// with real array of { url, revision } for every asset matched
 // by injectManifest.globPatterns in vite.config.ts.
 // You never populate this array yourself
 precacheAndRoute(self.__WB_MANIFEST);
-// Remove old pre-caches from previous service worker so storage doesn't grow unbounded across deploys
-cleanupOutdatedCaches();
 
+// new service worker claims existing clients
 clientsClaim()
-// const CACHE_NAME = "wannys-nails-v1";
-const OFFLINE_URL = "/offline.html";
+
+// serve the precatche index.html for any navigation request that isn;t already matched by a more specific route
+const handler = createHandlerBoundToURL("/index.html")
+const navigationRoute = new NavigationRoute(handler, {
+  // Don't hijack navigations meant for real API/asset routes
+  denylist: [/^\/api\//, /\.[a-z0-9]+$/i], // exclude /api/* and anything with a file extension
+});
+registerRoute(navigationRoute)
+
+offlineFallback({
+  pageFallback: "/offline.html"
+})
 
 
 // Fired once after service worker is registered and the browser has downloaded and parse it
@@ -39,10 +49,10 @@ const OFFLINE_URL = "/offline.html";
 self.addEventListener("install", () => {
   // No self.skipWaiting() here. The new worker installs and
   // sits in "waiting" until the user explicitly triggers activation
-  // via the SKIP_WAITING message below (see React hook from before).
+  // via the SKIP_WAITING message.
 });
 
-// ─── Activate: clean old caches(avoid eceeding storage qoutas) ────────────────────────────────
+// ─── Activate: clean old caches(avoid exceeding storage qoutas) ────────────────────────────────
 self.addEventListener("activate", () => {
   // clientsClaim() lets this worker take control of already-open
   // tabs immediately after activation, without needing a hard reload
@@ -55,7 +65,7 @@ self.addEventListener("activate", () => {
 });
 
 
-// 4. USER-TRIGGERED UPDATE (the SKIP_WAITING message contract)
+// 4. USER-TRIGGERED UPDATE (the SKIP_WAITING message contract)(prompts user)
 self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") {
     self.skipWaiting();// activate immediately
@@ -154,21 +164,6 @@ self.addEventListener("pushsubscriptionchange", (event) => {
         });
       }),
   );
-});
-
-// ─── Fetch: offline fallback ───────────────────────────────────
-
-self.addEventListener("fetch", (event) => {
-  // Only handle navigation requests for offline fallback
-  if (event.request.mode === "navigate") {
-    event.respondWith(
-      fetch(event.request).catch(() => {
-        return caches
-          .match(OFFLINE_URL)
-          .then((res) => res ?? new Response("Offline", { status: 503 }));
-      }),
-    );
-  }
 });
 
 // ─── Utility: URL-safe Base64 to Uint8Array ────────────────────

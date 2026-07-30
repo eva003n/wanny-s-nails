@@ -13,35 +13,38 @@ import {
   useEffect,
   useRef,
   useState,
-  type Dispatch,
-  type SetStateAction,
+  // type Dispatch,
+  // type SetStateAction,
 } from "react";
 import Button from "@/components/ui/Button";
+import { useIsMutating } from "@tanstack/react-query";
 
 interface ServiceWorkerPromptProps {
   needRefresh: boolean;
   offlineReady: boolean;
-  setOfflineReady: Dispatch<SetStateAction<boolean>>;
-  setNeedRefresh: Dispatch<SetStateAction<boolean>>;
+  // disabled: boolean;
+  // setOfflineReady: Dispatch<SetStateAction<boolean>>;
+  // setNeedRefresh: Dispatch<SetStateAction<boolean>>;
   onReload: () => void;
 }
 
 export default function ServiceWorkerPrompt({
   needRefresh,
   offlineReady,
-  // setOfflineReady,
-  // setNeedRefresh,
   onReload,
+
 }: ServiceWorkerPromptProps) {
   const [dismissed, setDismissed] = useState(false);
   const [exiting, setExiting] = useState(false);
   const confirmRef = useRef<HTMLButtonElement>(null);
 
-  // console.log(needRefresh)
+  // when their is any mutation taking place(avoid data loss)
+  const isBusy = useIsMutating() > 0;
+
+
   /* Auto-dismiss the offline-ready toast after 4 s */
   useEffect(() => {
     if (!offlineReady || needRefresh) return;
-
     const timer = setTimeout(() => {
       setExiting(true);
       setTimeout(() => setDismissed(true), 200);
@@ -180,9 +183,8 @@ export default function ServiceWorkerPrompt({
                   ref={confirmRef}
                   variant="primary"
                   fullWidth
-                  onClick={() => {
-                    onReload()
-                  }}
+                  onClick={onReload}
+                  disabled={isBusy}
                 >
                   Reload
                 </Button>
