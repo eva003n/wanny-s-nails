@@ -24,15 +24,15 @@ export const createBookingSchema = z.object({
   serviceIds: z.array(z.string().uuid()).min(1), // multi-service
   appointmentAt: z.string().datetime(),
   notes: z.string().max(500).optional(),
-  stylist: z.string().optional()
+  stylist: z.string().optional(),
 });
 
 export const cancelSchema = z.object({
   reason: z.string().max(255).optional(),
 });
-export const missedBookingSchema = z.object({
-  reason: z.string().max(255).optional(),
-});
+// export const missedBookingSchema = z.object({
+//   reason: z.string().max(255).optional(),
+// });
 
 export const rescheduleSchema = z.object({
   appointmentAt: z.string().datetime(),
@@ -82,7 +82,8 @@ function buildNotificationContext(booking: {
 }): NotificationContext {
   // Extract service name from the first booking service, or fallback
   const firstService = booking.services?.[0]?.service;
-  const serviceName = firstService?.name ?? booking.service?.name ?? "Nail Service";
+  const serviceName =
+    firstService?.name ?? booking.service?.name ?? "Nail Service";
   return {
     bookingId: booking.id,
     customerId: booking.customerId,
@@ -148,7 +149,7 @@ export const createBooking = asyncHandler(
       serviceIds,
       appointmentAt: input.appointmentAt,
       notes: input.notes,
-      stylist: input.stylist
+      stylist: input.stylist,
     };
     const booking = await bookingsService.create(createInput);
     created(res, booking);
@@ -233,14 +234,23 @@ export const rescheduleBooking = asyncHandler(
     success(res, booking);
   },
 );
+export const markBookingCompleted = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
+    const userId = req.user.userId;
+    const booking = await bookingsService.markCompleted(params.id, userId);
+    success(res, booking);
+  },
+);
 export const markBookingAsMissed = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
     const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
-    const input = req.validated!.body as z.infer<typeof missedBookingSchema>;
-    const booking = await bookingsService.markMissed(
-      params.id,
-      input.reason,
-    );
+    // const input = req.validated!.body as z.infer<typeof missedBookingSchema>;
+    const userId = req.user.userId;
+    const booking = await bookingsService.markMissed({
+      id: params.id,
+      userId,
+    });
     success(res, booking);
   },
 );

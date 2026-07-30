@@ -8,6 +8,7 @@ import {
   InvalidStatusTransitionError,
   OutsideBusinessHoursError,
   ServiceInactiveError,
+  UnprocessableError,
 } from "../../shared/types/errors.js";
 import {
   onBookingCancelled,
@@ -33,7 +34,7 @@ interface CreateBookingInput {
   serviceIds: string[];
   appointmentAt: string;
   notes?: string | undefined;
-  stylist: string | undefined
+  stylist: string | undefined;
 }
 
 const BOOKING_INCLUDE = {
@@ -48,8 +49,9 @@ const BOOKING_INCLUDE = {
   },
   services: {
     include: {
-      service: { select: { id: true, name: true, durationMinutes: true, priceKes: true,  } },
-      
+      service: {
+        select: { id: true, name: true, durationMinutes: true, priceKes: true },
+      },
     },
     orderBy: { position: "asc" },
   },
@@ -174,7 +176,7 @@ export const bookingsService = {
     return booking;
   },
 
- /*  async create(input: CreateBookingInput) {
+  /*  async create(input: CreateBookingInput) {
     // Validate all services exist and are active
     const services = await prisma.nailService.findMany({
       where: {
@@ -345,7 +347,14 @@ export const bookingsService = {
           },
           services: {
             include: {
-              service: { select: { id: true, name: true, durationMinutes: true, priceKes: true } },
+              service: {
+                select: {
+                  id: true,
+                  name: true,
+                  durationMinutes: true,
+                  priceKes: true,
+                },
+              },
             },
             orderBy: { position: "asc" },
           },
@@ -526,25 +535,48 @@ export const bookingsService = {
       });
     });
   },
-  async markMissed(id: string, notes?: string) {
+
+  async markMissed(missedData: {
+    id: string;
+    userId: string;
+    notes?: string | undefined;
+  }) {
+    const { id, userId, notes } = missedData;
+
     const booking = await this.getById(id);
+    
     if (booking.status !== "APPROVED") {
-      throw new InvalidStatusTransitionError(booking.status, "mark as missed");
+      throw new InvalidStatusTransitionError(booking.status, "mark as NO_SHOW");
+    }
+    if(booking.appointmentAt > new Date()) {
+      throw new UnprocessableError("INVALID_TRANSITION", "Appointment date has not passed yet");
     }
 
     return await prisma.booking.update({
-        where: { id },
-        data: {
-          status:"NO_SHOW",
-          paymentStatus: "EXPIRED",
-          ...(notes ? { notes } : {}),
+      where: { id },
+      data: {
+        status: "NO_SHOW",
+        paymentStatus: "EXPIRED",
+        ...(notes ? { notes } : {}),
+        statusHistory: {
+          create: {
+            fromStatus: "APPROVED",
+            toStatus: "COMPLETED",
+            actorType: "USER",
+            actorId: userId,
+          },
         },
-        include: BOOKING_INCLUDE,
-      });
-    
+      },
+      include: BOOKING_INCLUDE,
+    });
   },
 
-  async markCompleted(id: string) {
+  async markCompleted(id: string, userId: string) {
+    const booking = await this.getById(id);
+    if (booking.status !== "APPROVED") {
+      throw new InvalidStatusTransitionError(booking.status, "mark as COMPLETED");
+    }
+
     return prisma.booking.update({
       where: { id },
       data: {
@@ -553,7 +585,8 @@ export const bookingsService = {
           create: {
             fromStatus: "APPROVED",
             toStatus: "COMPLETED",
-            actorType: "SYSTEM",
+            actorType: "USER",
+            actorId: userId,
           },
         },
       },

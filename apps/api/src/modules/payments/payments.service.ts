@@ -68,20 +68,6 @@ export const paymentsService = {
         data: { phoneNumber },
       });
 
-      await prisma.booking.update({
-        where: { id: payment.bookingId },
-        data: {
-          status: "COMPLETED",
-          statusHistory: {
-            create: {
-              fromStatus: "APPROVED",
-              toStatus: "COMPLETED",
-              actorType: "USER",
-              actorId: userId
-            },
-          },
-        },
-      });
     }
 
     // Enqueue STK Push job to BullMQ (async processing)
