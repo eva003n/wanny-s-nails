@@ -170,3 +170,101 @@ Facebook Account
         |__Business Verification ----------- Step 3
 ```
 ## Progressive web apps
+- [Learn what PWA can do ](https://whatpwacando.today/offline-support)
+- [PWA from mdn docs](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps)
+- [PWA using vite](https://vite-pwa-org.netlify.app)
+- [Chrome docs on workbox](https://developer.chrome.com/docs/workbox/)
+- [Chrome docs on service workers](https://developer.chrome.com/docs/workbox/service-worker-overview)
+- [PWA docs from Web.dev](https://web.dev/learn/pwa)
+- [PWA docs from miscrosoft](https://learn.microsoft.com/en-us/microsoft-edge/progressive-web-apps/#progressive-web-apps-on-windows:%7E:text=PWAs%20are%20just%20websites)
+## Testing
+### Learn testing fundamentals first (most important)
+- [The Art of Unit Testing]()
+Great introduction to writing readable, maintainable unit tests.
+Best if you're relatively new to testing.
+- [Growing Object-Oriented Software, Guided by Tests]()
+More advanced.
+Shows how tests influence software design.
+- [xUnit Test Patterns]()
+Often considered the reference book on testing patterns.
+Best once you've written a fair number of tests.
+
+
+- [Testing course from testingjavascript.com](https://www.testingjavascript.com/)
+- [Testing blog from kentcdodds](kentcdodds.com/blog)
+- [JavaScript Testing Best Practices](https://github.com/goldbergyoni/javascript-testing-best-practices)
+- [Google testing blog](https://testing.googleblog.com/)
+- [Martin flowler blog on testing](https://martinfowler.com/testing/)
+
+### Testing tool usage
+- [Jest documentation](https://jestjs.io)
+- [Vitest documentation](https://testing-library.com)
+- [Testing library docs](https://testing-library.com/docs/)
+- [Mocking external services(Daraja API) with Nock](https://www.npmjs.com/package/nock#how-does-it-work)
+- [Supertest, testing http(Express)](https://www.npmjs.com/package/supertest)
+
+Topics to learn:
+
+Test suites
+Assertions
+Mock functions
+Spies
+Setup/teardown
+Fake timers
+Async testing
+Snapshot testing (know when not to use it)
+
+Learn integration testing
+
+Many backend bugs occur where components interact, so integration tests are extremely valuable.
+
+For your stack, learn how to test:
+
+Express routes
+Prisma queries
+PostgreSQL
+Redis
+BullMQ jobs
+Authentication middleware
+
+A common stack is:
+
+Jest or Vitest
+Supertest
+PostgreSQL test database
+Prisma migrations
+Docker Compose for test services
+4. Learn Test-Driven Development (TDD)
+
+Whether or not you adopt TDD daily, practicing it helps you design code that's easier to test.
+
+Watch:
+
+Kent Beck talks on TDD
+Uncle Bob demonstrations
+James Shore videos
+5. Learn how to test databases
+
+For your Wanny's Nails backend, this is especially important.
+
+Practice writing tests for:
+
+Booking creation
+Booking cancellation
+Payment confirmation
+Preventing double booking
+Reminder scheduling
+Transaction rollbacks
+
+A good integration test should verify that the database state changes as expected, not just that a function returns the right value.
+
+6. Learn mocking properly
+
+Understand the trade-offs between real dependencies and mocks.
+
+Know when to:
+
+Mock external APIs (e.g., WhatsApp Cloud API, M-Pesa)
+Mock email providers
+Mock Redis (or use a real Redis instance in integration tests)
+Avoid mocking your own business logic unnecessarily
