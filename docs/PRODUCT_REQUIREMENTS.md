@@ -25,9 +25,8 @@ The platform addresses the salon's core operational pain: manual appointment tra
 The salon currently operates with:
 
 - Appointments tracked in personal WhatsApp messages
-- No automated reminders → high no-show rate (estimated 25–35%), sent manually via email
+- No automated reminders → high no-show rate, sent manually via email
 - Payments collected in-person or manually confirmed via M-Pesa confirmation
-
 - No visibility into revenue trends or repeat customer behavior
 
 The result is revenue loss from no-shows and an inability to grow the business without increasing administrative overhead.

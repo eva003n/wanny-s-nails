@@ -2,6 +2,7 @@
 /**/**/*.env
 /**/**/*.env.development
 /**/**/*.env.production
+/**/**/*.env.test
 /**/**/*.env.staging
 /**/**/node_modules
 # /**/**/generated
@@ -10,3 +11,4 @@
 /**/**/coverage
 /**/**/*.tsbuildinfo
 notes.txt
+**/test-results
