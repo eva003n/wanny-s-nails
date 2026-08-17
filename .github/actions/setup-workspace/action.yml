@@ -1,0 +1,32 @@
+name: Setup workspace
+description: Install pnpm dependencies and build @wannys-nails/core (consumed by api + workers)
+
+runs:
+  using: composite
+  steps:
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 10.32.1
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22.21.1
+        cache: pnpm
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    - name: Generate Prisma client
+      shell: bash
+      run: pnpm --filter ./apps/packages/core exec prisma generate --config prisma/prisma.config.ts
+      env:
+        # prisma.config.ts requires DATABASE_URL to be set even for `generate`,
+        # which never opens a connection — placeholder only (matches Dockerfile.migrate).
+        DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
+
+    - name: Build shared packages
+      shell: bash
+      run: pnpm --filter ./apps/packages/core build

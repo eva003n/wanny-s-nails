@@ -3,8 +3,12 @@ run-name: ${{ github.actor }} performing end to end tests
 on:
   push:
     branches: [ main, master ]
+    paths:
+      - "apps/web/**"
   pull_request:
     branches: [ main, master ]
+    paths:
+      - "apps/web/**"
 jobs:
   test:
     timeout-minutes: 60

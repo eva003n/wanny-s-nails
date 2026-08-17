@@ -1,0 +1,171 @@
+name: CI
+
+# This is a CI gate, not a deployer: web (Vercel) and api (Railway) auto-deploy
+# on push to main via their own GitHub integrations. This workflow's job is to
+# make sure what lands on main is safe to deploy — lint, typecheck, tests, and
+# a Docker build check for every image Railway builds from.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: cicd-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Only api and web have an eslint config today.
+        app: [api, web]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+      - run: pnpm --filter "./apps/${{ matrix.app }}" run lint
+
+  typecheck:
+    name: Typecheck (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: api
+            cmd: run typecheck
+          - app: web
+            cmd: run typecheck
+          - app: packages/core
+            cmd: exec tsc --noEmit
+          - app: workers/notification
+            cmd: run typecheck
+          - app: workers/payment
+            cmd: run typecheck
+          - app: workers/conversation
+            cmd: run typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+      - run: pnpm --filter "./apps/${{ matrix.app }}" ${{ matrix.cmd }}
+
+  test-unit:
+    name: Unit tests (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # web/packages/workers here have no DB-backed tests today — anything
+        # touching Postgres/Redis lives under apps/api, covered by test-api.
+        # workers/notification has no "test" script yet, so it's excluded.
+        app: [web, packages/core, workers/conversation, workers/payment]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+      - run: pnpm --filter "./apps/${{ matrix.app }}" test
+
+  test-api:
+    name: API tests (unit + integration)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: wannysnails_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/wannysnails_test?schema=public
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-test-jwt-secret-at-least-32-characters-long
+      JWT_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      COOKIE_SECRET: ci-test-cookie-secret
+      CORS_ORIGIN: http://localhost:5173
+      DARAJA_CONSUMER_KEY: test-consumer-key
+      DARAJA_CONSUMER_SECRET: test-consumer-secret
+      DARAJA_SHORTCODE: "174379"
+      DARAJA_PASSKEY: test-passkey
+      DARAJA_STK_PUSH_URL: https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest
+      DARAJA_STK_QUERY_URL: https://sandbox.safaricom.co.ke/mpesa/stkpushquery/v1/query
+      DARAJA_CALLBACK_URL: https://example.com/api/v1/webhooks/daraja
+      WHATSAPP_ACCESS_TOKEN: test-whatsapp-token
+      WHATSAPP_PHONE_NUMBER_ID: test-phone-number-id
+      WHATSAPP_BUSINESS_ACCOUNT_ID: test-ba-id
+      WHATSAPP_VERIFY_TOKEN: test-verify-token
+      META_APP_SECRET: test-meta-secret
+      APP_NAME: Wanny's Nails
+      LOG_LEVEL: silent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Run database migrations
+        run: pnpm --filter ./apps/packages/core exec prisma migrate deploy --config prisma/prisma.config.ts
+
+      # apps/api/src/vitest.config.ts matches both *.test.ts and
+      # *.integration.test.ts in one run (fileParallelism is off on purpose,
+      # per TESTING.md §8, to protect the shared test DB) — this single job
+      # covers both tiers for the api.
+      - name: Run API tests
+        run: pnpm --filter ./apps/api test
+
+  build-images:
+    name: Build Docker image (${{ matrix.image.name }})
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck, test-unit, test-api]
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - { name: api, dockerfile: apps/api/Dockerfile }
+          - { name: web, dockerfile: apps/web/Dockerfile }
+          - { name: worker-notification, dockerfile: apps/workers/notification/Dockerfile }
+          - { name: worker-payment, dockerfile: apps/workers/payment/Dockerfile }
+          - { name: worker-conversation, dockerfile: apps/workers/conversation/Dockerfile }
+          - { name: db-migrate, dockerfile: apps/packages/core/prisma/Dockerfile.migrate }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build ${{ matrix.image.name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.image.dockerfile }}
+          push: false
+          cache-from: type=gha,scope=${{ matrix.image.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image.name }}
+
+  # Single stable check name for branch protection — the individual matrix
+  # job names change whenever an app is added/renamed, which breaks required
+  # status checks configured against them directly.
+  ci:
+    name: CI
+    if: always()
+    needs: [lint, typecheck, test-unit, test-api, build-images]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all jobs to have succeeded
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]] || [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "One or more required jobs did not succeed."
+            exit 1
+          fi
