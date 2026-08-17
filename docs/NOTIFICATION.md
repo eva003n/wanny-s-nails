@@ -345,7 +345,7 @@ Outbound half of the same FSM that handles inbound conversation — architectura
 - **Rate limits & messaging tiers.** WhatsApp Business accounts have tiered 24h messaging limits (250/1K/10K/unlimited unique users) scaling with quality rating. Configure a Redis-backed sliding window rate limiter to match your current tier — don't hardcode an optimistic number.
 
 ```typescript
-// apps/packages/src/services/notifications.ts
+// apps/packages/core/src/services/notifications.ts
 const RATE_LIMIT_WINDOW_MS = 1000;
 const RATE_LIMIT_MAX = 80; // stay under the 80/sec default tier limit
 

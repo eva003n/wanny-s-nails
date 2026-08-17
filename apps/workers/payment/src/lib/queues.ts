@@ -1,4 +1,4 @@
-import { createQueues } from "@wannys-nails/packages";
+import { createQueues } from "@wannys-nails/core";
 import { redis } from "./redis.js";
 
 // queuss by producers

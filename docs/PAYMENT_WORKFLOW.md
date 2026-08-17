@@ -118,7 +118,7 @@ A `Payment` row is **never deleted** — failed/cancelled/expired attempts are r
 
 ## 3. Data Model
 
-The actual Prisma schema in `apps/packages/prisma/schema.prisma` defines:
+The actual Prisma schema in `apps/packages/core/prisma/schema.prisma` defines:
 
 ```prisma
 enum PaymentStatus {
@@ -311,7 +311,7 @@ export async function initiateStkPush(params: {
 **Phone number normalisation:**
 
 ```typescript
-// apps/packages/src/utils/phone.ts
+// apps/packages/core/src/utils/phone.ts
 function normalisePhone(phone: string): string {
   // Accepts: 0712345678, +254712345678, 254712345678, 0112345678
   // Returns: 254712345678 (Daraja format — no leading +)
