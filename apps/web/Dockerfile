@@ -10,7 +10,7 @@ FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json ./apps/web/package.json
 COPY apps/api/package.json ./apps/api/package.json
-COPY apps/packages/package.json ./apps/packages/package.json
+COPY apps/packages/core/package.json ./apps/packages/core/package.json
 COPY apps/workers/notification/package.json ./apps/workers/notification/package.json
 COPY apps/workers/payment/package.json ./apps/workers/payment/package.json
 COPY apps/workers/conversation/package.json ./apps/workers/conversation/package.json

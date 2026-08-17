@@ -1,4 +1,3 @@
-import { createServer } from "http";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -28,73 +27,85 @@ import { _config } from "./shared/lib/index.js";
 import { notFound } from "./shared/middleware/404.middleware.js";
 import { groupedBoard } from "./shared/lib/index.js";
 
-const app = express();
-// express app is behind a proxy(trust first proxy hoop)
-app.set("trust proxy", 1);
-// Security headers
-app.use(helmet());
+/**
+ * Create the Express application.
+ *
+ * Kept as a factory (per TESTING.md §4.1) so Supertest can run the app
+ * entirely in-process without binding to a port. The production entry
+ * (`index.ts`) is responsible for creating the HTTP server and listening.
+ */
+export function createApp() {
+  const app = express();
 
-// CORS
-app.use(
-  cors({
-    origin: _config.CORS_ORIGIN.split(","),
-    credentials: true,
-  }),
-);
+  // express app is behind a proxy(trust first proxy hoop)
+  app.set("trust proxy", 1);
+  // Security headers
+  app.use(helmet());
 
-// parse cookie
-app.use(cookieParser(_config.COOKIE_SECRET.split(",")));
+  // CORS
+  app.use(
+    cors({
+      origin: _config.CORS_ORIGIN.split(","),
+      credentials: true,
+    }),
+  );
 
-// Raw body for webhook signature verification
-app.use(
-  express.json({
-    limit: "16kb",
-    verify: (req, _res, buf) => {
-      (req as unknown as Record<string, unknown>).rawBody = buf;
-    },
-  }),
-);
-app.use(express.urlencoded({ extended: true }));
+  // parse cookie
+  app.use(cookieParser(_config.COOKIE_SECRET.split(",")));
 
-// serve static assets
-app.use(express.static("public"))
-// X-Request-ID middleware (runs on every request)
-app.use(requestIdMiddleware);
+  // Raw body for webhook signature verification
+  app.use(
+    express.json({
+      limit: "16kb",
+      verify: (req, _res, buf) => {
+        (req as unknown as Record<string, unknown>).rawBody = buf;
+      },
+    }),
+  );
+  app.use(express.urlencoded({ extended: true }));
 
-// Global rate limiter
-app.use(globalRateLimit);
+  // serve static assets
+  app.use(express.static("public"))
+  // X-Request-ID middleware (runs on every request)
+  app.use(requestIdMiddleware);
 
-// HTTP request logging
-app.use(logMiddleware);
+  // Global rate limiter
+  app.use(globalRateLimit);
 
-
-// Bull mq queues UI
-app.use("/api/v1/admin/queues", groupedBoard.getRouter())
-
-// Health check endpoint (public, no auth)
-// app.use("/health", healthRoutes);
-app.use("/api/v1/health", healthRoutes);
-
-// Webhook endpoints (public, no JWT, use HMAC/IP validation)
-app.use("/api/v1/webhooks", webhooksRoutes);
+  // HTTP request logging
+  app.use(logMiddleware);
 
 
+  // Bull mq queues UI
+  app.use("/api/v1/admin/queues", groupedBoard.getRouter())
 
-// API routes (authenticated)
-app.use("/api/v1/auth", authRoutes);
-app.use("/api/v1/services", servicesRoutes);
-app.use("/api/v1/customers", customersRoutes);
-app.use("/api/v1/slots", slotsRoutes);
-app.use("/api/v1/bookings", bookingsRoutes);
-app.use("/api/v1/payments", paymentsRoutes);
-app.use("/api/v1/dashboard", dashboardRoutes);
-app.use("/api/v1/notifications", notificationsRoutes);
-app.use("/api/v1/push-subscriptions", pushSubscriptionsRoutes);
-app.use("/api/v1/business-hours", businessHoursRoutes);
-app.use("/api/v1/events", eventsRoutes);
+  // Health check endpoint (public, no auth)
+  // app.use("/health", healthRoutes);
+  app.use("/api/v1/health", healthRoutes);
 
-app.use(notFound);
-// Global error handler (must be last)
-app.use(errorMiddleware);
+  // Webhook endpoints (public, no JWT, use HMAC/IP validation)
+  app.use("/api/v1/webhooks", webhooksRoutes);
 
-export const server = createServer(app);
+
+
+  // API routes (authenticated)
+  app.use("/api/v1/auth", authRoutes);
+  app.use("/api/v1/services", servicesRoutes);
+  app.use("/api/v1/customers", customersRoutes);
+  app.use("/api/v1/slots", slotsRoutes);
+  app.use("/api/v1/bookings", bookingsRoutes);
+  app.use("/api/v1/payments", paymentsRoutes);
+  app.use("/api/v1/dashboard", dashboardRoutes);
+  app.use("/api/v1/notifications", notificationsRoutes);
+  app.use("/api/v1/push-subscriptions", pushSubscriptionsRoutes);
+  app.use("/api/v1/business-hours", businessHoursRoutes);
+  app.use("/api/v1/events", eventsRoutes);
+
+  app.use(notFound);
+  // Global error handler (must be last)
+  app.use(errorMiddleware);
+
+  return app;
+}
+
+export default createApp;

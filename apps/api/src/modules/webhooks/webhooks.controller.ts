@@ -4,9 +4,9 @@ import { logger } from "../../shared/lib/index.js";
 import { conversationQueue, paymentQueue } from "../../shared/lib/index.js";
 
 import { redis } from "../../shared/lib/index.js";
-import { whatsappTransport, type WebhookEvent } from "@wannys-nails/packages";
+import { whatsappTransport, type WebhookEvent } from "@wannys-nails/core";
 import { DarajaCallbackSchema } from "./schemas.js";
-import { JOB_NAMES, type InboundMessage } from "@wannys-nails/packages";
+import { JOB_NAMES, type InboundMessage } from "@wannys-nails/core";
 import {
   WhatsAppWebhookSchema,
   type NormalisedEvent,

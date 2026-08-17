@@ -33,7 +33,7 @@ import {
   handleRescheduleConfirmation,
 } from "./states/reschedule.js";
 import { handleHumanEscalation } from "./states/humanEscalation.js";
-import { maskKenyanPhone, type NormalisedEvent } from "@wannys-nails/packages";
+import { maskKenyanPhone, type NormalisedEvent } from "@wannys-nails/core";
 import { getByPhone } from "./helpers.js";
 import { prisma } from "../../lib/prisma.js";
 

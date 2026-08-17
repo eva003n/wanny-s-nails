@@ -5,4 +5,4 @@ export {
   type WebhookEvent,
   type WhatsAppWebhook,
   WhatsAppWebhookSchema,
-} from "@wannys-nails/packages";
+} from "@wannys-nails/core";

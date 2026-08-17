@@ -1,13 +1,13 @@
 /**
  * Notification Orchestration — API layer
  *
- * Thin wrapper around the shared NotificationService from @wannys-nails/packages.
+ * Thin wrapper around the shared NotificationService from @wannys-nails/core.
  * Provides the same public API for backward compatibility.
  */
 import { prisma, logger } from "../../shared/lib/index.js";
 import { notificationQueue } from "../../shared/lib/index.js";
-import { NotificationService } from "@wannys-nails/packages";
-import type { NotificationContext, NotificationEventType } from "@wannys-nails/packages";
+import { NotificationService } from "@wannys-nails/core";
+import type { NotificationContext, NotificationEventType } from "@wannys-nails/core";
 
 const log = logger.child({ module: "notifications.service" });
 
@@ -21,7 +21,7 @@ const notificationService = new NotificationService({
 // ─── Re-exported types ─────────────────────────────────────────
 
 export type { NotificationContext, NotificationEventType };
-export type { NotificationJobData } from "@wannys-nails/packages";
+export type { NotificationJobData } from "@wannys-nails/core";
 
 // ─── Public API (delegates to shared service) ──────────────────
 

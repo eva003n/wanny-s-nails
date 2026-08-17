@@ -1,10 +1,6 @@
 /**
  * §6.1 Login Page
- *
- * Uses Input component with labels above.
- * §6.3: Primary button 52px, full width.
- * §3.1: Max width 480px centered.
- * §9.1: Standalone page (no bottom nav).
+
  */
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -12,19 +8,35 @@ import { useAuthStore } from "@/store/auth.store";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { Sparkles } from "lucide-react";
+import {z} from "zod"
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+const loginFormSchema = z.object({
+  email: z.email(),
+  password: z.string().min(8).max(72)
+  /* .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/, {message: "Password must be at least 8 characters long, include one uppercase letter, one lowercase letter, one number, and one special character."}) */
+})
+
+type LoginData = z.infer<typeof loginFormSchema>
 
 export default function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(loginFormSchema),
+  });
   const { login, isLoading } = useAuthStore();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
+  const onSubmit = async (data: LoginData) => {
+    // e.preventDefault();
+
     try {
-      await login(email, password);
+      await login(data.email, data.password);
       navigate("/dashboard");
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: { message?: string } } } };
@@ -86,7 +98,7 @@ export default function Login() {
         </p>
 
         <form
-          onSubmit={handleSubmit}
+          onSubmit={handleSubmit(onSubmit)}
           style={{
             display: "flex",
             flexDirection: "column",
@@ -115,8 +127,8 @@ export default function Login() {
           <Input
             label="Email"
             type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            {...register("email")}
+            error={errors.email?.message}
             required
             autoComplete="email"
           />
@@ -125,13 +137,12 @@ export default function Login() {
           <Input
             label="Password"
             type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            {...register("password")}
+            error={errors.password?.message}
             required
             autoComplete="current-password"
           />
 
-          {/* §6.3 Primary button */}
           <Button type="submit" loading={isLoading}>
             Sign In
           </Button>

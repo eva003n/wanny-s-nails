@@ -1,8 +1,8 @@
 import { prisma } from "../../lib/prisma.js";
 
-import type { Prisma } from "@wannys-nails/packages";
+import type { Prisma } from "@wannys-nails/core";
 import type { DateOption, Slot } from "./types.js";
-import { getAvailableSlots as sharedGetAvailableSlots } from "@wannys-nails/packages";
+import { getAvailableSlots as sharedGetAvailableSlots } from "@wannys-nails/core";
 
 /**
  * EAT (UTC+3) offset in milliseconds.

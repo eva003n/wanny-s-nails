@@ -3,7 +3,7 @@ import { resetInvalidCount, incrementInvalidCount } from "../session.js";
 import { parsePhoneToE164 } from "../helpers.js";
 import { log as logger } from "../../../lib/index.js";
 import { prisma } from "../../../lib/prisma.js";
-import { maskKenyanPhone } from "@wannys-nails/packages";
+import { maskKenyanPhone } from "@wannys-nails/core";
 
 const log = logger.child({ module: "fsm-payment-phone" });
 

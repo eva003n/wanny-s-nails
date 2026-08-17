@@ -8,16 +8,18 @@
     "build": "tsc",
     "build:dev": "tsc --watch",
     "start": "node dist/src/index.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
-    "@wannys-nails/packages": "workspace:*",
+    "@wannys-nails/core": "workspace:*",
     "axios": "^1.17.0",
     "bullmq": "^5.78.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "dotenv": "^17.4.2",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
   }
 }

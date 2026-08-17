@@ -13,10 +13,10 @@ import {
   NormalisedEvent,
   OutboundMessage,
   registerGracefulShutdown,
-} from "@wannys-nails/packages";
+} from "@wannys-nails/core";
 
 
-import { Queue_Names } from "@wannys-nails/packages";
+import { Queue_Names } from "@wannys-nails/core";
 import type { Job } from "bullmq";
 import { conversationWorkerRedisConn, log } from "./lib/index.js";
 import { processMessage } from "./processors/workflows/engine.js";

@@ -1,6 +1,6 @@
 import { _config } from "./config.js";
 import { logger } from "./logger.js";
-import { createRedisClient } from "@wannys-nails/packages";
+import { createRedisClient } from "@wannys-nails/core";
 
 const connectionName = "api";
 

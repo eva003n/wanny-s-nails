@@ -49,6 +49,7 @@ export type BookingServiceMinAggregateOutputType = {
   position: number | null
   status: $Enums.ServiceStatus | null
   createdAt: Date | null
+  updatedAt: Date | null
 }
 
 export type BookingServiceMaxAggregateOutputType = {
@@ -62,6 +63,7 @@ export type BookingServiceMaxAggregateOutputType = {
   position: number | null
   status: $Enums.ServiceStatus | null
   createdAt: Date | null
+  updatedAt: Date | null
 }
 
 export type BookingServiceCountAggregateOutputType = {
@@ -76,6 +78,7 @@ export type BookingServiceCountAggregateOutputType = {
   position: number
   status: number
   createdAt: number
+  updatedAt: number
   _all: number
 }
 
@@ -103,6 +106,7 @@ export type BookingServiceMinAggregateInputType = {
   position?: true
   status?: true
   createdAt?: true
+  updatedAt?: true
 }
 
 export type BookingServiceMaxAggregateInputType = {
@@ -116,6 +120,7 @@ export type BookingServiceMaxAggregateInputType = {
   position?: true
   status?: true
   createdAt?: true
+  updatedAt?: true
 }
 
 export type BookingServiceCountAggregateInputType = {
@@ -130,6 +135,7 @@ export type BookingServiceCountAggregateInputType = {
   position?: true
   status?: true
   createdAt?: true
+  updatedAt?: true
   _all?: true
 }
 
@@ -231,6 +237,7 @@ export type BookingServiceGroupByOutputType = {
   position: number
   status: $Enums.ServiceStatus
   createdAt: Date
+  updatedAt: Date
   _count: BookingServiceCountAggregateOutputType | null
   _avg: BookingServiceAvgAggregateOutputType | null
   _sum: BookingServiceSumAggregateOutputType | null
@@ -268,6 +275,7 @@ export type BookingServiceWhereInput = {
   position?: Prisma.IntFilter<"BookingService"> | number
   status?: Prisma.EnumServiceStatusFilter<"BookingService"> | $Enums.ServiceStatus
   createdAt?: Prisma.DateTimeFilter<"BookingService"> | Date | string
+  updatedAt?: Prisma.DateTimeFilter<"BookingService"> | Date | string
   booking?: Prisma.XOR<Prisma.BookingScalarRelationFilter, Prisma.BookingWhereInput>
   service?: Prisma.XOR<Prisma.NailServiceScalarRelationFilter, Prisma.NailServiceWhereInput>
 }
@@ -284,6 +292,7 @@ export type BookingServiceOrderByWithRelationInput = {
   position?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
   booking?: Prisma.BookingOrderByWithRelationInput
   service?: Prisma.NailServiceOrderByWithRelationInput
 }
@@ -303,6 +312,7 @@ export type BookingServiceWhereUniqueInput = Prisma.AtLeast<{
   position?: Prisma.IntFilter<"BookingService"> | number
   status?: Prisma.EnumServiceStatusFilter<"BookingService"> | $Enums.ServiceStatus
   createdAt?: Prisma.DateTimeFilter<"BookingService"> | Date | string
+  updatedAt?: Prisma.DateTimeFilter<"BookingService"> | Date | string
   booking?: Prisma.XOR<Prisma.BookingScalarRelationFilter, Prisma.BookingWhereInput>
   service?: Prisma.XOR<Prisma.NailServiceScalarRelationFilter, Prisma.NailServiceWhereInput>
 }, "id">
@@ -319,6 +329,7 @@ export type BookingServiceOrderByWithAggregationInput = {
   position?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
   _count?: Prisma.BookingServiceCountOrderByAggregateInput
   _avg?: Prisma.BookingServiceAvgOrderByAggregateInput
   _max?: Prisma.BookingServiceMaxOrderByAggregateInput
@@ -341,6 +352,7 @@ export type BookingServiceScalarWhereWithAggregatesInput = {
   position?: Prisma.IntWithAggregatesFilter<"BookingService"> | number
   status?: Prisma.EnumServiceStatusWithAggregatesFilter<"BookingService"> | $Enums.ServiceStatus
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"BookingService"> | Date | string
+  updatedAt?: Prisma.DateTimeWithAggregatesFilter<"BookingService"> | Date | string
 }
 
 export type BookingServiceCreateInput = {
@@ -353,6 +365,7 @@ export type BookingServiceCreateInput = {
   position: number
   status?: $Enums.ServiceStatus
   createdAt?: Date | string
+  updatedAt?: Date | string
   booking: Prisma.BookingCreateNestedOneWithoutServicesInput
   service: Prisma.NailServiceCreateNestedOneWithoutBookingServicesInput
 }
@@ -369,6 +382,7 @@ export type BookingServiceUncheckedCreateInput = {
   position: number
   status?: $Enums.ServiceStatus
   createdAt?: Date | string
+  updatedAt?: Date | string
 }
 
 export type BookingServiceUpdateInput = {
@@ -381,6 +395,7 @@ export type BookingServiceUpdateInput = {
   position?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.EnumServiceStatusFieldUpdateOperationsInput | $Enums.ServiceStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   booking?: Prisma.BookingUpdateOneRequiredWithoutServicesNestedInput
   service?: Prisma.NailServiceUpdateOneRequiredWithoutBookingServicesNestedInput
 }
@@ -397,6 +412,7 @@ export type BookingServiceUncheckedUpdateInput = {
   position?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.EnumServiceStatusFieldUpdateOperationsInput | $Enums.ServiceStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type BookingServiceCreateManyInput = {
@@ -411,6 +427,7 @@ export type BookingServiceCreateManyInput = {
   position: number
   status?: $Enums.ServiceStatus
   createdAt?: Date | string
+  updatedAt?: Date | string
 }
 
 export type BookingServiceUpdateManyMutationInput = {
@@ -423,6 +440,7 @@ export type BookingServiceUpdateManyMutationInput = {
   position?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.EnumServiceStatusFieldUpdateOperationsInput | $Enums.ServiceStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type BookingServiceUncheckedUpdateManyInput = {
@@ -437,6 +455,7 @@ export type BookingServiceUncheckedUpdateManyInput = {
   position?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.EnumServiceStatusFieldUpdateOperationsInput | $Enums.ServiceStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type BookingServiceListRelationFilter = {
@@ -461,6 +480,7 @@ export type BookingServiceCountOrderByAggregateInput = {
   position?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
 }
 
 export type BookingServiceAvgOrderByAggregateInput = {
@@ -480,6 +500,7 @@ export type BookingServiceMaxOrderByAggregateInput = {
   position?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
 }
 
 export type BookingServiceMinOrderByAggregateInput = {
@@ -493,6 +514,7 @@ export type BookingServiceMinOrderByAggregateInput = {
   position?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
 }
 
 export type BookingServiceSumOrderByAggregateInput = {
@@ -607,6 +629,7 @@ export type BookingServiceCreateWithoutServiceInput = {
   position: number
   status?: $Enums.ServiceStatus
   createdAt?: Date | string
+  updatedAt?: Date | string
   booking: Prisma.BookingCreateNestedOneWithoutServicesInput
 }
 
@@ -621,6 +644,7 @@ export type BookingServiceUncheckedCreateWithoutServiceInput = {
   position: number
   status?: $Enums.ServiceStatus
   createdAt?: Date | string
+  updatedAt?: Date | string
 }
 
 export type BookingServiceCreateOrConnectWithoutServiceInput = {
@@ -664,6 +688,7 @@ export type BookingServiceScalarWhereInput = {
   position?: Prisma.IntFilter<"BookingService"> | number
   status?: Prisma.EnumServiceStatusFilter<"BookingService"> | $Enums.ServiceStatus
   createdAt?: Prisma.DateTimeFilter<"BookingService"> | Date | string
+  updatedAt?: Prisma.DateTimeFilter<"BookingService"> | Date | string
 }
 
 export type BookingServiceCreateWithoutBookingInput = {
@@ -676,6 +701,7 @@ export type BookingServiceCreateWithoutBookingInput = {
   position: number
   status?: $Enums.ServiceStatus
   createdAt?: Date | string
+  updatedAt?: Date | string
   service: Prisma.NailServiceCreateNestedOneWithoutBookingServicesInput
 }
 
@@ -690,6 +716,7 @@ export type BookingServiceUncheckedCreateWithoutBookingInput = {
   position: number
   status?: $Enums.ServiceStatus
   createdAt?: Date | string
+  updatedAt?: Date | string
 }
 
 export type BookingServiceCreateOrConnectWithoutBookingInput = {
@@ -729,6 +756,7 @@ export type BookingServiceCreateManyServiceInput = {
   position: number
   status?: $Enums.ServiceStatus
   createdAt?: Date | string
+  updatedAt?: Date | string
 }
 
 export type BookingServiceUpdateWithoutServiceInput = {
@@ -741,6 +769,7 @@ export type BookingServiceUpdateWithoutServiceInput = {
   position?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.EnumServiceStatusFieldUpdateOperationsInput | $Enums.ServiceStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   booking?: Prisma.BookingUpdateOneRequiredWithoutServicesNestedInput
 }
 
@@ -755,6 +784,7 @@ export type BookingServiceUncheckedUpdateWithoutServiceInput = {
   position?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.EnumServiceStatusFieldUpdateOperationsInput | $Enums.ServiceStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type BookingServiceUncheckedUpdateManyWithoutServiceInput = {
@@ -768,6 +798,7 @@ export type BookingServiceUncheckedUpdateManyWithoutServiceInput = {
   position?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.EnumServiceStatusFieldUpdateOperationsInput | $Enums.ServiceStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type BookingServiceCreateManyBookingInput = {
@@ -781,6 +812,7 @@ export type BookingServiceCreateManyBookingInput = {
   position: number
   status?: $Enums.ServiceStatus
   createdAt?: Date | string
+  updatedAt?: Date | string
 }
 
 export type BookingServiceUpdateWithoutBookingInput = {
@@ -793,6 +825,7 @@ export type BookingServiceUpdateWithoutBookingInput = {
   position?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.EnumServiceStatusFieldUpdateOperationsInput | $Enums.ServiceStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   service?: Prisma.NailServiceUpdateOneRequiredWithoutBookingServicesNestedInput
 }
 
@@ -807,6 +840,7 @@ export type BookingServiceUncheckedUpdateWithoutBookingInput = {
   position?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.EnumServiceStatusFieldUpdateOperationsInput | $Enums.ServiceStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type BookingServiceUncheckedUpdateManyWithoutBookingInput = {
@@ -820,6 +854,7 @@ export type BookingServiceUncheckedUpdateManyWithoutBookingInput = {
   position?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.EnumServiceStatusFieldUpdateOperationsInput | $Enums.ServiceStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 
@@ -836,6 +871,7 @@ export type BookingServiceSelect<ExtArgs extends runtime.Types.Extensions.Intern
   position?: boolean
   status?: boolean
   createdAt?: boolean
+  updatedAt?: boolean
   booking?: boolean | Prisma.BookingDefaultArgs<ExtArgs>
   service?: boolean | Prisma.NailServiceDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["bookingService"]>
@@ -852,6 +888,7 @@ export type BookingServiceSelectCreateManyAndReturn<ExtArgs extends runtime.Type
   position?: boolean
   status?: boolean
   createdAt?: boolean
+  updatedAt?: boolean
   booking?: boolean | Prisma.BookingDefaultArgs<ExtArgs>
   service?: boolean | Prisma.NailServiceDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["bookingService"]>
@@ -868,6 +905,7 @@ export type BookingServiceSelectUpdateManyAndReturn<ExtArgs extends runtime.Type
   position?: boolean
   status?: boolean
   createdAt?: boolean
+  updatedAt?: boolean
   booking?: boolean | Prisma.BookingDefaultArgs<ExtArgs>
   service?: boolean | Prisma.NailServiceDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["bookingService"]>
@@ -884,9 +922,10 @@ export type BookingServiceSelectScalar = {
   position?: boolean
   status?: boolean
   createdAt?: boolean
+  updatedAt?: boolean
 }
 
-export type BookingServiceOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "bookingId" | "serviceId" | "stylist" | "metadata" | "serviceName" | "price" | "durationMin" | "position" | "status" | "createdAt", ExtArgs["result"]["bookingService"]>
+export type BookingServiceOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "bookingId" | "serviceId" | "stylist" | "metadata" | "serviceName" | "price" | "durationMin" | "position" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["bookingService"]>
 export type BookingServiceInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   booking?: boolean | Prisma.BookingDefaultArgs<ExtArgs>
   service?: boolean | Prisma.NailServiceDefaultArgs<ExtArgs>
@@ -918,6 +957,7 @@ export type $BookingServicePayload<ExtArgs extends runtime.Types.Extensions.Inte
     position: number
     status: $Enums.ServiceStatus
     createdAt: Date
+    updatedAt: Date
   }, ExtArgs["result"]["bookingService"]>
   composites: {}
 }
@@ -1354,6 +1394,7 @@ export interface BookingServiceFieldRefs {
   readonly position: Prisma.FieldRef<"BookingService", 'Int'>
   readonly status: Prisma.FieldRef<"BookingService", 'ServiceStatus'>
   readonly createdAt: Prisma.FieldRef<"BookingService", 'DateTime'>
+  readonly updatedAt: Prisma.FieldRef<"BookingService", 'DateTime'>
 }
     
 

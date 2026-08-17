@@ -95,12 +95,7 @@ export default function AppShell() {
             <NavLink
               key={to}
               to={to}
-              className={({ isActive: _isActive }) =>
-                clsx(
-                  "flex flex-1 flex-col items-center justify-center gap-0.5 py-2 transition-colors",
-                )
-              }
-            >
+              className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 transition-colors">
               {({ isActive }) => (
                 <>
                   <Icon

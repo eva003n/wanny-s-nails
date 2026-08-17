@@ -7,7 +7,7 @@
  *  - Payment timeout check (queries Daraja if callback never arrives)
  */
 
-import { createWorker, JOB_NAMES, Queue_Names, registerGracefulShutdown } from "@wannys-nails/packages";
+import { createWorker, JOB_NAMES, Queue_Names, registerGracefulShutdown } from "@wannys-nails/core";
 import { stkPushProcessor, type StkPushJobData } from "./processors/stk-push.processor.js";
 import { processStkCallback, type StkCallbackJobData } from "./processors/stk-callback.processor.js";
 import { paymentVerifyProcessor, reconcileStalePayments, type PaymentVerifyJobData } from "./processors/payment-verify.processor.js";

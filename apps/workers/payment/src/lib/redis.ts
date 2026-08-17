@@ -1,4 +1,4 @@
-import { createRedisClient } from "@wannys-nails/packages";
+import { createRedisClient } from "@wannys-nails/core";
 import { _config } from "./config.js";
 const connectionName = "payment-worker";
 

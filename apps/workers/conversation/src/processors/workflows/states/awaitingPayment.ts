@@ -3,7 +3,7 @@ import { resetInvalidCount, incrementInvalidCount } from "../session.js";
 import { log as logger, paymentQueue } from "../../../lib/index.js";
 
 import { prisma } from "../../../lib/prisma.js";
-import { JOB_NAMES } from "@wannys-nails/packages";
+import { JOB_NAMES } from "@wannys-nails/core";
 
 const log = logger.child({ module: "fsm-awaiting-payment" });
 

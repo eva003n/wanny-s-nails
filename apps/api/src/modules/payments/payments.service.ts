@@ -1,4 +1,4 @@
-import { JOB_NAMES } from "@wannys-nails/packages";
+import { JOB_NAMES } from "@wannys-nails/core";
 import { prisma, type Prisma } from "../../shared/lib/index.js";
 
 import { paymentQueue } from "../../shared/lib/index.js";
@@ -24,7 +24,7 @@ export const paymentsService = {
 
     if (booking.status !== "APPROVED") {
       throw new PaymentNotAllowedError(
-        "Booking must be in APPROVED status to initiate payment",
+        "Booking must be in APPROVED status to initiate payment request",
       );
     }
 
@@ -59,10 +59,12 @@ export const paymentsService = {
           checkoutRequestId: null,
           phoneNumber,
           failureReason: null,
+          reconciliationAttempts: 0,
+          completedAt: null
         },
       });
     } else {
-      // Already PENDING — update phone number
+      // Already PENDING — update phone number(eg when a client wants to make a payment with a different number )
       await prisma.payment.update({
         where: { id: payment.id },
         data: { phoneNumber },
@@ -81,9 +83,13 @@ export const paymentsService = {
         accountReference: booking.reference,
       },
       {
-        jobId: payment.id, // idempotency
+        jobId: `stkpush.${payment.id}`, // idempotency
         attempts: 2,
-        backoff: { type: "fixed", delay: 30000 },
+        backoff: {
+          type: "fixed",
+          // 30s -> 60s
+          delay: 30000, // wait for the previous STK push to daraja to expire
+        },
       },
     );
 

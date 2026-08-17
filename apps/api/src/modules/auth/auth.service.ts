@@ -46,6 +46,7 @@ export const authService = {
     const user = await prisma.user.findUnique({
       where: { email: input.email },
     });
+    console.log(user)
 
     if (!user || user.deletedAt) {
       throw new UnauthorizedError("Invalid email or password");

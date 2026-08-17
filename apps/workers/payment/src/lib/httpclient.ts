@@ -1,7 +1,7 @@
 import axios, { AxiosError, AxiosResponse } from "axios";
 import { _config as config } from "./config.js";
 import { log } from "./logger.js";
-import { createHttpClient, HttpClientError } from "@wannys-nails/packages";
+import { createHttpClient, HttpClientError } from "@wannys-nails/core";
 import { redis } from "./redis.js";
 
 import { z } from "zod";

@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@wannys-nails/packages": "workspace:*",
+    "@wannys-nails/core": "workspace:*",
     "axios": "^1.17.0",
     "bullmq": "^5.78.0",
     "web-push": "^3.6.7",

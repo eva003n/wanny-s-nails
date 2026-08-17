@@ -14,7 +14,7 @@ import {
   type NotificationJobData,
   JOB_NAMES,
   type OutboundMessage,
-} from "@wannys-nails/packages";
+} from "@wannys-nails/core";
 import { whatsappProcessor } from "./processors/whatsapp.processor.js";
 import {
   emailProcessor,

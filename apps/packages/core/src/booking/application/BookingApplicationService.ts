@@ -2,7 +2,7 @@ import {
   BookingDomainService,
   type BookingDomainServiceDeps,
 } from "../domain/BookingDomainService.js";
-import type { CreateBookingInput, BookingResult, RescheduleBookingInput, CancelBookingInput, ServiceData } from "../types.js";
+import type { CreateBookingInput, BookingResult, RescheduleBookingInput, CancelBookingInput, ServiceData, ActorType } from "../types.js";
 import type { UnitOfWork } from "../ports/UnitOfWork.js";
 import type { BookingRepository } from "../ports/BookingRepository.js";
 import type { ServiceRepository } from "../ports/ServiceRepository.js";
@@ -155,7 +155,7 @@ export class BookingApplicationService {
           statusHistory: {
             fromStatus: booking.status,
             toStatus: "RESCHEDULED",
-            actorType: validated.actorType as "USER" | "CUSTOMER",
+            actorType: validated.actorType as ActorType,
             actorId: validated.rescheduledById,
             reason: validated.reason ?? null,
           },
@@ -216,7 +216,7 @@ export class BookingApplicationService {
           statusHistory: {
             fromStatus: validated.fromStatus,
             toStatus: "CANCELLED",
-            actorType: validated.actorType as "USER" | "CUSTOMER",
+            actorType: validated.actorType as ActorType,
             reason: validated.reason ?? null,
           },
         },

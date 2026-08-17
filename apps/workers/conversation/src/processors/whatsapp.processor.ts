@@ -6,7 +6,7 @@ import {
   OutboundMessage,
 
   WhatsAppTemplatePayload,
-} from "@wannys-nails/packages";
+} from "@wannys-nails/core";
 import { _config as config } from "../lib/config.js";
 
 const log = logger.child({ module: "job:whatsapp" });

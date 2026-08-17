@@ -10,7 +10,19 @@ export const  createPrismaClient = (url: string | undefined, env: string = "deve
   if(!url) {
     throw new Error("DATABASE_URL is required")
   }
-  const adapter = new PrismaPg({ connectionString: url, ssl: { rejectUnauthorized: false } });
+
+  const isProduction = env === "production";
+  let options;
+
+
+  if(!isProduction) {
+    options = { connectionString: url}
+
+  }else {
+    options = { connectionString: url, ssl: { rejectUnauthorized: false } };
+
+  }
+  const adapter = new PrismaPg(options);
 
   const prisma = globalThis.prisma ?? new PrismaClient({
     adapter,
@@ -18,7 +30,6 @@ export const  createPrismaClient = (url: string | undefined, env: string = "deve
   });
 
 
-  const isProduction = env === "production";
 
   if (!isProduction) {
     globalThis.prisma = prisma;
@@ -59,7 +70,7 @@ export const  createPrismaClient = (url: string | undefined, env: string = "deve
 
 export type { PrismaClient, Prisma
  } from "../generated/prisma/client.js";
-export  {PrismaClientKnownRequestError} from "../generated/prisma/internal/prismaNamespace.ts"
+export  {PrismaClientKnownRequestError} from "../generated/prisma/internal/prismaNamespace.js"
 export type {
   Booking as BookingModel,
   Customer as CustomerModel,

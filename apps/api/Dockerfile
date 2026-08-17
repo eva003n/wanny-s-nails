@@ -9,7 +9,7 @@ WORKDIR /app
 FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json ./apps/api/package.json
-COPY apps/packages/package.json ./apps/packages/package.json
+COPY apps/packages/core/package.json ./apps/packages/core/package.json
 COPY apps/web/package.json ./apps/web/package.json
 COPY apps/workers/notification/package.json ./apps/workers/notification/package.json
 COPY apps/workers/payment/package.json ./apps/workers/payment/package.json
@@ -19,11 +19,11 @@ RUN pnpm install --frozen-lockfile
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
-COPY --from=deps /app/apps/packages/node_modules ./apps/packages/node_modules
+COPY --from=deps /app/apps/packages/core/node_modules ./apps/packages/core/node_modules
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api ./apps/api
-COPY apps/packages ./apps/packages
-RUN pnpm --filter @wannys-nails/packages build
+COPY apps/packages/core ./apps/packages/core
+RUN pnpm --filter @wannys-nails/core build
 RUN pnpm --filter backend build
 
 FROM node:${NODE_VERSION}-alpine AS runtime
@@ -33,13 +33,13 @@ RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
 
 COPY --from=deps --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=deps --chown=nodejs:nodejs /app/apps/api/node_modules ./apps/api/node_modules
-COPY --from=deps --chown=nodejs:nodejs /app/apps/packages/node_modules ./apps/packages/node_modules
+COPY --from=deps --chown=nodejs:nodejs /app/apps/packages/core/node_modules ./apps/packages/core/node_modules
 COPY --from=builder --chown=nodejs:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=nodejs:nodejs /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY --from=builder --chown=nodejs:nodejs /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder --chown=nodejs:nodejs /app/apps/api/dist ./apps/api/dist
-COPY --from=builder --chown=nodejs:nodejs /app/apps/packages/package.json ./apps/packages/package.json
-COPY --from=builder --chown=nodejs:nodejs /app/apps/packages/dist ./apps/packages/dist
+COPY --from=builder --chown=nodejs:nodejs /app/apps/packages/core/package.json ./apps/packages/core/package.json
+COPY --from=builder --chown=nodejs:nodejs /app/apps/packages/core/dist ./apps/packages/core/dist
 
 USER nodejs
 WORKDIR /app/apps/api

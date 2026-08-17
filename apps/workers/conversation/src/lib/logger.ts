@@ -1,5 +1,5 @@
 import { _config } from "./config.js";
-import { Config, createLogger } from "@wannys-nails/packages";
+import { Config, createLogger } from "@wannys-nails/core";
 
 const logger = createLogger(_config as unknown as Config);
 

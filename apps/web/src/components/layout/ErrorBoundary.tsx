@@ -16,10 +16,6 @@ export default class ErrorBoundary extends Component<Props, State> {
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // Log the error somewhere — Sentry, your own logging endpoint, etc.
-    import.meta.env.DEV && console.error(error, errorInfo);
-  }
 
   render() {
     if (this.state.hasError) {

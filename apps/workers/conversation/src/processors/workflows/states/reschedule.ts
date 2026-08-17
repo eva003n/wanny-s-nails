@@ -14,7 +14,7 @@ import {
   PrismaUnitOfWork,
   NotificationService,
   createQueues,
-} from "@wannys-nails/packages";
+} from "@wannys-nails/core";
 
 const log = logger.child({ module: "fsm-reschedule" });
 

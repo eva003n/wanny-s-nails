@@ -133,8 +133,8 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         isAuthenticated: !!state.user ,
       }),
-      onRehydrateStorage: () => 
-        (_state, _error) => {},
+      // onRehydrateStorage: () => 
+      //   (_state, _error) => {},
     },
   ),
 );

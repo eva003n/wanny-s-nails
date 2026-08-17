@@ -13,6 +13,8 @@ import {
 } from "../../shared/utils/response.js";
 import { parsePagination } from "../../shared/utils/pagination.js";
 import { asyncHandler } from "../../shared/utils/asyncHandler.js";
+import { relative } from "path/posix";
+import { ForbiddenError, UnprocessableError } from "../../shared/types/errors.js";
 
 const log = logger.child({ module: "bookings.controller" });
 
@@ -20,33 +22,22 @@ const log = logger.child({ module: "bookings.controller" });
 
 export const createBookingSchema = z.object({
   customerId: z.uuid(),
-  // serviceId: z.uuid().optional(), // single service for backward compat
   serviceIds: z.array(z.string().uuid()).min(1), // multi-service
-  appointmentAt: z.string().datetime(),
+  appointmentAt: z.iso.datetime(),
   notes: z.string().max(500).optional(),
   stylist: z.string().optional(),
 });
 
-export const cancelSchema = z.object({
-  reason: z.string().max(255).optional(),
-});
-// export const missedBookingSchema = z.object({
-//   reason: z.string().max(255).optional(),
-// });
+
 
 export const rescheduleSchema = z.object({
   appointmentAt: z.string().datetime(),
-  reason: z.string().max(255).optional(),
 });
 
 export const markPaidSchema = z.object({
   method: z.enum(["CASH"]),
-  notes: z.string().max(500).optional(),
 });
 
-export const patchNotesSchema = z.object({
-  notes: z.string().max(500).nullable().optional(),
-});
 
 export const uuidParamSchema = z.object({
   id: z.string().uuid(),
@@ -64,6 +55,13 @@ export const listBookingsQuerySchema = z.object({
   to: z.string().optional(),
   sort: z.string().optional(),
 });
+
+export const updateBookingSchema = z.object({
+  status: z.enum(["APPROVED", "RESCHEDULED", "COMPLETED", "CANCELLED", "NO_SHOW", "PAID"]),
+  appointmentAt: z.string().datetime().optional(),
+  method: z.enum(["CASH"]).optional(),
+});
+
 
 // --- Helpers ---
 
@@ -142,6 +140,12 @@ export const getBookingById = asyncHandler(
 export const createBooking = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
     const input = req.validated!.body as z.infer<typeof createBookingSchema>;
+
+    const timestamp = Date.parse(input.appointmentAt)
+
+    if( timestamp < Date.now()) {
+      throw new UnprocessableError("INVALID_APPOINTMENT_AT", "appointmentAt value must be in the future")
+    }
     // Support both single serviceId and serviceIds array
     const serviceIds = input.serviceIds;
     const createInput = {
@@ -156,8 +160,42 @@ export const createBooking = asyncHandler(
   },
 );
 
-export const approveBooking = asyncHandler(
+export const updateBooking = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
+    const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
+    const body = req.validated?.body as z.infer<typeof updateBookingSchema>;
+    const role = req.user.role
+
+    let booking
+    if(body.status === "APPROVED") {
+      if(role !== "OWNER") {
+        throw new ForbiddenError("Only the owner can approve a booking")
+      }
+
+      booking =  await approveBooking(req)
+    }else if(body.status === "CANCELLED") {
+      booking = await cancelBooking(req)
+
+    }else if(body.status === "RESCHEDULED") {
+      booking = await rescheduleBooking(req)
+    }else if(body.status === "COMPLETED") {
+      booking = await markBookingCompleted(req)
+    }else if(body.status === "PAID") {
+      booking = await markBookingPaid(req)
+    }
+    
+    else {
+      booking = await markBookingAsMissed(req)
+    }
+
+    success(res, booking);
+
+
+
+  }
+);
+
+ const approveBooking =  async (req: Request) => {
     const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
     const booking = await bookingsService.approve(params.id, req.user?.userId);
 
@@ -187,23 +225,20 @@ export const approveBooking = asyncHandler(
       );
     }
 
-    success(res, booking);
-  },
-);
+    return booking
+  }
 
-export const cancelBooking = asyncHandler(
-  async (req: Request, res: Response, _next: NextFunction) => {
+
+ const cancelBooking = async (req: Request) => {
     const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
-    const input = req.validated!.body as z.infer<typeof cancelSchema>;
     const booking = await bookingsService.cancel(
       params.id,
-      req.user ? "ADMIN" : "STAFF",
-      input.reason,
+      "OWNER",
     );
 
     // Dispatch BOOKING_CANCELLED notification
     try {
-      const ctx = buildNotificationContext(booking);
+      const ctx = buildNotificationContext(booking as any);
       ctx.adminUserIds = req.user?.userId ? [req.user.userId] : [];
       await dispatch("BOOKING_CANCELLED", ctx);
     } catch (error) {
@@ -217,85 +252,68 @@ export const cancelBooking = asyncHandler(
       );
     }
 
-    success(res, booking);
-  },
-);
+    return booking
+  }
 
-export const rescheduleBooking = asyncHandler(
-  async (req: Request, res: Response, _next: NextFunction) => {
+
+ const rescheduleBooking = 
+  async (req: Request) => {
     const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
-    const input = req.validated!.body as z.infer<typeof rescheduleSchema>;
+    const input = req.validated!.body as z.infer<typeof updateBookingSchema>;
     const booking = await bookingsService.reschedule(
       params.id,
-      input.appointmentAt,
+      input.appointmentAt as string,
       req.user.userId,
-      input.reason,
     );
-    success(res, booking);
-  },
-);
-export const markBookingCompleted = asyncHandler(
-  async (req: Request, res: Response, _next: NextFunction) => {
+    return booking
+  }
+
+ const markBookingCompleted = 
+  async (req: Request) => {
     const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
     const userId = req.user.userId;
     const booking = await bookingsService.markCompleted(params.id, userId);
-    success(res, booking);
-  },
-);
-export const markBookingAsMissed = asyncHandler(
-  async (req: Request, res: Response, _next: NextFunction) => {
+    return booking;
+  }
+
+const markBookingAsMissed = 
+  async (req: Request) => {
     const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
-    // const input = req.validated!.body as z.infer<typeof missedBookingSchema>;
     const userId = req.user.userId;
     const booking = await bookingsService.markMissed({
       id: params.id,
       userId,
     });
-    success(res, booking);
-  },
-);
+    return booking;
+  }
 
-export const updateBookingNotes = asyncHandler(
-  async (req: Request, res: Response, _next: NextFunction) => {
-    const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
-    const input = req.validated!.body as z.infer<typeof patchNotesSchema>;
-    const booking = await bookingsService.updateNotes(
-      params.id,
-      input.notes ?? null,
+
+
+ const markBookingPaid = async (req: Request) => {
+  const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
+    const userId = req.user.userId;
+
+  // const input = req.validated!.body as z.infer<typeof markPaidSchema>;
+  const booking = await bookingsService.markPaid(params.id);
+
+  // Dispatch PAYMENT_RECEIVED notification
+  try {
+    const ctx = buildNotificationContext(booking);
+    ctx.adminUserIds = req.user?.userId ? [req.user.userId] : [];
+    await dispatch("PAYMENT_RECEIVED", ctx);
+  } catch (error) {
+    log.error(
+      {
+        event: "booking.mark_paid.notify_failed",
+        bookingId: booking?.id,
+        error: String(error),
+      },
+      "Failed to dispatch payment received notification",
     );
-    success(res, booking);
-  },
-);
+  }
 
-export const markBookingPaid = asyncHandler(
-  async (req: Request, res: Response, _next: NextFunction) => {
-    const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
-    const input = req.validated!.body as z.infer<typeof markPaidSchema>;
-    const booking = await bookingsService.markPaid(
-      params.id,
-      input.method,
-      input.notes,
-    );
-
-    // Dispatch PAYMENT_RECEIVED notification
-    try {
-      const ctx = buildNotificationContext(booking);
-      ctx.adminUserIds = req.user?.userId ? [req.user.userId] : [];
-      await dispatch("PAYMENT_RECEIVED", ctx);
-    } catch (error) {
-      log.error(
-        {
-          event: "booking.mark_paid.notify_failed",
-          bookingId: booking?.id,
-          error: String(error),
-        },
-        "Failed to dispatch payment received notification",
-      );
-    }
-
-    success(res, booking);
-  },
-);
+  return booking;
+};
 
 export const getTodayBookings = asyncHandler(
   async (_req: Request, res: Response, _next: NextFunction) => {

@@ -1,4 +1,4 @@
-import { createPrismaClient } from "@wannys-nails/packages";
+import { createPrismaClient } from "@wannys-nails/core";
 import { _config } from "./config.js";
 import { log } from "./logger.js";
 
@@ -28,4 +28,4 @@ try {
   );
 }
 
-export type {Prisma} from "@wannys-nails/packages"
+export type {Prisma} from "@wannys-nails/core"

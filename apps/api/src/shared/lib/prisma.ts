@@ -1,6 +1,6 @@
 import { logger as log } from "./logger.js";
 import { _config } from "./config.js";
-import { createPrismaClient } from "@wannys-nails/packages";
+import { createPrismaClient } from "@wannys-nails/core";
 
 export const prisma = createPrismaClient(_config.DATABASE_URL, _config.NODE_ENV);
 
@@ -25,4 +25,4 @@ try {
   );
 }
 
-export type {Prisma} from "@wannys-nails/packages"
+export type {Prisma} from "@wannys-nails/core"

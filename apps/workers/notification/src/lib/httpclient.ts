@@ -3,7 +3,7 @@
 import { _config } from "./config.js";
 import { log } from "./logger.js";
 
-import { createHttpClient } from "@wannys-nails/packages";
+import { createHttpClient } from "@wannys-nails/core";
 
 export const whatsappHttpClient = createHttpClient({
   serviceName: "whatsapp",

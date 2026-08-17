@@ -1,5 +1,5 @@
 // ─── Conversation States ───
-import type { Message } from "@wannys-nails/packages";
+import type { Message } from "@wannys-nails/core";
 export type ConversationState =
   | "IDLE"
   | "GREETING"

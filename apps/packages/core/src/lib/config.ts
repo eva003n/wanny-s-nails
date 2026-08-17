@@ -32,7 +32,7 @@ export const configSchema = z.object({
   LOGTAIL_INGESTION_HOST: z.string().default(""),
   LOGTAIL_SOURCE_TOKEN: z.string().default(""),
   NODE_ENV: z
-    .enum(["development", "staging", "production"])
+    .enum(["development", "staging", "production", "test"])
     .default("development"),
   PORT: z.coerce.number().default(8000),
 });

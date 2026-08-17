@@ -24,7 +24,8 @@ import {
   PrismaBusinessHoursRepository,
   PrismaUnitOfWork,
   PrismaClientKnownRequestError,
-} from "@wannys-nails/packages";
+  type ActorType,
+} from "@wannys-nails/core";
 
 const log = logger.child({ module: "bookings.service" });
 
@@ -313,7 +314,7 @@ export const bookingsService = {
       customerId: input.customerId,
       serviceIds: input.serviceIds,
       appointmentAt: input.appointmentAt,
-      actorType: "USER",
+      actorType: "OWNER",
       notes: input.notes ?? null,
       stylist: input.stylist,
     });
@@ -430,7 +431,7 @@ export const bookingsService = {
     return updated;
   },
 
-  async cancel(id: string, actorType: string = "USER", reason?: string) {
+  async cancel(id: string, actorType: ActorType = "OWNER", reason?: string) {
     const bookingAppService = new BookingApplicationService({
       unitOfWork: new PrismaUnitOfWork(prisma),
       bookingRepository: new PrismaBookingRepository(prisma),
@@ -441,7 +442,7 @@ export const bookingsService = {
 
     const result = await bookingAppService.cancel({
       id,
-      actorType: actorType as "USER" | "CUSTOMER",
+      actorType: actorType,
       reason,
     });
 
@@ -459,7 +460,7 @@ export const bookingsService = {
       );
     }
 
-    return this.getById(id);
+    return result;
   },
 
   async reschedule(
@@ -480,7 +481,7 @@ export const bookingsService = {
       id,
       newAppointmentAt,
       rescheduledById,
-      actorType: "USER",
+      actorType: "OWNER",
       ...(reason ? { reason } : {}),
     });
 
@@ -502,7 +503,7 @@ export const bookingsService = {
     return this.getById(id);
   },
 
-  async markPaid(id: string, method: string, notes?: string) {
+  async markPaid(id: string) {
     const booking = await this.getById(id);
     if (booking.status !== "APPROVED") {
       throw new InvalidStatusTransitionError(booking.status, "mark as paid");
@@ -515,7 +516,7 @@ export const bookingsService = {
           status: "SUCCESS",
           amountKes: booking.priceKes,
           metadata: {
-            method: method ?? "CASH",
+            method: "CASH",
           },
         },
         create: {
@@ -529,7 +530,6 @@ export const bookingsService = {
         where: { id },
         data: {
           paymentStatus: "SUCCESS",
-          ...(notes ? { notes } : {}),
         },
         include: BOOKING_INCLUDE,
       });
@@ -561,7 +561,7 @@ export const bookingsService = {
         statusHistory: {
           create: {
             fromStatus: "APPROVED",
-            toStatus: "COMPLETED",
+            toStatus: "NO_SHOW",
             actorType: "USER",
             actorId: userId,
           },

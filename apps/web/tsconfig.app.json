@@ -5,7 +5,7 @@
     "useDefineForClassFields": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
-    "types": ["vite/client"],
+    "types": ["vite/client",],
     "skipLibCheck": true,
 
     /* Bundler mode */
@@ -27,6 +27,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src"],
-  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test"]
+  "include": ["src", "playwright.config.ts", "tests"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "tests"]
 }

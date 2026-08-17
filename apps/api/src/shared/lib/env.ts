@@ -1,16 +1,14 @@
 
 const isDevelopment = (process.env.NODE_ENV || "development") === "development";
+const isTest = process.env.NODE_ENV === "test";
 
-if (isDevelopment) {
+if (isDevelopment || isTest) {
   const { config } = await import("dotenv");
 
-  config({ path: `${process.cwd()}/.env` });
+  config({ path: `${process.cwd()}/.env`, override: true });
 
   const envFile = `.env.${process.env.NODE_ENV || "development"}`;
-  config({ path: `${process.cwd()}/${envFile}`});
-
-  console.log(`${process.cwd()}/${envFile}`);
-
+  config({ path: `${process.cwd()}/${envFile}`, override: true });
 }
 
 
