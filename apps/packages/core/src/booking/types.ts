@@ -2,7 +2,7 @@
  * Shared DTOs and value objects for the booking module.
  */
 
-type ActorType = "USER" | "CUSTOMER";
+export type ActorType = "OWNER" | "CUSTOMER";
 
 export interface CreateBookingInput {
   customerId: string;

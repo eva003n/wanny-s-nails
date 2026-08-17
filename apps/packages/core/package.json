@@ -1,5 +1,5 @@
 {
-  "name": "@wannys-nails/packages",
+  "name": "@wannys-nails/core",
   "version": "1.0.0",
   "private": true,
   "description": "Shared common utilities and runtime helpers for the Wanny's Nails workspac.",
@@ -22,8 +22,9 @@
     "prisma:generate": "prisma generate",
     "db:migrate": "prisma migrate dev --config prisma/prisma.config.ts",
     "db:reset": "prisma migrate reset --config prisma/prisma.config.ts",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "db:seed": "prisma db seed --config prisma/prisma.config.ts "
+    "test": "vitest run",
+    "db:seed": "prisma db seed --config prisma/prisma.config.ts ",
+    "typecheck": "tsc --no-emit"
   },
   "keywords": [],
   "author": "",
@@ -50,6 +51,7 @@
     "dotenv": "^17.4.2",
     "prisma": "^7.8.0",
     "tsx": "^4.22.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
   }
 }

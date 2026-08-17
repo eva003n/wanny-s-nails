@@ -1,6 +1,6 @@
 packages:
   - "apps/api"
-  - "apps/packages"
+  - "apps/packages/*"
   - "apps/workers/*"
   - "apps/web"
 allowBuilds:

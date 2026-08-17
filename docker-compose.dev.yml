@@ -6,10 +6,10 @@ services:
   db-migrate:
     build:
       context: .
-      dockerfile: apps/packages/prisma/Dockerfile.migrate
+      dockerfile: apps/packages/core/prisma/Dockerfile.migrate
     container_name: wannys-db-migrate
     env_file:
-      - ./apps/packages/.env
+      - ./apps/packages/core/.env
     depends_on:
       postgres:
         condition: service_healthy
@@ -21,10 +21,10 @@ services:
   db-seed:
     build:
       context: .
-      dockerfile: apps/packages/prisma/Dockerfile.migrate
+      dockerfile: apps/packages/core/prisma/Dockerfile.migrate
     container_name: wannys-db-seed
     env_file:
-      - ./apps/packages/.env
+      - ./apps/packages/core/.env
     depends_on:
       db-migrate:
         condition: service_completed_successfully

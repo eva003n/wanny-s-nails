@@ -46,5 +46,6 @@ export type {
   BusinessHoursData,
   BookingCandidate,
   StatusHistoryEntry,
+  ActorType
 } from "./types.js";
 export { SLOT_GRANULARITY_MINUTES, MAX_SERVICE_MINUTES } from "./types.js";

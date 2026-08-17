@@ -7,7 +7,7 @@ import bcrypt from "bcryptjs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const isDevelopment = process.env.NODE_ENV || "development"
+const isDevelopment = (process.env.NODE_ENV || "development") === "development"
 
 if(isDevelopment) {
   const dotenv = await import("dotenv")
@@ -17,11 +17,20 @@ if(isDevelopment) {
 
 
 const SALT_ROUNDS = 12;
+let dbOptions: Record<string, unknown> = {};
+if(isDevelopment) {
+  dbOptions = {
+    connectionString: process.env.DATABASE_URL,
+  };
+}else {
+  dbOptions = {
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+  };
+}
 
-const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-});
+
+const adapter = new PrismaPg(dbOptions);
 const prisma = new PrismaClient({ adapter });
 
 // ============================================

@@ -130,30 +130,47 @@ Full diagrams in [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 ```
 wanny-s-nails/
 ├── apps/
-│   ├── api/                    # Express backend
+│   ├── api/                        # Express REST API + SSE
 │   │   ├── src/
-│   │   │   ├── modules/        # Feature modules (bookings, payments, etc.)
-│   │   │   ├── shared/         # Shared utilities, middleware, types
-│   │   │   ├── jobs/           # BullMQ job processors
-│   │   │   ├── workflows/      # WhatsApp FSM + AI fallback handler
+│   │   │   ├── modules/            # Feature modules
+│   │   │   │   ├── auth/  bookings/  business-hours/  customers/
+│   │   │   │   ├── dashboard/  events/  health/  notifications/
+│   │   │   │   ├── payments/  push-subscriptions/  services/
+│   │   │   │   └── slots/  webhooks/
+│   │   │   ├── shared/             # lib/ (config, queues, redis, prisma),
+│   │   │   │                       # middleware/, types/, utils/
 │   │   │   └── app.ts
-│   │   ├── prisma/
-│   │   │   └── schema.prisma
-│   │   └── package.json
-│   └── web/                    # React PWA
-│       ├── src/
-│       │   ├── pages/          # Dashboard, Bookings, Customers, Payments, Settings
-│       │   ├── components/     # Shared UI components
-│       │   ├── hooks/          # API hooks, SSE hook, auth hook
-│       │   └── lib/            # API client, shared types
-│       ├── public/
-│       │   ├── manifest.json
-│       │   └── icons/          # 192×192, 512×512 PWA icons
-│       └── vite.config.ts
-├── docs/                       # All specification files
-├── scripts/                    # Dev/ops scripts
-├── docker-compose.yml
-├── .github/workflows/
+│   │   ├── test/                   # Integration test helpers + setup
+│   │   └── (vitest.config.ts, eslint.config.js, tsconfig.*)
+│   ├── packages/                   # Container for shared TypeScript library packages
+│   │   └── core/                   # @wannys-nails/core
+│   │       ├── prisma/             # Prisma schema + migrations + seed
+│   │       └── src/
+│   │           ├── booking/        # application/, domain/, infrastructure/, ports/
+│   │           ├── notification/   # NotificationService + templates/
+│   │           ├── services/       # recommendation, slots
+│   │           ├── lib/            # queues/, whatsapp/, workers/ (base + DLQ)
+│   │           ├── generated/      # Generated Prisma client
+│   │           └── utils/  types/
+│   ├── web/                        # React PWA
+│   │   ├── src/
+│   │   │   ├── pages/              # dashboard, bookings, customers, payments,
+│   │   │   │                       # settings, notifications, Login
+│   │   │   ├── components/         # layout/, ui/, NotificationBell, OfflineFallback, PushOptIn
+│   │   │   ├── hooks/  lib/sse/  store/  types/
+│   │   ├── tests/                  # e2e/, integration/, unit/
+│   │   └── public/                 # icons/, images/, offline.html
+│   └── workers/                    # BullMQ workers
+│       ├── conversation/           # WhatsApp FSM workflow engine + states/ + AI fallback
+│       ├── payment/                # STK push / callback / payment verification
+│       └── notification/           # email, whatsapp, push senders
+├── docs/                           # All specification + reference docs
+├── assets/                         # Shared assets
+├── .github/workflows/              # CI/CD + Playwright pipelines
+├── vitest.workspace.ts             # Vitest workspace across apps, packages/core, workers
+├── pnpm-workspace.yaml
+├── docker-compose.yml              # + docker-compose.dev.yml
+├── ecosystem.config.js             # PM2
 └── README.md
 ```
 
@@ -171,9 +188,14 @@ wanny-s-nails/
 | [API_SPECIFICATION.md](docs/API_SPECIFICATION.md) | OpenAPI-style endpoint documentation |
 | [BOOKING_WORKFLOW.md](docs/BOOKING_WORKFLOW.md) | Booking lifecycle, availability engine |
 | [PAYMENT_WORKFLOW.md](docs/PAYMENT_WORKFLOW.md) | M-Pesa STK Push flow, callbacks, reconciliation |
+| [NOTIFICATION.md](docs/NOTIFICATION.md) | Notification delivery (WhatsApp, email, push) |
 | [WHATSAPP_AUTOMATION.md](docs/WHATSAPP_AUTOMATION.md) | FSM + AI hybrid engine, state machine, Gemini integration |
 | [SECURITY.md](docs/SECURITY.md) | Auth, authorization, encryption, KDPA compliance |
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Docker, CI/CD, environments, monitoring |
+| [LOGGING.md](docs/LOGGING.md) | Structured logging conventions and configuration |
+| [TESTING.md](docs/TESTING.md) | Test strategy, fixtures, and test writing guidance |
+| [PROGRESSIVE_WEB_APPS.md](docs/PROGRESSIVE_WEB_APPS.md) | PWA setup, service worker, offline behaviour |
+| [RESEARCH.md](docs/RESEARCH.md) | Research notes and decisions |
 | [DECISIONS.md](docs/DECISIONS.md) | Architecture Decision Records (ADRs) |
 | [AGENTS.md](.agents/AGENTS.md) | Agent instructions and development rules |
 

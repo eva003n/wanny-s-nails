@@ -6,7 +6,7 @@ services:
   db-migrate:
     build:
       context: .
-      dockerfile: apps/packages/prisma/Dockerfile.migrate
+      dockerfile: apps/packages/core/prisma/Dockerfile.migrate
     container_name: wannys-db-migrate
     environment:
       DATABASE_URL: ${DATABASE_URL}
@@ -21,7 +21,7 @@ services:
   db-seed:
     build:
       context: .
-      dockerfile: apps/packages/prisma/Dockerfile.migrate
+      dockerfile: apps/packages/core/prisma/Dockerfile.migrate
     container_name: wannys-db-seed
     environment:
       DATABASE_URL: ${DATABASE_URL}

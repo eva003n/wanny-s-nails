@@ -1723,7 +1723,8 @@ export const BookingServiceScalarFieldEnum = {
   durationMin: 'durationMin',
   position: 'position',
   status: 'status',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 } as const
 
 export type BookingServiceScalarFieldEnum = (typeof BookingServiceScalarFieldEnum)[keyof typeof BookingServiceScalarFieldEnum]

@@ -1,4 +1,4 @@
-import type { PrismaClient } from "../generated/prisma/client.ts";
+import type { PrismaClient } from "../generated/prisma/client.js";
 import type {Redis} from "ioredis";
 
 declare global {

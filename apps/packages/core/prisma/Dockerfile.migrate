@@ -15,18 +15,18 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 # of them. Your workspace has 6 members — list them all explicitly so the
 # build doesn't depend on glob support varying across BuildKit versions.
 COPY apps/api/package.json ./apps/api/package.json
-COPY apps/packages/package.json ./apps/packages/package.json
+COPY apps/packages/core/package.json ./apps/packages/core/package.json
 COPY apps/web/package.json ./apps/web/package.json
 COPY apps/workers/notification/package.json ./apps/workers/notification/package.json
 COPY apps/workers/payment/package.json ./apps/workers/payment/package.json
 COPY apps/workers/conversation/package.json ./apps/workers/conversation/package.json
-RUN pnpm install --frozen-lockfile --filter ./apps/packages...
+RUN pnpm install --frozen-lockfile --filter ./apps/packages/core...
 
 # Generate the Prisma Client inside the build, rather than relying on
-# apps/packages/src/generated already existing on the host (it's typically
+# apps/packages/core/src/generated already existing on the host (it's typically
 # gitignored, so a host-side COPY can silently grab nothing or stale output).
-COPY apps/packages/prisma ./apps/packages/prisma
-WORKDIR /app/apps/packages
+COPY apps/packages/core/prisma ./apps/packages/core/prisma
+WORKDIR /app/apps/packages/core
 # prisma.config.ts uses env("DATABASE_URL"), which throws if unset — even
 # for `prisma generate`, which never actually connects to a database. A
 # placeholder satisfies the check without needing the real value at build time.
@@ -36,17 +36,17 @@ WORKDIR /app
 
 FROM base AS runtime
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/packages/node_modules ./apps/packages/node_modules
-COPY apps/packages/package.json ./apps/packages/package.json
-COPY apps/packages/prisma ./apps/packages/prisma
-COPY apps/packages/entrypoint.sh ./apps/packages/entrypoint.sh
+COPY --from=deps /app/apps/packages/core/node_modules ./apps/packages/core/node_modules
+COPY apps/packages/core/package.json ./apps/packages/core/package.json
+COPY apps/packages/core/prisma ./apps/packages/core/prisma
+COPY apps/packages/core/entrypoint.sh ./apps/packages/core/entrypoint.sh
 
 # Generated client comes from the deps stage build, not the host filesystem —
 # guarantees it's always fresh and always present regardless of .gitignore
 # or whether anyone ran `prisma generate` locally before building.
-COPY --from=deps /app/apps/packages/src/generated ./apps/packages/src/generated
+COPY --from=deps /app/apps/packages/core/src/generated ./apps/packages/core/src/generated
 
-WORKDIR /app/apps/packages
+WORKDIR /app/apps/packages/core
 
 RUN chmod +x ./entrypoint.sh
 
