@@ -11,7 +11,7 @@ import {
   extractCallbackMetadata,
   isStkCallbackSuccess,
 } from "../lib/schemas.js";
-import { JOB_NAMES } from "@wannys-nails/packages";
+import { JOB_NAMES } from "@wannys-nails/core";
 import { getFailureReason, getTerminalStatus } from "../utils/index.js";
 
 const log = logger.child({ module: "job:stk-callback" });

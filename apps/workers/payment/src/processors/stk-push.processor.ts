@@ -2,7 +2,7 @@ import { type Job } from "bullmq";
 import { log as logger, prisma, _config as config } from "../lib/index.js";
 import { mpesaHttpClient } from "../lib/httpclient.js";
 import { paymentQueue } from "../lib/queues.js";
-import { HttpClientError, JOB_NAMES } from "@wannys-nails/packages";
+import { HttpClientError, JOB_NAMES } from "@wannys-nails/core";
 
 const log = logger.child({ module: "job:stk-push" });
 
