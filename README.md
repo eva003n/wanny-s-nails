@@ -175,7 +175,7 @@ wanny-s-nails/
 | [SECURITY.md](docs/SECURITY.md) | Auth, authorization, encryption, KDPA compliance |
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Docker, CI/CD, environments, monitoring |
 | [DECISIONS.md](docs/DECISIONS.md) | Architecture Decision Records (ADRs) |
-| [AGENTS.md](./AGENTS.md) | Agent instructions and development rules |
+| [AGENTS.md](.agents/AGENTS.md) | Agent instructions and development rules |
 
 ---
 
