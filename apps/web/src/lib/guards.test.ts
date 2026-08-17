@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateOrThrow } from '@/lib/guards';
+import { validateOrThrow } from './guards';
 import { z } from 'zod';
 
 describe('validateOrThrow', () => {
