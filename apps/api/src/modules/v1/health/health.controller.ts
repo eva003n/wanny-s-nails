@@ -1,12 +1,12 @@
 import type { Request, Response, NextFunction } from "express";
-import { logger } from "../../shared/lib/index.js";
+import { logger } from "../../../shared/lib/index.js";
 
-import { prisma } from "../../shared/lib/index.js";
+import { prisma } from "../../../shared/lib/index.js";
 
-import { redis } from "../../shared/lib/index.js";
+import { redis } from "../../../shared/lib/index.js";
 const log = logger.child({ module: "health" });
 
-import { asyncHandler } from "../../shared/utils/asyncHandler.js";
+import { asyncHandler } from "../../../shared/utils/asyncHandler.js";
 
 const startTime = Date.now();
 

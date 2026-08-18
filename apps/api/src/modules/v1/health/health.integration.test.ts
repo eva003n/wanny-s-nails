@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import request from "supertest";
-import { createTestApp } from "../../test/helpers.js";
+import { createTestApp } from "../../../../test/helpers.js";
 
 describe("health routes — integration (TESTING.md §4.3)", () => {
   const app = createTestApp();
