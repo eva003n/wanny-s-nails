@@ -276,7 +276,7 @@ class PushSubscriptionError extends Error {
   }
 }
 
-function getPushPriority(template: string): "high" | "normal" | "low" {
+export function getPushPriority(template: string): "high" | "normal" | "low" {
   const highPriority = [
     "new_booking_alert",
     "booking_confirmation",
@@ -295,7 +295,7 @@ function getPushPriority(template: string): "high" | "normal" | "low" {
   return "normal";
 }
 
-function getTTLForPriority(priority: "high" | "normal" | "low"): number {
+export function getTTLForPriority(priority: "high" | "normal" | "low"): number {
   switch (priority) {
     case "high":
       return 4 * 60 * 60;
@@ -306,7 +306,7 @@ function getTTLForPriority(priority: "high" | "normal" | "low"): number {
   }
 }
 
-function mapPriorityToUrgency(
+export function mapPriorityToUrgency(
   priority: "high" | "normal" | "low",
 ): "very-low" | "low" | "normal" | "high" {
   switch (priority) {
@@ -324,7 +324,7 @@ function getBookingUrl(bookingId: string): string {
 }
 
 /** Strips the endpoint down to origin + short hash so logs don't leak full push URLs. */
-function truncateEndpoint(endpoint: string): string {
+export function truncateEndpoint(endpoint: string): string {
   try {
     const url = new URL(endpoint);
     const idPart = url.pathname.slice(-8);
@@ -334,7 +334,7 @@ function truncateEndpoint(endpoint: string): string {
   }
 }
 
-function summarizeFailures(failures: SubscriptionFailure[]): string {
+export function summarizeFailures(failures: SubscriptionFailure[]): string {
   return failures
     .map(
       (f) =>
@@ -403,7 +403,7 @@ function formatDate(iso: string): string {
     return iso;
   }
 }
-function getPushBody(template: string, context: NotificationContext): string {
+export function getPushBody(template: string, context: NotificationContext): string {
   const bodies: Record<string, string> = {
     new_booking_alert: `${context.customerName} booked ${context.serviceName}${context.appointmentAt ? ` on ${formatDate(context.appointmentAt)}` : ""}.`,
     booking_awaiting_approval: `${context.customerName} — ${context.serviceName} on ${formatDate(context.appointmentAt ?? "")}.`,
