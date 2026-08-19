@@ -117,6 +117,7 @@ CREATE TABLE "booking_services" (
     "position" INTEGER NOT NULL,
     "status" "ServiceStatus" NOT NULL DEFAULT 'PENDING',
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "booking_services_pkey" PRIMARY KEY ("id")
 );
