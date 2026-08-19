@@ -17,12 +17,10 @@ export default defineConfig({
 
       injectManifest: {
         globPatterns: ["**/*.{js,css,html,svg,png,ico}"],
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024 // 5MB
-        
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
       },
       showMaximumFileSizeToCacheInBytesWarning: true,
 
-      
       // configurations for the generated manifest file
       manifest: {
         id: "/",
@@ -30,11 +28,11 @@ export default defineConfig({
         short_name: "Wannys Nails",
         description:
           "Booking management for Nails by Wanny salon — appointments, payments, and customers in one place.\n\nThe app can be installed to the home screen of your mobile device or desktop ",
+        //display_override: ["window-controls-overlay"], // make the app more native by inserting app content in title bar
         display: "standalone",
-        // display_override: ["window-controls-overlay"],
         orientation: "portrait",
-        theme_color: "#C084A8",
-        background_color: "#FAFAFA",
+        theme_color: "#000000",
+        background_color: "#000000",
         lang: "en-KE",
         categories: ["business", "lifestyle"],
         start_url: "/",
@@ -44,6 +42,13 @@ export default defineConfig({
         },
         handle_links: "preferred",
         icons: [
+          {
+            src: "/icons/favicon/pwa-64x64.png",
+            sizes: "64x64",
+            type: "image/png",
+            purpose: "any",
+          },
+
           {
             src: "/icons/favicon/pwa-192x192.png",
             sizes: "192x192",
@@ -159,21 +164,16 @@ export default defineConfig({
         navigateFallback: "index.html",
         // suppressWarnings: true,
         type: "module",
-
-        
       },
-
     }),
   ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
-    
   },
-  
+
   server: {
-    
     host: true,
   },
 });
