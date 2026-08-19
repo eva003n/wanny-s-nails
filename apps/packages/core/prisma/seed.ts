@@ -44,12 +44,6 @@ const users = [
     password: "Admin123!",
     role: "OWNER" as const,
   },
-  {
-    email: "wanny@gmail.com",
-    name: "Wanny",
-    password: "Admin123!",
-    role: "STAFF" as const,
-  },
 ];
 
 const services = [
