@@ -7,10 +7,14 @@
  *  - Basic offline fallback
  */
 
-import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from "workbox-precaching";
+import {
+  precacheAndRoute,
+  cleanupOutdatedCaches,
+  createHandlerBoundToURL,
+} from "workbox-precaching";
 import { clientsClaim } from "workbox-core";
-import {offlineFallback} from "workbox-recipes"
-import {registerRoute, NavigationRoute} from "workbox-routing"
+import { offlineFallback } from "workbox-recipes";
+import { registerRoute, NavigationRoute } from "workbox-routing";
 
 // This tells TS this file runs in service worker context not DOM
 declare let self: ServiceWorkerGlobalScope & {
@@ -28,20 +32,19 @@ cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
 
 // new service worker claims existing clients
-clientsClaim()
+clientsClaim();
 
 // serve the precatche index.html for any navigation request that isn;t already matched by a more specific route
-const handler = createHandlerBoundToURL("/index.html")
+const handler = createHandlerBoundToURL("/index.html");
 const navigationRoute = new NavigationRoute(handler, {
   // Don't hijack navigations meant for real API/asset routes
   denylist: [/^\/api\//, /\.[a-z0-9]+$/i], // exclude /api/* and anything with a file extension
 });
-registerRoute(navigationRoute)
+registerRoute(navigationRoute);
 
 offlineFallback({
-  pageFallback: "/offline.html"
-})
-
+  pageFallback: "/offline.html",
+});
 
 // Fired once after service worker is registered and the browser has downloaded and parse it
 // it will only be fire again when the service worker is updated
@@ -61,22 +64,20 @@ self.addEventListener("activate", () => {
   // the user clicks "Update now".
   // (new service worker)Take control of all clients immediately(triggers controllerchange event on navigator.serviceWorker on affected clients)
   // event.waitUntil();
-  
 });
-
 
 // 4. USER-TRIGGERED UPDATE (the SKIP_WAITING message contract)(prompts user)
 self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") {
-    self.skipWaiting();// activate immediately
+    self.skipWaiting(); // activate immediately
   }
 });
 
 // ─── Push: display notification ────────────────────────────────
 self.addEventListener("push", (event) => {
-  if(!event.data) return
+  if (!event.data) return;
 
-  const data = event.data.json() ?? {
+  const data = event.data.text() ?? {
     title: "Wanny's Nails",
     body: "You have a new notification.",
     icon: "/icons/192.png",
@@ -84,21 +85,25 @@ self.addEventListener("push", (event) => {
     tag: Date.now().toString(),
   };
 
-  const options = {
-    body: data.body,
-    icon: data.icon || "/icons/192.png",
-    badge: "/icons/192.png",
-    data: data.data,
-    tag: data.tag || `notification-${Date.now()}`,
-    vibrate: [200, 100, 200],
-    requireInteraction: false,
-    // Collapse duplicate notifications with the same tag
-    renotify: false,
-  };
+  // const options = {
+  //   body: data.body,
+  //   icon: data.icon || "/icons/192.png",
+  //   badge: "/icons/192.png",
+  //   data: data.data,
+  //   tag: data.tag || `notification-${Date.now()}`,
+  //   vibrate: [200, 100, 200],
+  //   requireInteraction: false,
+  //   // Collapse duplicate notifications with the same tag
+  //   renotify: false,
+  // };
+// simulate unread notifications
+  let unreadCount = 0;
+(async () => {
+  await self.navigator.setAppBadge(++unreadCount);
+})()
 
-  event.waitUntil(self.registration.showNotification(data.title, options));
+  event.waitUntil(self.registration.showNotification(data));
 });
-
 
 // ─── Notification Click: navigate to URL ───────────────────────
 
@@ -114,8 +119,8 @@ self.addEventListener("notificationclick", (event) => {
         includeUncontrolled: true,
       })
       .then((windowClients) => {
-          // Focus an already-open tab if one matches, instead of
-      // always opening a new one
+        // Focus an already-open tab if one matches, instead of
+        // always opening a new one
         for (const client of windowClients) {
           const clientUrl = new URL(client.url);
           const targetUrl = new URL(urlToOpen, self.location.origin);
@@ -128,6 +133,9 @@ self.addEventListener("notificationclick", (event) => {
             return client.focus();
           }
         }
+        (async () => {
+          await self.navigator.clearAppBadge();
+        })();
 
         // Otherwise open a new window/tab
         return self.clients.openWindow(urlToOpen);
@@ -181,7 +189,7 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
-// ─── Utility: ArrayBuffer to Base64 
+// ─── Utility: ArrayBuffer to Base64
 
 function arrayBufferToBase64(buffer: ArrayBuffer | null) {
   if (!buffer) return "";

@@ -6,6 +6,7 @@ import { Bell } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useUnreadCount } from "@/pages/notifications/hooks/useNotifications";
 
+
 export default function NotificationBell() {
   const navigate = useNavigate();
   const { data: unreadData } = useUnreadCount();

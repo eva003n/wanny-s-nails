@@ -101,11 +101,15 @@
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+body {
+  overscroll-behavior-y: contain; /*disable overscrolling from triggering reload*/
+}
 /* ── §10 Accessibility: Focus visible ring ── */
 :focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
+
 
 /* ── §10 Accessibility: Reduced motion ── */
 @media (prefers-reduced-motion: reduce) {
@@ -121,10 +125,10 @@
   }
 }
 
-
-/* ── §3.1 Page wrapper for safe area ── */
+/* } */
+/* ── §3.1 Page wrapper for safe areas ── */
 /**
-* ensures content isn;t hidden behind a notch or dynamic island
+* ensures content isn;t hidden behind a notch or dynamic island)(Iphone)
 * Content stays above home indicator
 * Scrolling doesn't end underneath a fixed bottom navigation bar
 */
@@ -395,4 +399,13 @@
   100% {
     transform: translateX(400%);
   }
+}
+
+@media (display-mode: browser) {
+  /* Aplly specific styles while app is used in the browser */
+
+}
+@media (display-mode: standalone) {
+  /* Aplly specific styles while app is installed for a device */
+
 }

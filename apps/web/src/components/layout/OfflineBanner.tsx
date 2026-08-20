@@ -1,20 +1,28 @@
-import { WifiOff } from "lucide-react";
+import { WifiIcon, WifiOff } from "lucide-react";
 import { useOnline } from "@/hooks/useOnline";
 import { useUiStore } from "@/store/ui.store";
+import clsx from "clsx";
 
 export default function OfflineBanner() {
-  const isOnline = useOnline();
-  const sseBannerVisible = useUiStore((s) => s.sseBannerVisible);
+  const {isOnline} = useOnline();
 
-  if (isOnline && !sseBannerVisible) return null;
 
   return (
     <div
-      className="flex items-center justify-center gap-2 bg-warning-bg px-4 py-2 text-sm font-medium text-warning"
+      className={clsx(`
+        flex items-center justify-center gap-2  px-4 py-2 text-sm font-medium ${isOnline? "text-green-500": "text-warning"}
+        `)}
+        title={isOnline? "Online mode": "Offline mode"}
       role="status"
     >
-      <WifiOff className="h-4 w-4" aria-hidden="true" />
-      {!isOnline ? "You're offline" : "Live updates paused — reconnecting…"}
+      {!isOnline ? (
+        <WifiOff
+          className="h-4 w-4"
+          aria-hidden="true"
+        />
+      ) : (
+        <WifiIcon />
+      )}
     </div>
   );
 }

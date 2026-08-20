@@ -62,16 +62,16 @@ export default function AppShell() {
 
   return (
     <div className="min-h-screen bg-bg">
-      <OfflineBanner />
       {/* Top bar with notification bell — shown on all pages except /notifications */}
       {showTopBar && (
-        <header className="sticky top-0 z-20 border-b border-border bg-bg">
-          <div className="mx-auto flex h-12 max-w-120 items-center justify-between px-4">
+        <header className="sticky top-0 z-20 h-12 border-b border-border bg-bg">
+          <div className="mx-auto flex h-full max-w-120 items-center justify-between px-4">
             <h1 className="text-lg font-bold text-text-primary">
               {getPageTitle(location.pathname)}
             </h1>
 
             <div className="flex gap-4">
+              <OfflineBanner />
               <NotificationBell />
             </div>
           </div>
@@ -95,7 +95,8 @@ export default function AppShell() {
             <NavLink
               key={to}
               to={to}
-              className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 transition-colors">
+              className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 transition-colors"
+            >
               {({ isActive }) => (
                 <>
                   <Icon
