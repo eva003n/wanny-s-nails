@@ -1,9 +1,18 @@
 import type { StateHandlerContext, StateTransitionResult } from "../types.js";
-import { resetInvalidCount } from "../session.js";
+import { resetInvalidCount, incrementInvalidCount } from "../session.js";
 import { formatDateEAT, formatTime12h } from "../helpers.js";
-import { log as logger} from "../../../lib/index.js";
+import { log as logger, notificationQueue } from "../../../lib/index.js";
 
 import { prisma } from "../../../lib/prisma.js";
+import {
+  BookingApplicationService,
+  PrismaBookingRepository,
+  PrismaServiceRepository,
+  PrismaCustomerRepository,
+  PrismaBusinessHoursRepository,
+  PrismaUnitOfWork,
+  NotificationService,
+} from "@wannys-nails/core";
 
 const log = logger.child({ module: "fsm-cancel" });
 
@@ -75,25 +84,26 @@ export async function handleCancelConfirmation(
     }
 
     try {
-      const bookingToCancel = await prisma.booking.findUnique({
-        where: { id: bookingId },
+      const bookingAppService = new BookingApplicationService({
+        unitOfWork: new PrismaUnitOfWork(prisma),
+        bookingRepository: new PrismaBookingRepository(prisma),
+        serviceRepository: new PrismaServiceRepository(prisma),
+        customerRepository: new PrismaCustomerRepository(prisma),
+        businessHoursRepository: new PrismaBusinessHoursRepository(prisma),
       });
-      if (bookingToCancel) {
-        await prisma.booking.update({
-          where: { id: bookingId },
-          data: {
-            status: "CANCELLED",
-            statusHistory: {
-              create: {
-                fromStatus: bookingToCancel.status,
-                toStatus: "CANCELLED",
-                actorType: "CUSTOMER",
-                reason: "Cancelled via WhatsApp",
-              },
-            },
-          },
-        });
-      }
+
+      await bookingAppService.cancel({
+        id: bookingId,
+        actorType: "CUSTOMER",
+        reason: "Cancelled via WhatsApp",
+      });
+
+      const notificationService = new NotificationService({
+        prisma,
+        notificationQueue,
+        log,
+      });
+      await notificationService.onBookingCancelled(bookingId);
 
       const cancelledText = [
         "Your appointment has been cancelled.",
@@ -166,7 +176,7 @@ export async function handleCancelConfirmation(
       dateDisplay,
       timeDisplay,
     ),
-    sessionUpdates: ctx.session,
+    sessionUpdates: incrementInvalidCount(ctx.session),
     nextState: "CANCEL_CONFIRMATION",
   };
 }

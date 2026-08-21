@@ -1,9 +1,23 @@
 import type { StateHandlerContext, StateTransitionResult } from "../types.js";
-import { resetInvalidCount } from "../session.js";
+import { resetInvalidCount, incrementInvalidCount } from "../session.js";
 import { formatDateEAT, formatTime12h } from "../helpers.js";
 import { log as logger, paymentQueue,  } from "../../../lib/index.js";
 
 import { prisma } from "../../../lib/prisma.js";
+import {
+  BookingApplicationService,
+  PrismaBookingRepository,
+  PrismaServiceRepository,
+  PrismaCustomerRepository,
+  PrismaBusinessHoursRepository,
+  PrismaUnitOfWork,
+  ServiceInactiveError,
+  CustomerNotFoundError,
+  SlotAlignmentError,
+  OutsideBusinessHoursError,
+  BusinessClosedError,
+  BookingConflictError,
+} from "@wannys-nails/core";
 
 const log = logger.child({ module: "fsm-booking-confirm" });
 
@@ -76,135 +90,37 @@ export async function handleBookingConfirmation(
       };
     }
 
+    if (!ctx.session.customerId) {
+      // set collection phase
+      ctx.session.collectionPhase = "NAME";
+      return {
+        messages: [
+          {
+            type: "text",
+            text: "To complete your booking, I'll need a few details\nWhat's your full name?",
+          },
+        ],
+        sessionUpdates: resetInvalidCount(ctx.session),
+        nextState: "DATA_COLLECTION",
+      };
+    }
+
     try {
-      // Recreate bookingsService.create logic inline
-      const service = await prisma.nailService.findUnique({
-        where: { id: serviceId },
+      const bookingAppService = new BookingApplicationService({
+        unitOfWork: new PrismaUnitOfWork(prisma),
+        bookingRepository: new PrismaBookingRepository(prisma),
+        serviceRepository: new PrismaServiceRepository(prisma),
+        customerRepository: new PrismaCustomerRepository(prisma),
+        businessHoursRepository: new PrismaBusinessHoursRepository(prisma),
       });
-      if (!service || service.deletedAt || !service.isActive) {
-        throw new Error("ServiceInactive");
-      }
 
-      if(!ctx.session.customerId) {
-        // set collection phase 
-        ctx.session.collectionPhase = "NAME"
-        return {
-          messages: [
-            {
-              type: "text",
-              text: "To complete your booking, I'll need a few details\nWhat's your full name?",
-            },
-          ],
-          sessionUpdates: resetInvalidCount(ctx.session),
-          nextState: "DATA_COLLECTION",
-        };
-        
-      }
-
-   
-
-
-      const start = new Date(appointmentAt);
-      const end = new Date(start.getTime() + service.durationMinutes * 60 * 1000);
-
-      // Slot alignment check
-      const SLOT_GRANULARITY_MINUTES = 15;
-      const totalMinutes = start.getHours() * 60 + start.getMinutes();
-      if (totalMinutes % SLOT_GRANULARITY_MINUTES !== 0) {
-        throw new Error("SlotAlignment");
-      }
-
-     // Check business hours
-      const dayOfWeek = start.getDay();
-      const businessHours = await prisma.businessHours.findUnique({
-        where: { dayOfWeek },
+      const booking = await bookingAppService.create({
+        customerId: ctx.session.customerId,
+        serviceIds: [serviceId],
+        appointmentAt,
+        actorType: "CUSTOMER",
+        notes: null,
       });
-      if (!businessHours || !businessHours.isActive) {
-        throw new Error("OutsideBusinessHours");
-      }
-
-      const [openHour, openMinute = 0] = businessHours.openTime.split(":").map(Number);
-      const [closeHour, closeMinute = 0] = businessHours.closeTime.split(":").map(Number);
-
-      const dayOpen = new Date(start);
-      dayOpen.setHours(openHour as number, openMinute, 0, 0);
-      const dayClose = new Date(start);
-      dayClose.setHours(closeHour as number, closeMinute, 0, 0);
-
-      if (start < dayOpen || end > dayClose) {
-        throw new Error("OutsideBusinessHours");
-      }
-
-      // customerId is guaranteed non-null here (checked above)
-      const customerId: string = ctx.session.customerId;
-
-      const booking = await prisma.$transaction(
-        async (tx) => {
-          const MAX_SERVICE_MINUTES = 240;
-          const lowerBound = new Date(start.getTime() - MAX_SERVICE_MINUTES * 60 * 1000);
-
-          const candidates = await tx.booking.findMany({
-            where: {
-              status: { notIn: ["CANCELLED", "NO_SHOW"] },
-              appointmentAt: { lt: end, gte: lowerBound },
-            },
-            select: { appointmentAt: true, durationMinutes: true },
-          });
-
-          const hasConflict = candidates.some((b) => {
-            const bStart = b.appointmentAt;
-            const bEnd = new Date(bStart.getTime() + b.durationMinutes * 60 * 1000);
-            return bStart < end && bEnd > start;
-          });
-
-          if (hasConflict) {
-            throw new Error("BookingConflict");
-          }
-
-          function generateReference(): string {
-            const year = new Date().getFullYear();
-            const seq = Math.floor(Math.random() * 99999).toString().padStart(5, "0");
-            return `WN-${year}-${seq}`;
-          }
-
-          return tx.booking.create({
-            data: {
-              reference: generateReference(),
-              customerId,
-              appointmentAt: start,
-              durationMinutes: service.durationMinutes,
-              priceKes: service.priceKes,
-              notes: null,
-              services: {
-                create: {
-                  serviceId,
-                  serviceName: service.name,
-                  price: service.priceKes,
-                  durationMin: service.durationMinutes,
-                  position: 0,
-                  stylist: "", // Will be assigned by staff later
-                },
-              },
-              payment: {
-                create: { amountKes: service.priceKes },
-              },
-              statusHistory: {
-                create: { toStatus: "PENDING", actorType: "CUSTOMER" },
-              },
-            },
-            include: {
-              customer: { select: { id: true, name: true, phone: true } },
-              services: {
-                include: {
-                  service: { select: { id: true, name: true } },
-                },
-              },
-              payment: true,
-            },
-          });
-        },
-        { isolationLevel: "Serializable" },
-      );
 
       const serviceName = ctx.session.selectedService?.name || "Nail service";
       const price = ctx.session.selectedService?.priceKes || 0;
@@ -244,13 +160,27 @@ export async function handleBookingConfirmation(
         "Failed to create booking",
       );
 
-      const errorMsg = error instanceof Error ? error.message : "Unknown error";
       let userMessage =
         "Sorry, we couldn't create your booking. The time slot may have been taken.";
 
-      if (errorMsg.includes("Slot") || errorMsg.includes("Conflict")) {
+      if (
+        error instanceof BookingConflictError ||
+        error instanceof SlotAlignmentError
+      ) {
         userMessage =
           "Sorry, that time slot was just taken. Please select a different time.";
+      } else if (
+        error instanceof OutsideBusinessHoursError ||
+        error instanceof BusinessClosedError
+      ) {
+        userMessage =
+          "Sorry, that time falls outside our business hours. Please choose another time.";
+      } else if (error instanceof ServiceInactiveError) {
+        userMessage =
+          "Sorry, that service is no longer available. Please choose another service.";
+      } else if (error instanceof CustomerNotFoundError) {
+        userMessage =
+          "Sorry, we couldn't find your customer record. Let's start over.";
       }
 
       return {
@@ -293,8 +223,7 @@ export async function handleBookingConfirmation(
       dateDisplay,
       timeDisplay,
     ),
-    sessionUpdates: ctx.session,
+    sessionUpdates: incrementInvalidCount(ctx.session),
     nextState: "BOOKING_CONFIRMATION",
   };
 }
-''

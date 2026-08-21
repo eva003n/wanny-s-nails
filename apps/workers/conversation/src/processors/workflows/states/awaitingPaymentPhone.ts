@@ -33,8 +33,8 @@ export async function handleAwaitingPaymentPhone(
       "Customer opted to pay by cash at salon",
     );
 
-    // // Approve the booking if it's PENDING
-    // await approveBookingIfPending(ctx);
+    // Approve the booking if it's PENDING
+    await approveBookingIfPending(ctx);
 
     return {
       messages: [],
@@ -69,7 +69,7 @@ export async function handleAwaitingPaymentPhone(
   );
 
   // Approve the booking if it's PENDING
-  // await approveBookingIfPending(ctx);
+  await approveBookingIfPending(ctx);
 
   return {
     messages: [],

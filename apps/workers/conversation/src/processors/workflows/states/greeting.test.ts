@@ -122,12 +122,16 @@ describe("GREETING state handler (TESTING.md §4.2 — FSM transitions)", () => 
         appointmentAt: new Date("2026-08-10T10:00:00.000Z"),
         status: "APPROVED",
         priceKes: 1500,
-        service: {
-          id: "service-1",
-          name: "Classic Manicure",
-          durationMinutes: 60,
-          priceKes: 1500,
-        },
+        services: [
+          {
+            service: {
+              id: "service-1",
+              name: "Classic Manicure",
+              durationMinutes: 60,
+              priceKes: 1500,
+            },
+          },
+        ],
       } as never);
 
       const ctx = makeContext({
@@ -148,6 +152,51 @@ describe("GREETING state handler (TESTING.md §4.2 — FSM transitions)", () => 
       expect(result.sessionUpdates.bookingId).toBe("booking-1");
     });
 
+    it("joins all service names when a booking has multiple services", async () => {
+      mockedFindActiveBooking.mockResolvedValue({
+        id: "booking-1",
+        reference: "WN-123",
+        appointmentAt: new Date("2026-08-10T10:00:00.000Z"),
+        status: "APPROVED",
+        priceKes: 2300,
+        services: [
+          {
+            service: {
+              id: "service-1",
+              name: "Classic Manicure",
+              durationMinutes: 60,
+              priceKes: 1500,
+            },
+          },
+          {
+            service: {
+              id: "service-2",
+              name: "Nail Art",
+              durationMinutes: 30,
+              priceKes: 800,
+            },
+          },
+        ],
+      } as never);
+
+      const ctx = makeContext({
+        message: "2",
+        session: {
+          state: "GREETING",
+          customerId: "customer-1",
+          customerName: "Jane",
+          invalidInputCount: 0,
+          lastActivity: new Date().toISOString(),
+        },
+      });
+      const result = await handleGreeting(ctx);
+
+      expect(result.messages[0]?.text).toContain(
+        "Classic Manicure, Nail Art",
+      );
+      expect(result.sessionUpdates.selectedService?.id).toBe("service-1");
+    });
+
     it("transitions to CANCEL_CONFIRMATION when user replies 3 and has a booking", async () => {
       mockedFindActiveBooking.mockResolvedValue({
         id: "booking-1",
@@ -155,12 +204,16 @@ describe("GREETING state handler (TESTING.md §4.2 — FSM transitions)", () => 
         appointmentAt: new Date("2026-08-10T10:00:00.000Z"),
         status: "APPROVED",
         priceKes: 1500,
-        service: {
-          id: "service-1",
-          name: "Classic Manicure",
-          durationMinutes: 60,
-          priceKes: 1500,
-        },
+        services: [
+          {
+            service: {
+              id: "service-1",
+              name: "Classic Manicure",
+              durationMinutes: 60,
+              priceKes: 1500,
+            },
+          },
+        ],
       } as never);
 
       const ctx = makeContext({
@@ -187,12 +240,16 @@ describe("GREETING state handler (TESTING.md §4.2 — FSM transitions)", () => 
         appointmentAt: new Date("2026-08-10T10:00:00.000Z"),
         status: "APPROVED",
         priceKes: 1500,
-        service: {
-          id: "service-1",
-          name: "Classic Manicure",
-          durationMinutes: 60,
-          priceKes: 1500,
-        },
+        services: [
+          {
+            service: {
+              id: "service-1",
+              name: "Classic Manicure",
+              durationMinutes: 60,
+              priceKes: 1500,
+            },
+          },
+        ],
       } as never);
 
       const ctx = makeContext({

@@ -1,9 +1,18 @@
 import type { StateHandlerContext, StateTransitionResult } from "../types.js";
 import { resetInvalidCount, incrementInvalidCount } from "../session.js";
-import { log as logger, paymentQueue } from "../../../lib/index.js";
+import { log as logger, paymentQueue, notificationQueue } from "../../../lib/index.js";
 
 import { prisma } from "../../../lib/prisma.js";
-import { JOB_NAMES } from "@wannys-nails/core";
+import {
+  JOB_NAMES,
+  BookingApplicationService,
+  PrismaBookingRepository,
+  PrismaServiceRepository,
+  PrismaCustomerRepository,
+  PrismaBusinessHoursRepository,
+  PrismaUnitOfWork,
+  NotificationService,
+} from "@wannys-nails/core";
 
 const log = logger.child({ module: "fsm-awaiting-payment" });
 
@@ -171,25 +180,27 @@ export async function handleAwaitingPayment(
     }
 
     try {
-      const payBooking = await prisma.booking.findUnique({
-        where: { id: bookingId },
+      const bookingAppService = new BookingApplicationService({
+        unitOfWork: new PrismaUnitOfWork(prisma),
+        bookingRepository: new PrismaBookingRepository(prisma),
+        serviceRepository: new PrismaServiceRepository(prisma),
+        customerRepository: new PrismaCustomerRepository(prisma),
+        businessHoursRepository: new PrismaBusinessHoursRepository(prisma),
       });
-      if (payBooking) {
-        await prisma.booking.update({
-          where: { id: bookingId },
-          data: {
-            status: "CANCELLED",
-            statusHistory: {
-              create: {
-                fromStatus: payBooking.status,
-                toStatus: "CANCELLED",
-                actorType: "CUSTOMER",
-                reason: "Cancelled during payment via WhatsApp",
-              },
-            },
-          },
-        });
-      }
+
+      await bookingAppService.cancel({
+        id: bookingId,
+        actorType: "CUSTOMER",
+        reason: "Cancelled during payment via WhatsApp",
+      });
+
+      const notificationService = new NotificationService({
+        prisma,
+        notificationQueue,
+        log,
+      });
+      await notificationService.onBookingCancelled(bookingId);
+
       return {
         messages: [
           {
@@ -246,7 +257,7 @@ export async function handleAwaitingPayment(
         ],
       },
     ],
-    sessionUpdates: ctx.session,
+    sessionUpdates: incrementInvalidCount(ctx.session),
     nextState: "AWAITING_PAYMENT",
   };
 }
