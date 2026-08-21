@@ -8,10 +8,15 @@ import { validate } from "../../../shared/middleware/validate.middleware.js";
 import * as bookingsController from "./bookings.controller.js";
 import {
   createBookingSchema,
-
   uuidParamSchema,
   listBookingsQuerySchema,
-  // missedBookingSchema
+  patchNotesSchema,
+  approveSchema,
+  cancelSchema,
+  rescheduleSchema,
+  markPaidSchema,
+  noShowSchema,
+  completeSchema,
 } from "./bookings.controller.js";
 
 const router: ReturnType<typeof Router> = Router();
@@ -29,16 +34,70 @@ router.get("/:id", authenticate, validate({ params: uuidParamSchema }), bookings
 router.post("/", authenticate, validate(createBookingSchema), bookingsController.createBooking);
 
 
-// PATCH /api/v1/bookings/:id
+// PATCH /api/v1/bookings/:id — partial edit (notes only)
 router.patch(
   "/:id",
   authenticate,
-  validate({ params: uuidParamSchema, body: bookingsController.updateBookingSchema }),
+  validate({ params: uuidParamSchema, body: patchNotesSchema }),
   idempotencyMiddleware,
-  bookingsController.updateBooking,
+  bookingsController.patchBookingNotes,
 );
 
+// POST /api/v1/bookings/:id/approve (OWNER only)
+router.post(
+  "/:id/approve",
+  authenticate,
+  requireRole("OWNER"),
+  validate({ params: uuidParamSchema, body: approveSchema }),
+  idempotencyMiddleware,
+  bookingsController.approveBooking,
+);
 
+// POST /api/v1/bookings/:id/cancel
+router.post(
+  "/:id/cancel",
+  authenticate,
+  validate({ params: uuidParamSchema, body: cancelSchema }),
+  idempotencyMiddleware,
+  bookingsController.cancelBooking,
+);
+
+// POST /api/v1/bookings/:id/reschedule
+router.post(
+  "/:id/reschedule",
+  authenticate,
+  validate({ params: uuidParamSchema, body: rescheduleSchema }),
+  idempotencyMiddleware,
+  bookingsController.rescheduleBooking,
+);
+
+// POST /api/v1/bookings/:id/mark-paid (OWNER only)
+router.post(
+  "/:id/mark-paid",
+  authenticate,
+  requireRole("OWNER"),
+  validate({ params: uuidParamSchema, body: markPaidSchema }),
+  idempotencyMiddleware,
+  bookingsController.markBookingPaid,
+);
+
+// POST /api/v1/bookings/:id/no-show
+router.post(
+  "/:id/no-show",
+  authenticate,
+  validate({ params: uuidParamSchema, body: noShowSchema }),
+  idempotencyMiddleware,
+  bookingsController.markBookingAsMissed,
+);
+
+// POST /api/v1/bookings/:id/complete
+router.post(
+  "/:id/complete",
+  authenticate,
+  validate({ params: uuidParamSchema, body: completeSchema }),
+  idempotencyMiddleware,
+  bookingsController.markBookingCompleted,
+);
 
 // DELETE /api/v1/bookings/:id — soft delete (OWNER only)
 router.delete("/:id", authenticate, requireRole("OWNER"), validate({ params: uuidParamSchema }), bookingsController.softDeleteBooking);

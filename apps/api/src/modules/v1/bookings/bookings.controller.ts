@@ -13,8 +13,8 @@ import {
 } from "../../../shared/utils/response.js";
 import { parsePagination } from "../../../shared/utils/pagination.js";
 import { asyncHandler } from "../../../shared/utils/asyncHandler.js";
-import { relative } from "path/posix";
-import { ForbiddenError, UnprocessableError } from "../../../shared/types/errors.js";
+
+import { UnprocessableError } from "../../../shared/types/errors.js";
 
 const log = logger.child({ module: "bookings.controller" });
 
@@ -28,15 +28,6 @@ export const createBookingSchema = z.object({
   stylist: z.string().optional(),
 });
 
-
-
-export const rescheduleSchema = z.object({
-  appointmentAt: z.string().datetime(),
-});
-
-export const markPaidSchema = z.object({
-  method: z.enum(["CASH"]),
-});
 
 
 export const uuidParamSchema = z.object({
@@ -56,11 +47,32 @@ export const listBookingsQuerySchema = z.object({
   sort: z.string().optional(),
 });
 
-export const updateBookingSchema = z.object({
-  status: z.enum(["APPROVED", "RESCHEDULED", "COMPLETED", "CANCELLED", "NO_SHOW", "PAID"]),
-  appointmentAt: z.string().datetime().optional(),
-  method: z.enum(["CASH"]).optional(),
+// --- Booking transition (action-resource) schemas ---
+
+export const patchNotesSchema = z.object({
+  notes: z.string().max(500).nullable(),
 });
+
+export const approveSchema = z.object({}).optional();
+
+export const cancelSchema = z.object({
+  reason: z.string().max(255).optional(),
+});
+
+export const rescheduleSchema = z.object({
+  appointmentAt: z.string().datetime(),
+  reason: z.string().max(255).optional(),
+});
+
+export const markPaidSchema = z.object({
+  method: z.enum(["CASH"]),
+});
+
+export const noShowSchema = z.object({
+  notes: z.string().max(500).optional(),
+}).optional();
+
+export const completeSchema = z.object({}).optional();
 
 
 // --- Helpers ---
@@ -73,15 +85,11 @@ function buildNotificationContext(booking: {
   customerId: string;
   customer: { name: string; phone: string; email?: string | null };
   services?: Array<{ service: { name: string } }>;
-  service?: { name: string }; // fallback for backward compat
   appointmentAt: Date;
   priceKes?: number;
   reference?: string;
 }): NotificationContext {
-  // Extract service name from the first booking service, or fallback
-  const firstService = booking.services?.[0]?.service;
-  const serviceName =
-    firstService?.name ?? booking.service?.name ?? "Nail Service";
+  const serviceName = booking.services?.[0]?.service?.name ?? "Nail Service";
   return {
     bookingId: booking.id,
     customerId: booking.customerId,
@@ -160,42 +168,17 @@ export const createBooking = asyncHandler(
   },
 );
 
-export const updateBooking = asyncHandler(
+export const patchBookingNotes = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
     const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
-    const body = req.validated?.body as z.infer<typeof updateBookingSchema>;
-    const role = req.user.role
-
-    let booking
-    if(body.status === "APPROVED") {
-      if(role !== "OWNER") {
-        throw new ForbiddenError("Only the owner can approve a booking")
-      }
-
-      booking =  await approveBooking(req)
-    }else if(body.status === "CANCELLED") {
-      booking = await cancelBooking(req)
-
-    }else if(body.status === "RESCHEDULED") {
-      booking = await rescheduleBooking(req)
-    }else if(body.status === "COMPLETED") {
-      booking = await markBookingCompleted(req)
-    }else if(body.status === "PAID") {
-      booking = await markBookingPaid(req)
-    }
-    
-    else {
-      booking = await markBookingAsMissed(req)
-    }
-
+    const body = req.validated?.body as z.infer<typeof patchNotesSchema>;
+    const booking = await bookingsService.updateNotes(params.id, body.notes);
     success(res, booking);
-
-
-
-  }
+  },
 );
 
- const approveBooking =  async (req: Request) => {
+export const approveBooking = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction) => {
     const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
     const booking = await bookingsService.approve(params.id, req.user?.userId);
 
@@ -225,16 +208,15 @@ export const updateBooking = asyncHandler(
       );
     }
 
-    return booking
-  }
+    success(res, booking);
+  },
+);
 
-
- const cancelBooking = async (req: Request) => {
+export const cancelBooking = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction) => {
     const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
-    const booking = await bookingsService.cancel(
-      params.id,
-      "OWNER",
-    );
+    const body = req.validated?.body as z.infer<typeof cancelSchema>;
+    const booking = await bookingsService.cancel(params.id, "OWNER", body?.reason);
 
     // Dispatch BOOKING_CANCELLED notification
     try {
@@ -252,68 +234,71 @@ export const updateBooking = asyncHandler(
       );
     }
 
-    return booking
-  }
+    success(res, booking);
+  },
+);
 
-
- const rescheduleBooking = 
-  async (req: Request) => {
+export const rescheduleBooking = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction) => {
     const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
-    const input = req.validated!.body as z.infer<typeof updateBookingSchema>;
+    const body = req.validated?.body as z.infer<typeof rescheduleSchema>;
     const booking = await bookingsService.reschedule(
       params.id,
-      input.appointmentAt as string,
+      body.appointmentAt,
       req.user.userId,
+      body.reason,
     );
-    return booking
-  }
+    success(res, booking);
+  },
+);
 
- const markBookingCompleted = 
-  async (req: Request) => {
+export const markBookingCompleted = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction) => {
     const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
     const userId = req.user.userId;
     const booking = await bookingsService.markCompleted(params.id, userId);
-    return booking;
-  }
+    success(res, booking);
+  },
+);
 
-const markBookingAsMissed = 
-  async (req: Request) => {
+export const markBookingAsMissed = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction) => {
     const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
+    const body = req.validated?.body as z.infer<typeof noShowSchema>;
     const userId = req.user.userId;
     const booking = await bookingsService.markMissed({
       id: params.id,
       userId,
+      notes: body?.notes,
     });
-    return booking;
-  }
+    success(res, booking);
+  },
+);
 
+export const markBookingPaid = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
+    const booking = await bookingsService.markPaid(params.id);
 
+    // Dispatch PAYMENT_RECEIVED notification
+    try {
+      const ctx = buildNotificationContext(booking);
+      ctx.adminUserIds = req.user?.userId ? [req.user.userId] : [];
+      await dispatch("PAYMENT_RECEIVED", ctx);
+    } catch (error) {
+      log.error(
+        {
+          event: "booking.mark_paid.notify_failed",
+          bookingId: booking?.id,
+          error: String(error),
+        },
+        "Failed to dispatch payment received notification",
+      );
+    }
 
- const markBookingPaid = async (req: Request) => {
-  const params = req.validated?.params as z.infer<typeof uuidParamSchema>;
-    const userId = req.user.userId;
-
-  // const input = req.validated!.body as z.infer<typeof markPaidSchema>;
-  const booking = await bookingsService.markPaid(params.id);
-
-  // Dispatch PAYMENT_RECEIVED notification
-  try {
-    const ctx = buildNotificationContext(booking);
-    ctx.adminUserIds = req.user?.userId ? [req.user.userId] : [];
-    await dispatch("PAYMENT_RECEIVED", ctx);
-  } catch (error) {
-    log.error(
-      {
-        event: "booking.mark_paid.notify_failed",
-        bookingId: booking?.id,
-        error: String(error),
-      },
-      "Failed to dispatch payment received notification",
-    );
-  }
-
-  return booking;
-};
+    success(res, booking);
+  },
+);
 
 export const getTodayBookings = asyncHandler(
   async (_req: Request, res: Response, _next: NextFunction) => {
