@@ -33,7 +33,7 @@ subscriber.on("message", (_channel, message) => {
 export const connectSse = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
 // client will retry with default 3s
   res.writeHead(200, {
-    "Content-Type": "text/event-stream",
+    "Content-Type": "text/event-stream", // mime TYPE FOR sse
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
     "X-Accel-Buffering": "no", // if the app is behind a reverse proxy this tells the proxy not to buffer the response to enhance the real time effect no delays
@@ -44,7 +44,7 @@ export const connectSse = asyncHandler(async (req: Request, res: Response, _next
   const clientId = String(++clientIdCounter);
   const client: SSEClient = { id: clientId, res };
   clients.set(clientId, client);
-
+  // PING THE CLIENT EVERY 30 SECONDS
   const pingInterval = setInterval(() => {
     try {
       res.write(`event: ping\ndata: {}\n\n`);

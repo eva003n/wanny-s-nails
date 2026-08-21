@@ -45,6 +45,7 @@ redis.on("error", (err: Error) => {
 });
 
 
-// since redis subscriber is a blocking connection create new instance with same config options
+// since redis subscriber is a blocking connection create new connection(Redis instance) with same config options
+// prevent blocking the main redis connection used by the api
 export const subscriber = redis.duplicate()
 

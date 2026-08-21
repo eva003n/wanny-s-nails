@@ -29,6 +29,9 @@ const schema = z.object({
     .string()
     .min(1, "WHATSAPP_PHONE_NUMBER_ID is required"),
   WHATSAPP_API_VERSION: z.string().default(""),
+  // Owner's personal WhatsApp number (E.164), used as a fallback channel for
+  // human-escalation alerts when no active Web Push subscription exists.
+  OWNER_WHATSAPP_PHONE: z.string().default(""),
   // Database (required for Prisma)
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   LOG_LEVEL: z.string().default("info"),
