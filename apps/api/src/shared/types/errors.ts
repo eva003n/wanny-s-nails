@@ -111,6 +111,16 @@ export class InvalidStatusTransitionError extends ConflictError {
   }
 }
 
+export class InvalidPaymentStatusTransitionError extends ConflictError {
+  constructor(currentStatus: string, targetAction: string) {
+    super(
+      "INVALID_PAYMENT_STATUS_TRANSITION",
+      `Cannot ${targetAction} a payment in ${currentStatus} status`,
+      { currentStatus, targetAction }
+    );
+  }
+}
+
 export class PhoneAlreadyExistsError extends ConflictError {
   constructor() {
     super("PHONE_ALREADY_EXISTS", "A customer with this phone number already exists");
