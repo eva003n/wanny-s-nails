@@ -201,12 +201,14 @@ export async function processMessage(message: NormalisedEvent): Promise<void> {
       };
     }
     applyTransition(session, result);// transition from state to state by mutating session updates
-    await saveSession(phone, session);// update redis with new state
 
-    // If the IDLE handler returned messages, send them
+    // If the IDLE handler returned messages, send them before committing the
+    // session — only commit the transition after successful outbound delivery.
     for (const msg of result.messages) {
       await sendMessage(phone,  msg );
     }
+
+    await saveSession(phone, session);// update redis with new state
 
     // Reload session after IDLE handler(Avois staleness after an update)
     session = (await loadSession(phone)) ?? session;
