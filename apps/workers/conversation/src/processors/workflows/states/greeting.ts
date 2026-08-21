@@ -124,7 +124,8 @@ export async function handleGreeting(
       };
     }
 
-    const service = booking.service;
+    const service = booking.services[0]?.service;
+    const serviceNames = booking.services.map((s) => s.service.name).join(", ") || "Nail service";
     const dateStr = booking.appointmentAt.toISOString();
     // local time is (UTC +03:00)
     const eatDate = new Date(
@@ -152,7 +153,7 @@ export async function handleGreeting(
       `Here's your upcoming appointment ${name}! 👇`,
       "",
       `${statusEmoji} Status: ${booking.status}`,
-      `✂️ Service: ${service.name}`,
+      `✂️ Service: ${serviceNames}`,
       `📅 ${eatFormatted}`,
       `⏰ ${timeDisplay}`,
       `💰 KES ${booking.priceKes.toLocaleString()}`,
@@ -176,12 +177,14 @@ export async function handleGreeting(
         ...resetInvalidCount(ctx.session),
         bookingId: booking.id,
         bookingRef: booking.reference,
-        selectedService: {
-          id: service.id,
-          name: service.name,
-          durationMinutes: service.durationMinutes,
-          priceKes: service.priceKes,
-        },
+        selectedService: service
+          ? {
+              id: service.id,
+              name: service.name,
+              durationMinutes: service.durationMinutes,
+              priceKes: service.priceKes,
+            }
+          : undefined,
         selectedDate: dateStr.split("T")[0] ?? "",
         selectedTime: timeStr,
         appointmentAt: booking.appointmentAt.toISOString(),
@@ -227,12 +230,14 @@ export async function handleGreeting(
         flow: "CANCEL",
         bookingId: booking.id,
         bookingRef: booking.reference,
-        selectedService: {
-          id: booking.service.id,
-          name: booking.service.name,
-          durationMinutes: booking.service.durationMinutes,
-          priceKes: booking.service.priceKes,
-        },
+        selectedService: booking.services[0]?.service
+          ? {
+              id: booking.services[0].service.id,
+              name: booking.services.map((s) => s.service.name).join(", "),
+              durationMinutes: booking.services[0].service.durationMinutes,
+              priceKes: booking.services[0].service.priceKes,
+            }
+          : undefined,
         appointmentAt: booking.appointmentAt.toISOString(),
       },
       nextState: "CANCEL_CONFIRMATION",
@@ -275,12 +280,14 @@ export async function handleGreeting(
         flow: "RESCHEDULE",
         bookingId: booking.id,
         bookingRef: booking.reference,
-        selectedService: {
-          id: booking.service.id,
-          name: booking.service.name,
-          durationMinutes: booking.service.durationMinutes,
-          priceKes: booking.service.priceKes,
-        },
+        selectedService: booking.services[0]?.service
+          ? {
+              id: booking.services[0].service.id,
+              name: booking.services.map((s) => s.service.name).join(", "),
+              durationMinutes: booking.services[0].service.durationMinutes,
+              priceKes: booking.services[0].service.priceKes,
+            }
+          : undefined,
         appointmentAt: booking.appointmentAt.toISOString(),
       },
       nextState: "RESCHEDULE_DATE",

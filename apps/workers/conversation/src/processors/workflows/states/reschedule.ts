@@ -14,6 +14,7 @@ import {
   PrismaUnitOfWork,
   NotificationService,
   createQueues,
+  getAvailableSlots,
 } from "@wannys-nails/core";
 
 const log = logger.child({ module: "fsm-reschedule" });
@@ -219,69 +220,21 @@ export async function handleRescheduleTime(
     };
   }
 
-  // Recreate slotsService.getAvailableSlots logic inline
-  const targetSlotsDate = new Date(selectedDate + "T00:00:00.000Z");
-  const slotsDayOfWeek = targetSlotsDate.getDay();
-  const bh = await prisma.businessHours.findUnique({
-    where: { dayOfWeek: slotsDayOfWeek },
-  });
-  if (!bh || !bh.isActive) {
+  let availableSlots: Array<{ time: string; appointmentAt: string }>;
+  try {
+    const slotData = await getAvailableSlots(prisma, selectedDate, serviceId);
+    availableSlots = slotData.slots
+      .filter((s) => s.available)
+      .map((s) => ({ time: s.time, appointmentAt: s.appointmentAt }));
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Something went wrong";
     return {
-      messages: [{ type: "text", text: "The salon is closed on the selected date." }],
+      messages: [{ type: "text", text: message }],
       sessionUpdates: resetInvalidCount(ctx.session),
       nextState: "RESCHEDULE_DATE",
     };
   }
-
-  const srv = await prisma.nailService.findUnique({
-    where: { id: serviceId },
-  });
-  if (!srv) {
-    return {
-      messages: [{ type: "text", text: "Service not found." }],
-      sessionUpdates: resetInvalidCount(ctx.session),
-      nextState: "RESCHEDULE_DATE",
-    };
-  }
-
-  const srvDuration = srv.durationMinutes;
-  const srvOpenParts = bh.openTime.split(":");
-  const srvCloseParts = bh.closeTime.split(":");
-  const srvOpenHour = Number(srvOpenParts[0]);
-  const srvOpenMin = Number(srvOpenParts[1]);
-  const srvCloseHour = Number(srvCloseParts[0]);
-  const srvCloseMin = Number(srvCloseParts[1]);
-
-  const srvDayStart = new Date(targetSlotsDate);
-  srvDayStart.setHours(srvOpenHour, srvOpenMin, 0, 0);
-  const srvDayEnd = new Date(targetSlotsDate);
-  srvDayEnd.setHours(srvCloseHour, srvCloseMin, 0, 0);
-
-  const existingBookings = await prisma.booking.findMany({
-    where: {
-      appointmentAt: { gte: srvDayStart, lt: srvDayEnd },
-      status: { notIn: ["CANCELLED", "NO_SHOW"] },
-    },
-    select: { appointmentAt: true, durationMinutes: true },
-  });
-
-  const generatedSlots: Array<{ time: string; appointmentAt: string; available: boolean }> = [];
-  const slotCurrent = new Date(srvDayStart);
-  while (slotCurrent.getTime() + srvDuration * 60 * 1000 <= srvDayEnd.getTime()) {
-    const slotEnd = new Date(slotCurrent.getTime() + srvDuration * 60 * 1000);
-    const isAvail = !existingBookings.some((b: any) => {
-      const bStart = new Date(b.appointmentAt).getTime();
-      const bEnd = bStart + b.durationMinutes * 60 * 1000;
-      return slotCurrent.getTime() < bEnd && slotEnd.getTime() > bStart;
-    });
-    const eatHour = (slotCurrent.getUTCHours() + 3) % 24;
-    const eatMin = slotCurrent.getUTCMinutes();
-    const timeStr = `${String(eatHour).padStart(2, "0")}:${String(eatMin).padStart(2, "0")}`;
-    generatedSlots.push({ time: timeStr, available: isAvail, appointmentAt: slotCurrent.toISOString() });
-    slotCurrent.setMinutes(slotCurrent.getMinutes() + srvDuration);
-  }
-
-  const availableSlots = generatedSlots.filter((s) => s.available);
 
   if (availableSlots.length === 0) {
     return {
@@ -470,7 +423,7 @@ export async function handleRescheduleConfirmation(
       dateDisplay,
       timeDisplay,
     ),
-    sessionUpdates: ctx.session,
+    sessionUpdates: incrementInvalidCount(ctx.session),
     nextState: "RESCHEDULE_CONFIRMATION",
   };
 }

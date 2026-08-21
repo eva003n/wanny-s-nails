@@ -1,7 +1,8 @@
 import type { StateHandlerContext, StateTransitionResult } from "../types.js";
 import { resetInvalidCount } from "../session.js";
 import { createRedisClient, } from "@wannys-nails/core";
-import { log as logger, _config as config, redis } from "../../../lib/index.js";
+import { log as logger, _config as config, redis, prisma } from "../../../lib/index.js";
+import { sendMessage } from "../whatsapp.js";
 
 const log = logger.child({ module: "fsm-human-escalation" });
 
@@ -54,6 +55,32 @@ export async function handleHumanEscalation(
       { event: "human_escalation.notification_failed", error, phone },
       "Failed to send human escalation notification",
     );
+  }
+
+  // 1b. Fallback: if the owner has no active Web Push subscription, text
+  // them directly on WhatsApp so the escalation isn't silently missed.
+  if (config.OWNER_WHATSAPP_PHONE) {
+    try {
+      const activeSubscriptions = await prisma.pushSubscription.count({
+        where: { isActive: true },
+      });
+
+      if (activeSubscriptions === 0) {
+        await sendMessage(config.OWNER_WHATSAPP_PHONE, {
+          type: "text",
+          text: `Customer needs help: ${customerName} (${phone}) is asking for assistance on WhatsApp.`,
+        });
+        log.info(
+          { event: "human_escalation.owner_whatsapp_fallback_sent", phone },
+          "No active push subscribers — sent WhatsApp fallback to owner",
+        );
+      }
+    } catch (error) {
+      log.error(
+        { event: "human_escalation.owner_whatsapp_fallback_failed", error, phone },
+        "Failed to send owner WhatsApp fallback",
+      );
+    }
   }
 
   // 2. Send confirmation message to customer
