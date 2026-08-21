@@ -3,11 +3,13 @@ import { prisma, type Prisma } from "../../../shared/lib/index.js";
 
 import { paymentQueue } from "../../../shared/lib/index.js";
 import { logger } from "../../../shared/lib/logger.js";
+import { parseSort } from "../../../shared/utils/pagination.js";
 
 const log = logger.child({ module: "payments" });
 import {
   PaymentFailedError,
   PaymentNotAllowedError,
+  InvalidPaymentStatusTransitionError,
   NotFoundError,
 } from "../../../shared/types/errors.js";
 
@@ -117,9 +119,11 @@ export const paymentsService = {
     from: string | undefined;
     to: string | undefined;
     customerId: string | undefined;
+    sort: string | undefined;
   }) {
-    const { page, limit, status, from, to, customerId } = params;
+    const { page, limit, status, from, to, customerId, sort } = params;
     const skip = (page - 1) * limit;
+    const { orderBy } = parseSort(sort, ["createdAt", "completedAt"], "createdAt:desc");
 
     const bookingWhere: Record<string, unknown> = {};
     const paymentWhere: Record<string, unknown> = {};
@@ -164,7 +168,7 @@ export const paymentsService = {
             },
           },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy,
         skip,
         take: limit,
       }),
@@ -209,5 +213,31 @@ export const paymentsService = {
       where: { bookingId },
       include: { transactions: true },
     });
+  },
+
+  async refund(id: string, reason?: string) {
+    const payment = await prisma.payment.findUnique({ where: { id } });
+    if (!payment) {
+      throw new NotFoundError("Payment");
+    }
+    if (payment.status !== "SUCCESS") {
+      throw new InvalidPaymentStatusTransitionError(payment.status, "refund");
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.payment.update({
+        where: { id },
+        data: {
+          status: "REFUNDED",
+          ...(reason ? { failureReason: reason } : {}),
+        },
+      });
+      await tx.booking.update({
+        where: { id: payment.bookingId },
+        data: { paymentStatus: "REFUNDED" },
+      });
+    });
+
+    return this.getById(id);
   },
 };

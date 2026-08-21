@@ -35,11 +35,13 @@ export const paymentQuerySchema = z.object({
   from: z.string().optional(),
   to: z.string().optional(),
   customerId: z.string().optional(),
+  sort: z.string().optional(),
 })
 export const listPayments = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
-    const { page, limit } = parsePagination(
+    const { page, limit, sort } = parsePagination(
       req.query as Record<string, unknown>,
+      { sort: "createdAt:desc" },
     );
     const result = await paymentsService.list({
       page,
@@ -48,6 +50,7 @@ export const listPayments = asyncHandler(
       from: req.query.from as string | undefined,
       to: req.query.to as string | undefined,
       customerId: req.query.customerId as string | undefined,
+      sort,
     });
 
     const isOwner = req.user?.role === "OWNER";
@@ -72,6 +75,17 @@ export const getPaymentById = asyncHandler(
   },
 );
 
-// Callback handling is now in webhooks.controller.ts::handleDaraja
-// This endpoint is deprecated — all MPesa callbacks go through
-// POST /api/v1/webhooks/daraja
+export const refundPaymentSchema = z.object({
+  reason: z.string().max(255).optional(),
+});
+export const refundPayment = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const params = req.validated?.params as z.infer<typeof paymentParamSchema>;
+    const body = req.validated?.body as z.infer<typeof refundPaymentSchema> | undefined;
+    const payment = await paymentsService.refund(params.id, body?.reason);
+    success(res, payment);
+  },
+);
+
+// Callback handling is in webhooks.controller.ts::handleDaraja —
+// see POST /api/v1/webhooks/daraja for the M-Pesa callback route.
