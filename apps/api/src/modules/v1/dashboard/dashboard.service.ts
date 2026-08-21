@@ -11,7 +11,16 @@ export interface DashboardStats {
   unpaidKes: number;
   weekRevenueKes: number;
   monthRevenueKes: number;
+  reconciliation: {
+    stuckPaymentsCount: number;
+    oldestStuckPaymentAt: string | null;
+  };
 }
+
+// A payment stuck PENDING longer than this is a callback-delivery problem, not
+// a customer still typing their M-Pesa PIN — matches PAYMENT_WORKFLOW.md's
+// reconciliation sweep threshold.
+const RECONCILIATION_STALE_THRESHOLD_MINUTES = 10;
 
 export const dashboardService = {
   async getStats(): Promise<DashboardStats> {
@@ -116,6 +125,21 @@ export const dashboardService = {
     });
     const monthRevenueKes = monthRevenue._sum.amountKes ?? 0;
 
+    // 7. Reconciliation snapshot (stuck-payments queue)
+    const staleThreshold = new Date(
+      now.getTime() - RECONCILIATION_STALE_THRESHOLD_MINUTES * 60 * 1000,
+    );
+    const [stuckPaymentsCount, oldestStuckPayment] = await Promise.all([
+      prisma.payment.count({
+        where: { status: "PENDING", createdAt: { lt: staleThreshold } },
+      }),
+      prisma.payment.findFirst({
+        where: { status: "PENDING", createdAt: { lt: staleThreshold } },
+        orderBy: { createdAt: "asc" },
+        select: { createdAt: true },
+      }),
+    ]);
+
     log.debug(
       {
         event: "dashboard.stats.calculated",
@@ -136,6 +160,10 @@ export const dashboardService = {
       unpaidKes,
       weekRevenueKes,
       monthRevenueKes,
+      reconciliation: {
+        stuckPaymentsCount,
+        oldestStuckPaymentAt: oldestStuckPayment?.createdAt.toISOString() ?? null,
+      },
     };
   },
 };

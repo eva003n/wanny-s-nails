@@ -14,6 +14,9 @@ export const getStats = asyncHandler(
       "Fetching dashboard stats",
     );
     const stats = await dashboardService.getStats();
-    success(res, stats, undefined, {type: "no-cache", maxAgeSec: 15});
+    const isOwner = req.user?.role === "OWNER";
+    const { reconciliation, ...rest } = stats;
+    const result = isOwner ? stats : rest;
+    success(res, result, undefined, {type: "no-cache", maxAgeSec: 15});
   },
 );
