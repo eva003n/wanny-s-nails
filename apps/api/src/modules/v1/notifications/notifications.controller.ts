@@ -4,6 +4,7 @@
  * Admin-facing endpoints for notification history and management.
  */
 import type { Request, Response, NextFunction } from "express";
+import { z } from "zod";
 import { logger } from "../../../shared/lib/index.js";
 
 import { success, paginated, noContent } from "../../../shared/utils/response.js";
@@ -15,7 +16,19 @@ const log = logger.child({ module: "notifications.controller" });
 
 // ─── List Notifications ───────────────────────────────────────
 
+export const listNotificationsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  status: z.string().optional(),
+  channel: z.string().optional(),
+  type: z.string().optional(),
+  bookingId: z.string().uuid().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+});
+
 export const listNotifications = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+  const query = req.validated?.query as z.infer<typeof listNotificationsQuerySchema> | undefined;
   const { page, limit } = parsePagination(req.query as Record<string, unknown>);
   const skip = (page - 1) * limit;
 
@@ -24,26 +37,33 @@ export const listNotifications = asyncHandler(async (req: Request, res: Response
     readAt: null
   };
 
-  if (req.query.status) {
-    where.status = req.query.status;
+  const status = query?.status ?? (req.query.status as string | undefined);
+  const channel = query?.channel ?? (req.query.channel as string | undefined);
+  const type = query?.type ?? (req.query.type as string | undefined);
+  const bookingId = query?.bookingId ?? (req.query.bookingId as string | undefined);
+  const from = query?.from ?? (req.query.from as string | undefined);
+  const to = query?.to ?? (req.query.to as string | undefined);
+
+  if (status) {
+    where.status = status;
   }
 
-  if (req.query.channel) {
-    where.channel = req.query.channel;
+  if (channel) {
+    where.channel = channel;
   }
 
-  if (req.query.type) {
-    where.type = req.query.type;
+  if (type) {
+    where.type = type;
   }
 
-  if (req.query.bookingId) {
-    where.bookingId = req.query.bookingId;
+  if (bookingId) {
+    where.bookingId = bookingId;
   }
 
-  if (req.query.from || req.query.to) {
+  if (from || to) {
     const dateFilter: Record<string, Date> = {};
-    if (req.query.from) dateFilter.gte = new Date(req.query.from as string);
-    if (req.query.to) dateFilter.lte = new Date(req.query.to as string);
+    if (from) dateFilter.gte = new Date(from);
+    if (to) dateFilter.lte = new Date(to);
     where.createdAt = dateFilter;
   }
 
