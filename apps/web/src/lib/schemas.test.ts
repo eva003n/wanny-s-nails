@@ -149,6 +149,7 @@ describe('PaymentTransactionSchema', () => {
     const tx = {
       id: '123e4567-e89b-12d3-a456-426614174000',
       bookingId: 'booking-1',
+      phoneNumber: '254712345678',
       booking: { id: 'booking-1', reference: 'BK-1', service: { id: '111e4567-e89b-12d3-a456-426614174003', name: 'S' } },
       customer: { id: '222e4567-e89b-12d3-a456-426614174004', name: 'Jane', phone: '07' },
       amountKes: 1500,

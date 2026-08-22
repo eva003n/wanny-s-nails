@@ -26,7 +26,7 @@ describe("useSSE", () => {
 
     renderHook(() => useSSE(), { wrapper: createWrapper() });
 
-    expect(mockedSubscribeSSE).toHaveBeenCalledTimes(4);
+    expect(mockedSubscribeSSE).toHaveBeenCalledTimes(5);
   });
 
   it("calls unsubscribe functions on cleanup", () => {
@@ -38,6 +38,6 @@ describe("useSSE", () => {
     });
     unmount();
 
-    expect(unsub).toHaveBeenCalledTimes(4);
+    expect(unsub).toHaveBeenCalledTimes(5);
   });
 });
