@@ -1,10 +1,10 @@
 // src/middleware/log.middleware.ts
 
-import pinoHttp from "pino-http";
+import { pinoHttp } from "pino-http";
 import type { Request, Response, RequestHandler } from "express";
 import { logger } from "../lib/index.js";
 
-export const logMiddleware: RequestHandler = (pinoHttp as unknown as any)({
+export const logMiddleware: RequestHandler = pinoHttp({
   logger, // reuse your configured pino instance
 
   // add request id for logging

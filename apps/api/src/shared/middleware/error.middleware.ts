@@ -8,8 +8,8 @@ export const errorMiddleware = (
   res: Response,
   _next: NextFunction
 ): void => {
-  const _log = (req as any).log || logger;
-  const requestId = (req as any).requestId || (req.headers["x-request-id"] as string) || "unknown";
+  const _log = req.log || logger;
+  const requestId = req.requestId || (req.headers["x-request-id"] as string) || "unknown";
 
   if (err instanceof AppError) {
     _log.warn({ event: "app.error.handled", code: err.code, path: req.path, details: err.details, requestId }, err.message);
