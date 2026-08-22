@@ -3,9 +3,9 @@ import { renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useSSE } from "./useSSE";
-import { subscribeSSE } from "@/lib/sseBus";
+import { subscribeSSE } from "@/lib/sse";
 
-vi.mock("@/lib/sseBus");
+vi.mock("@/lib/sse");
 
 const mockedSubscribeSSE = vi.mocked(subscribeSSE);
 

@@ -66,7 +66,7 @@ describe("auth.store (TESTING.md §5.3 — Zustand store logic)", () => {
           data: {
             accessToken: "access-token",
             user: {
-              id: "user-1",
+              id: "123e4567-e89b-12d3-a456-426614174000",
               name: "Wanny",
               email: "wanny@example.com",
               role: "OWNER",
@@ -89,7 +89,12 @@ describe("auth.store (TESTING.md §5.3 — Zustand store logic)", () => {
         data: {
           data: {
             accessToken: "access-token",
-            user: { id: "u1", name: "W", email: "w@e.com", role: "OWNER" },
+            user: {
+              id: "123e4567-e89b-12d3-a456-426614174000",
+              name: "W",
+              email: "w@e.com",
+              role: "OWNER",
+            },
           },
         },
       });
@@ -156,7 +161,7 @@ describe("auth.store (TESTING.md §5.3 — Zustand store logic)", () => {
       mockedApi.get.mockResolvedValue({
         data: {
           data: {
-            id: "user-1",
+            id: "123e4567-e89b-12d3-a456-426614174000",
             name: "Wanny",
             email: "wanny@example.com",
             role: "OWNER",
@@ -190,7 +195,7 @@ describe("auth.store (TESTING.md §5.3 — Zustand store logic)", () => {
       mockedApi.get.mockResolvedValue({
         data: {
           data: {
-            id: "user-1",
+            id: "123e4567-e89b-12d3-a456-426614174000",
             name: "Wanny",
             email: "wanny@example.com",
             role: "OWNER",

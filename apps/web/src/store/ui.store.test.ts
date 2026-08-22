@@ -47,7 +47,8 @@ describe("ui.store (TESTING.md §5.3 — Zustand store logic)", () => {
   describe("dismissToast", () => {
     it("removes a toast by id", () => {
       useUiStore.getState().showToast({ type: "info", message: "Test" });
-      const id = useUiStore.getState().toasts[0]?.id!;
+      const toasts = useUiStore.getState().toasts;
+      const id = toasts[0]!.id;
 
       useUiStore.getState().dismissToast(id);
 
