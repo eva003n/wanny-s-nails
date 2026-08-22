@@ -198,7 +198,7 @@ describe("payments routes — integration (TESTING.md §4.3)", () => {
         paymentStatus: "PENDING",
       });
 
-      const { prisma } = await import("../../shared/lib/prisma.js");
+      const { prisma } = await import("../../../shared/lib/prisma.js");
       await prisma.payment.update({
         where: { bookingId: booking.id },
         data: { checkoutRequestId: "ws_CO_08072024150000000" },
@@ -242,7 +242,7 @@ describe("payments routes — integration (TESTING.md §4.3)", () => {
         paymentStatus: "PENDING",
       });
 
-      const { prisma } = await import("../../shared/lib/prisma.js");
+      const { prisma } = await import("../../../shared/lib/prisma.js");
       await prisma.payment.update({
         where: { bookingId: booking.id },
         data: { checkoutRequestId: "ws_CO_FAIL_12345" },

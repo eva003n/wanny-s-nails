@@ -57,7 +57,8 @@ describe("slots routes — integration (TESTING.md §4.3)", () => {
 
     it("returns 422 when the salon is closed on the requested date", async () => {
       const service = await createService();
-      // Use a Sunday (day 0) — business hours helper sets Sunday inactive
+      // Use a Sunday (day 0) — explicitly closed below, since createBusinessHours()
+      // seeds every day active by default (shared by many other integration tests).
       const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       // Find the next Sunday
       const day = future.getDay();
@@ -65,6 +66,12 @@ describe("slots routes — integration (TESTING.md §4.3)", () => {
       const sunday = new Date(future);
       sunday.setDate(future.getDate() + daysUntilSunday);
       const dateStr = sunday.toISOString().slice(0, 10);
+
+      const { prisma } = await import("../../../shared/lib/prisma.js");
+      await prisma.businessHours.update({
+        where: { dayOfWeek: 0 },
+        data: { isActive: false },
+      });
 
       const res = await request(app)
         .get(`/api/v1/slots/availability?serviceIds=${service.id}&date=${dateStr}`)

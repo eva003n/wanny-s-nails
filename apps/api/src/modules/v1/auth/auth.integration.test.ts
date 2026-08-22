@@ -27,10 +27,10 @@ describe("auth routes — integration", () => {
       expect(res.body.data.accessToken).toBeTruthy();
       expect(res.body.data.user.email).toBe("owner@test.com");
       // signed httpOnly cookies set
-      expect(res.headers["set-cookie"]?.split(" ").some((c) => c.startsWith("accessToken="))).toBe(
+      expect(res.headers["set-cookie"]?.some((c) => c.startsWith("accessToken="))).toBe(
         true,
       );
-      expect(res.headers["set-cookie"]?.split(" ").some((c) => c.startsWith("refreshToken="))).toBe(
+      expect(res.headers["set-cookie"]?.some((c) => c.startsWith("refreshToken="))).toBe(
         true,
       );
     });
@@ -100,7 +100,7 @@ describe("auth routes — integration", () => {
         .post("/api/v1/auth/login")
         .send({ email: "owner@test.com", password: TEST_PASSWORD });
 
-      const refreshCookie = login.headers["set-cookie"]?.split(" ")?.find((c) =>
+      const refreshCookie = login.headers["set-cookie"]?.find((c) =>
         c.startsWith("refreshToken="),
       );
       const cookie = refreshCookie?.split(";")[0];

@@ -33,7 +33,7 @@ describe("notifications routes — integration (TESTING.md §4.3)", () => {
       status: "APPROVED",
     });
 
-    const { prisma } = await import("../../shared/lib/prisma.js");
+    const { prisma } = await import("../../../shared/lib/prisma.js");
     return prisma.notification.create({
       data: {
         bookingId: booking.id,
@@ -169,7 +169,7 @@ describe("notifications routes — integration (TESTING.md §4.3)", () => {
       expect(res.body.data.message).toContain("queued for retry");
 
       // Verify the notification was reset
-      const { prisma } = await import("../../shared/lib/prisma.js");
+      const { prisma } = await import("../../../shared/lib/prisma.js");
       const updated = await prisma.notification.findUnique({
         where: { id: notification.id },
       });
@@ -206,7 +206,7 @@ describe("notifications routes — integration (TESTING.md §4.3)", () => {
 
       expect(res.status).toBe(204);
 
-      const { prisma } = await import("../../shared/lib/prisma.js");
+      const { prisma } = await import("../../../shared/lib/prisma.js");
       const updated = await prisma.notification.findUnique({
         where: { id: notification.id },
       });

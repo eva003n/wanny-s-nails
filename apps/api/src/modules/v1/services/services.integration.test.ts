@@ -35,7 +35,7 @@ describe("services routes — integration (TESTING.md §4.3)", () => {
 
     it("excludes inactive services by default", async () => {
       await createService();
-      const { prisma } = await import("../../shared/lib/prisma.js");
+      const { prisma } = await import("../../../shared/lib/prisma.js");
       await prisma.nailService.update({
         where: { id: "00000000-0000-4000-8000-000000000003" },
         data: { isActive: false },

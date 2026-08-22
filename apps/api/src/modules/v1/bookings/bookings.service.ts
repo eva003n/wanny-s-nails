@@ -6,6 +6,11 @@ import {
   BookingNotFoundError,
   InvalidStatusTransitionError,
   UnprocessableError,
+  BookingConflictError,
+  OutsideBusinessHoursError,
+  BusinessClosedError,
+  ServiceInactiveError,
+  CustomerNotFoundError,
 } from "../../../shared/types/errors.js";
 import {
   onBookingCancelled,
@@ -21,10 +26,40 @@ import {
   PrismaBusinessHoursRepository,
   PrismaUnitOfWork,
   PrismaClientKnownRequestError,
+  BookingConflictError as CoreBookingConflictError,
+  OutsideBusinessHoursError as CoreOutsideBusinessHoursError,
+  BusinessClosedError as CoreBusinessClosedError,
+  ServiceInactiveError as CoreServiceInactiveError,
+  CustomerNotFoundError as CoreCustomerNotFoundError,
   type ActorType,
 } from "@wannys-nails/core";
 
 const log = logger.child({ module: "bookings.service" });
+
+/**
+ * Core throws its own domain-error classes; translate the ones with an
+ * api-layer AppError equivalent so errorMiddleware maps them to the right
+ * HTTP status instead of falling through to a generic 500. Anything else
+ * rethrows unchanged.
+ */
+function translateBookingDomainError(error: unknown): never {
+  if (error instanceof CoreOutsideBusinessHoursError) {
+    throw new OutsideBusinessHoursError(error.appointmentAt);
+  }
+  if (error instanceof CoreBusinessClosedError) {
+    throw new BusinessClosedError();
+  }
+  if (error instanceof CoreServiceInactiveError) {
+    throw new ServiceInactiveError();
+  }
+  if (error instanceof CoreBookingConflictError) {
+    throw new BookingConflictError();
+  }
+  if (error instanceof CoreCustomerNotFoundError) {
+    throw new CustomerNotFoundError(error.customerId);
+  }
+  throw error;
+}
 
 interface CreateBookingInput {
   customerId: string;
@@ -299,14 +334,18 @@ export const bookingsService = {
       businessHoursRepository: new PrismaBusinessHoursRepository(prisma),
     });
 
-    return bookingServiceApplication.create({
-      customerId: input.customerId,
-      serviceIds: input.serviceIds,
-      appointmentAt: input.appointmentAt,
-      actorType: "OWNER",
-      notes: input.notes ?? null,
-      stylist: input.stylist,
-    });
+    try {
+      return await bookingServiceApplication.create({
+        customerId: input.customerId,
+        serviceIds: input.serviceIds,
+        appointmentAt: input.appointmentAt,
+        actorType: "OWNER",
+        notes: input.notes ?? null,
+        stylist: input.stylist,
+      });
+    } catch (error) {
+      translateBookingDomainError(error);
+    }
   },
 
   async approve(id: string, approvedById: string) {
@@ -429,11 +468,16 @@ export const bookingsService = {
       businessHoursRepository: new PrismaBusinessHoursRepository(prisma),
     });
 
-    const result = await bookingAppService.cancel({
-      id,
-      actorType: actorType,
-      reason,
-    });
+    let result;
+    try {
+      result = await bookingAppService.cancel({
+        id,
+        actorType: actorType,
+        reason,
+      });
+    } catch (error) {
+      translateBookingDomainError(error);
+    }
 
     // Notification side effects (stay at API layer)
     try {
@@ -466,13 +510,17 @@ export const bookingsService = {
       businessHoursRepository: new PrismaBusinessHoursRepository(prisma),
     });
 
-    await bookingAppService.reschedule({
-      id,
-      newAppointmentAt,
-      rescheduledById,
-      actorType: "OWNER",
-      ...(reason ? { reason } : {}),
-    });
+    try {
+      await bookingAppService.reschedule({
+        id,
+        newAppointmentAt,
+        rescheduledById,
+        actorType: "OWNER",
+        ...(reason ? { reason } : {}),
+      });
+    } catch (error) {
+      translateBookingDomainError(error);
+    }
 
     // Notification side effects (stay at API layer)
     try {
