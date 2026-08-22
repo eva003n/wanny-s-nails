@@ -56,7 +56,7 @@ export const listPayments = asyncHandler(
     const isOwner = req.user?.role === "OWNER";
     const payments = isOwner
       ? result.payments
-      : result.payments.map((p: any) => ({ ...p, amountKes: null }));
+      : result.payments.map((p) => ({ ...p, amountKes: null }));
 
     paginated(res, payments, result.total, result.page, result.limit);
   },

@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { businessHoursService } from "./business-hours.service.js";
-import { success, created } from "../../../shared/utils/response.js";
+import { success } from "../../../shared/utils/response.js";
 import { asyncHandler } from "../../../shared/utils/asyncHandler.js";
 
 // --- Validation schemas ---

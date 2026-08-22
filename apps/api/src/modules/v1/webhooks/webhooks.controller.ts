@@ -6,11 +6,7 @@ import { conversationQueue, paymentQueue } from "../../../shared/lib/index.js";
 import { redis } from "../../../shared/lib/index.js";
 import { whatsappTransport, type WebhookEvent } from "@wannys-nails/core";
 import { DarajaCallbackSchema } from "./schemas.js";
-import { JOB_NAMES, type InboundMessage } from "@wannys-nails/core";
-import {
-  WhatsAppWebhookSchema,
-  type NormalisedEvent,
-} from "../../../shared/lib/schemas.js";
+import { JOB_NAMES } from "@wannys-nails/core";
 
 const log = logger.child({ module: "webhooks.controller" });
 
@@ -56,6 +52,7 @@ export const handleWhatsApp = async (
     if (event.type === "STATUS_UPDATE") {
       // idempotency
       try {
+        // TODO: persist delivery-receipt status updates to NotificationLog
       } catch (err) {
         log.warn({
           event: "Status.enqueue.error",

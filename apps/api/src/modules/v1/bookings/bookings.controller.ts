@@ -2,7 +2,6 @@ import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { bookingsService } from "./bookings.service.js";
 import { logger } from "../../../shared/lib/logger.js";
-import { prisma } from "../../../shared/lib/prisma.js";
 import { dispatch } from "../notifications/notifications.service.js";
 import type { NotificationContext } from "../notifications/notification-triggers.js";
 import {
@@ -220,7 +219,10 @@ export const cancelBooking = asyncHandler(
 
     // Dispatch BOOKING_CANCELLED notification
     try {
-      const ctx = buildNotificationContext(booking as any);
+      const ctx = buildNotificationContext({
+        ...booking,
+        appointmentAt: new Date(booking.appointmentAt),
+      });
       ctx.adminUserIds = req.user?.userId ? [req.user.userId] : [];
       await dispatch("BOOKING_CANCELLED", ctx);
     } catch (error) {

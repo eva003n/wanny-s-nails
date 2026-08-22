@@ -6,12 +6,9 @@
  */
 import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { logger } from "../../../shared/lib/index.js";
 import { asyncHandler } from "../../../shared/utils/asyncHandler.js";
 import { success, noContent } from "../../../shared/utils/response.js";
 import { pushSubscriptionsService } from "./push-subscriptions.service.js";
-
-const log = logger.child({ module: "push-subscriptions.controller" });
 
 // ─── Schemas ───────────────────────────────────────────────────
 
