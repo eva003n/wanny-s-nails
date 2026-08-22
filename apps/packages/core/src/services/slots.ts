@@ -27,9 +27,9 @@ const roundUp = (
 const isToday = (someDate: Date) => {
   const today = new Date();
   return (
-    someDate.getDate() === today.getDate() &&
-    someDate.getMonth() === today.getMonth() &&
-    someDate.getFullYear() === today.getFullYear()
+    someDate.getUTCDate() === today.getUTCDate() &&
+    someDate.getUTCMonth() === today.getUTCMonth() &&
+    someDate.getUTCFullYear() === today.getUTCFullYear()
   );
 };
 
@@ -92,10 +92,10 @@ export async function getAvailableSlots(
 
   // day start and day end
   const dayStart = new Date(targetDate);
-  dayStart.setHours(openHour, openMin, 0, 0);
+  dayStart.setUTCHours(openHour, openMin, 0, 0);
 
   const dayEnd = new Date(targetDate);
-  dayEnd.setHours(closeHour, closeMin, 0, 0);
+  dayEnd.setUTCHours(closeHour, closeMin, 0, 0);
 
   // Get existing bookings for a particular date
   const existingBookings = await prisma.booking.findMany({
