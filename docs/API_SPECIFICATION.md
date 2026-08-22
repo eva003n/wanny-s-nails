@@ -36,7 +36,7 @@
 
 | Principle | Implementation |
 |---|---|
-| **Resource-oriented/modeling** | URLs name resources, not actions (`/bookings/:id/approve` not `/approveBooking`) |
+| **Resource-oriented/modeling** | URLs name resources, not actions (`/bookings/:id` not `/bookings/:id/approve`) |
 | **Consistent shape** | Every response — success or error — follows the same envelope |
 | **Predictable status codes** | HTTP verbs and status codes are used according to their semantics |
 | **Fail fast** | Validation errors returned before any business logic executes |
@@ -44,6 +44,10 @@
 | **No breaking changes** | Additive changes only within a version(new features). Breaking changes require a new version (`/v2/`) |
 | **Timezone-safe** | All datetimes stored and transmitted as ISO 8601 UTC. Display conversion is the client's responsibility |
 | **Security by default** | All endpoints require auth except webhooks (signature-validated, IP allowlist) and health check |
+| **Consistency** | URI naming and format should be consistent throughout |
+| **Hackable** | URI must be intelligibly hackable or changed |
+| **Readability**| Multi-word URL parameters must be seperated using a hyphen |
+| **Database models**| Resource modeling must never be based on database tables|
 
 ---
 
