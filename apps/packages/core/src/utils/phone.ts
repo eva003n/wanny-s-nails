@@ -56,5 +56,5 @@ export function maskKenyanPhone(phone: string) {
   // Mask the middle digits and show the last 2
   const masked = lastNine.slice(0, 3) + '***' + lastNine.slice(6);
   
-  return countryCode ? `+${countryCode}${masked}` : `0${masked}`;
+  return countryCode && countryCode !== "0" ? `+${countryCode}${masked}` : `0${masked}`;
 }

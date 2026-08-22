@@ -26,4 +26,4 @@ try {
   );
 }
 
-export {type Booking} from "@wannys-nails/core"
+export { type BookingModel as Booking } from "@wannys-nails/core";
