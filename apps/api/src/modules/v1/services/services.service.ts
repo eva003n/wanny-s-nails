@@ -53,7 +53,7 @@ export const servicesService = {
       distinct: ["category"],
       orderBy: { category: "asc" },
     });
-    return categories.map((c: any) => c.category);
+    return categories.map((c) => c.category);
   },
 
   async getById(id: string) {
@@ -71,7 +71,7 @@ export const servicesService = {
       data: {
         name: data.name,
         description: data.description ?? null,
-        category: data.category as any,
+        category: data.category,
         durationMinutes: data.durationMinutes,
         priceKes: data.priceKes,
         sortOrder: data.sortOrder ?? 0,
@@ -88,7 +88,7 @@ export const servicesService = {
   },
 
   async softDelete(id: string) {
-    const service = await this.getById(id);
+    await this.getById(id);
 
     // Check for future confirmed bookings
     const futureBookings = await prisma.booking.count({

@@ -1,13 +1,10 @@
-import { prisma, notificationQueue } from "../../../shared/lib/index.js";
+import { prisma } from "../../../shared/lib/index.js";
 
 import { logger } from "../../../shared/lib/index.js";
 
 import {
-  BookingConflictError,
   BookingNotFoundError,
   InvalidStatusTransitionError,
-  OutsideBusinessHoursError,
-  ServiceInactiveError,
   UnprocessableError,
 } from "../../../shared/types/errors.js";
 import {
@@ -57,14 +54,6 @@ const BOOKING_INCLUDE = {
     orderBy: { position: "asc" },
   },
 } as const;
-
-function generateReference(): string {
-  const year = new Date().getFullYear();
-  const seq = Math.floor(Math.random() * 99999)
-    .toString()
-    .padStart(5, "0");
-  return `WN-${year}-${seq}`;
-}
 
 export const bookingsService = {
   async list(filters: {
@@ -477,7 +466,7 @@ export const bookingsService = {
       businessHoursRepository: new PrismaBusinessHoursRepository(prisma),
     });
 
-    const result = await bookingAppService.reschedule({
+    await bookingAppService.reschedule({
       id,
       newAppointmentAt,
       rescheduledById,

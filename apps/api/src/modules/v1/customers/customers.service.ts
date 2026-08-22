@@ -6,7 +6,6 @@ import {
   EmailAlreadyExistsError,
 } from "../../../shared/types/errors.js";
 import {
-  parsePagination,
   parseSort,
   parseCsvFilter,
 } from "../../../shared/utils/pagination.js";

@@ -30,10 +30,6 @@ function signRefreshToken(userId: string): string {
   return jwt.sign({ userId }, _config.JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRES });
 }
 
-function extractPayload(token: string): JwtPayload {
-  return jwt.verify(token, _config.JWT_SECRET) as JwtPayload;
-}
-
 export const authService = {
   async login(input: LoginInput) {
     // --- Check account lockout ---

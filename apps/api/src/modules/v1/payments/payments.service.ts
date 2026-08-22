@@ -1,5 +1,5 @@
 import { JOB_NAMES } from "@wannys-nails/core";
-import { prisma, type Prisma } from "../../../shared/lib/index.js";
+import { prisma } from "../../../shared/lib/index.js";
 
 import { paymentQueue } from "../../../shared/lib/index.js";
 import { logger } from "../../../shared/lib/logger.js";
@@ -7,14 +7,13 @@ import { parseSort } from "../../../shared/utils/pagination.js";
 
 const log = logger.child({ module: "payments" });
 import {
-  PaymentFailedError,
   PaymentNotAllowedError,
   InvalidPaymentStatusTransitionError,
   NotFoundError,
 } from "../../../shared/types/errors.js";
 
 export const paymentsService = {
-  async initiateStkPush(bookingId: string, phoneNumber: string, userId: string | null) {
+  async initiateStkPush(bookingId: string, phoneNumber: string, _userId: string | null) {
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: { payment: true },
