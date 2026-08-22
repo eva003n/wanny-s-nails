@@ -1,6 +1,5 @@
 import { WifiIcon, WifiOff } from "lucide-react";
 import { useOnline } from "@/hooks/useOnline";
-import { useUiStore } from "@/store/ui.store";
 import clsx from "clsx";
 
 export default function OfflineBanner() {

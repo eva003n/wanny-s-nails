@@ -33,7 +33,7 @@ function getInitialStatus(): PushStatus {
 
 async function fetchSubscriptions(): Promise<SubscriptionInfo[]> {
   const res = await api.get("/push-subscriptions");
-  const { data } = unwrap<SubscriptionInfo[]>(res as any);
+  const { data } = unwrap<SubscriptionInfo[]>(res);
   return data;
 }
 

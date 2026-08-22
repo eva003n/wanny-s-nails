@@ -76,6 +76,7 @@ export function ServiceWorkerProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useServiceWorkerContext(): ServiceWorkerContextValue {
   const ctx = useContext(ServiceWorkerContext);
   if (!ctx) {

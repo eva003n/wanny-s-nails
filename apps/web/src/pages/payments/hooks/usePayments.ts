@@ -4,9 +4,9 @@ import { api } from "@/lib/api";
 import { validateOrThrow } from "@/lib/guards";
 import {
   PaginatedPaymentsSchema,
-  // RawPaymentSchema,
   type PaymentTransaction,
-  // type RawPayment,
+  type PaymentStatus,
+  type Booking,
 } from "@/lib/schemas";
 
 export const paymentKeys = {
@@ -35,18 +35,41 @@ export interface PaymentsResult {
 }
 
 /**
+ * Fields normalizePayment() reads, covering both the validated /payments
+ * response shape (RawPayment) and the hand-built /bookings fallback shape.
+ */
+interface NormalizablePayment {
+  id: string;
+  bookingId?: string;
+  phoneNumber?: string | null;
+  reference?: string;
+  amountKes?: number | null;
+  status?: PaymentStatus;
+  mpesaReceiptNumber?: string | null;
+  createdAt?: string;
+  booking?: {
+    id?: string;
+    reference?: string;
+    services?: Array<{ service?: { id?: string; name?: string } }>;
+    service?: { id?: string; name?: string };
+    customer?: { id?: string; name?: string; phone?: string };
+  };
+  customer?: { id?: string; name?: string; phone?: string };
+}
+
+/**
  * Normalize a backend payment record into PaymentTransaction shape.
  * The backend returns `customer` nested inside `booking`, and `method`
  * is not present — we infer it from the payment context.
  */
-function normalizePayment(p: Record<string, any>): PaymentTransaction {
+function normalizePayment(p: NormalizablePayment): PaymentTransaction {
   // Extract service name from new services[] or old service relation
   const services = p.booking?.services;
   const firstService = Array.isArray(services) ? services[0] : undefined;
   const serviceName = firstService?.service?.name ?? p.booking?.service?.name ?? "";
   const serviceId = firstService?.service?.id ?? p.booking?.service?.id ?? "";
   const normalizedServices = Array.isArray(services)
-    ? services.map((s: any) => ({
+    ? services.map((s) => ({
         service: {
           id: s.service?.id ?? "",
           name: s.service?.name ?? "",
@@ -55,10 +78,10 @@ function normalizePayment(p: Record<string, any>): PaymentTransaction {
     : undefined;
   return {
     id: p.id,
-    bookingId: p.bookingId ?? p.booking?.id,
-    phoneNumber: p.phoneNumber,
+    bookingId: p.bookingId ?? p.booking?.id ?? "",
+    phoneNumber: p.phoneNumber ?? "",
     booking: {
-      id: p.bookingId ?? p.booking?.id,
+      id: p.bookingId ?? p.booking?.id ?? "",
       reference: p.booking?.reference ?? p.reference ?? "",
       service: {
         id: serviceId,
@@ -145,26 +168,30 @@ export function usePayments(
 
       // Fallback: fetch bookings with payment info
       const { data } = await api.get("/bookings", { params: queryParams });
-      const bookings = data.data ?? data;
+      const bookings = (data.data ?? data) as Booking[];
       if (!Array.isArray(bookings)) return { data: [] };
 
       const payments = bookings
-        .filter((b: any) => b.payment)
-        .map((b: any) => normalizePayment({
-          id: b.payment.id,
-          bookingId: b.id,
-          booking: {
-            id: b.id,
-            reference: b.reference,
+        .filter((b) => b.payment)
+        .map((b) => {
+          // filtered above — payment is guaranteed present here
+          const payment = b.payment!;
+          return normalizePayment({
+            id: payment.id,
+            bookingId: b.id,
+            booking: {
+              id: b.id,
+              reference: b.reference,
+              customer: b.customer,
+              services: b.services,
+            },
             customer: b.customer,
-            services: b.services,
-          },
-          customer: b.customer,
-          amountKes: b.payment.amountKes,
-          status: b.payment.status,
-          mpesaReceiptNumber: b.payment.mpesaReceiptNumber,
-          createdAt: b.payment.createdAt,
-        }));
+            amountKes: payment.amountKes,
+            status: payment.status,
+            mpesaReceiptNumber: payment.mpesaReceiptNumber,
+            createdAt: payment.createdAt,
+          });
+        });
 
       return { data: payments };
     },

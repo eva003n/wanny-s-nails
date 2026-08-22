@@ -24,16 +24,15 @@ import {
   useBookings,
   useApproveBooking,
   useCancelBooking,
+  type BookingsResult,
 } from "@/pages/bookings/hooks/useBookings";
 import { useUiStore } from "@/store/ui.store";
 import { formatKes, formatDate } from "@/lib/format";
 import type { Booking } from "@/lib/schemas";
 import { useAuthStore } from "@/store/auth.store";
 
-function getTodaysBookings(tb: unknown): Booking[] {
-  if (Array.isArray(tb)) return tb;
-  if (tb && typeof tb === "object" && "data" in tb) return (tb as any).data;
-  return [];
+function getTodaysBookings(tb: BookingsResult | undefined): Booking[] {
+  return tb?.data ?? [];
 }
 
 export default function DashboardPage() {

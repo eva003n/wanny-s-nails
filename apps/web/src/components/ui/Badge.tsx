@@ -56,6 +56,7 @@ const variantStyles: Record<BadgeVariant, { bg: string; text: string }> = {
  * Map raw booking status strings to badge variants for convenience.
  * Returns the variant and the human-readable label.
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function bookingStatusToBadge(status: string): {
   variant: BadgeVariant;
   label: string;
@@ -83,6 +84,7 @@ export function bookingStatusToBadge(status: string): {
   }
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function paymentStatusToBadge(status: string): {
   variant: BadgeVariant;
   label: string;

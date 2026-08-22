@@ -33,7 +33,7 @@ export default function PaymentsListPage() {
     limit,
   );
 
-  const payments = result?.data ?? [];
+  const payments = useMemo(() => result?.data ?? [], [result?.data]);
   const meta = result?.meta;
 
   const totalKes = useMemo(

@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useInstallPrompt() {
   const [installEvent, setInstallEvent] =
     useState<BeforeInstallPromptEvent | null>(null);
@@ -75,6 +76,7 @@ export function InstallPromptProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useInstallPromptContext() {
   const context = useContext(InstallPromptContext);
   if (!context) {

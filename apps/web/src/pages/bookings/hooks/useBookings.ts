@@ -33,11 +33,17 @@ export const bookingKeys = {
 };
 
 export function useBookings(filters: BookingFilters = {}) {
-  // If tab is "today", use the dedicated /bookings/today endpoint
-  if (filters.tab === "today") {
-    return useQuery<BookingsResult>({
-      queryKey: bookingKeys.today(),
-      queryFn: async () => {
+  const isToday = filters.tab === "today";
+  const page = filters.page ?? 1;
+  const limit = filters.limit ?? 10;
+
+  return useQuery<BookingsResult>({
+    queryKey: isToday
+      ? bookingKeys.today()
+      : bookingKeys.list({ ...filters, page, limit }),
+    queryFn: async () => {
+      // If tab is "today", use the dedicated /bookings/today endpoint
+      if (isToday) {
         const { data } = await api.get("/bookings/today");
         const bookings = validateOrThrow(
           BookingListSchema,
@@ -45,18 +51,9 @@ export function useBookings(filters: BookingFilters = {}) {
           "GET /bookings/today",
         );
         return { data: bookings };
-      },
-      staleTime: 30_000,
-    });
-  }
+      }
 
-  const page = filters.page ?? 1;
-  const limit = filters.limit ?? 10;
-
-  // Otherwise, use the general /bookings endpoint with filters
-  return useQuery<BookingsResult>({
-    queryKey: bookingKeys.list({ ...filters, page, limit }),
-    queryFn: async () => {
+      // Otherwise, use the general /bookings endpoint with filters
       const params: Record<string, string> = {};
       if (filters.status) params.status = filters.status;
       if (filters.paymentStatus) params.paymentStatus = filters.paymentStatus;
@@ -140,12 +137,8 @@ export function useBookingHistory(id: string | undefined) {
 // Lightweight derived hook for nav badge — uses the "all" cache slice.
 export function usePendingCount(): number {
   const result = useBookings({});
-  const bookings: Booking[] = Array.isArray(result.data)
-    ? result.data
-    : "data" in (result.data ?? {})
-      ? (result.data as any).data
-      : [];
-  return bookings.filter((b: any) => b.status === "PENDING").length;
+  const bookings = result.data?.data ?? [];
+  return bookings.filter((b) => b.status === "PENDING").length;
 }
 
 function updateCaches(
