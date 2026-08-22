@@ -24,7 +24,7 @@ export default defineConfig([
       // signature even when a param isn't used — leading underscore marks intent.
       "@typescript-eslint/no-unused-vars": [
         "error",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", ignoreRestSiblings: true },
       ],
     },
   },
