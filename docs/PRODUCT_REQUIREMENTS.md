@@ -1,4 +1,4 @@
-# Product Requirements Document — NailBook
+# Product Requirements Document — Wanny's Nails
 
 **Version:** 1.0  
 **Status:** Reviewing  
@@ -16,7 +16,7 @@ The platform addresses the salon's core operational pain: manual appointment tra
 
 ## Product Vision
 
-> Enable the nail salon customer to book, and manage their appointment in under 3 minutes — entirely through WhatsApp — while giving the salon owner complete operational visibility from their iPhone or any other device.
+> Enable the nail salon customer to book, and manage their appointment in under 3 minutes — entirely through WhatsApp — while giving the salon owner complete operational visibility from their phone or any other device.
 
 ---
 
@@ -44,7 +44,7 @@ The result is revenue loss from no-shows and an inability to grow the business w
 | G5 | Improve customer retention | Repeat booking rate | ≥ 60% within 90 days |
 
 ---
-
+g
 ## Stakeholders
 
 | Stakeholder | Role | Primary Interface |
@@ -344,38 +344,7 @@ The result is revenue loss from no-shows and an inability to grow the business w
 
 ## Non-Functional Requirements
 
-### Performance
-- API response time: p95 < 300ms under normal load
-- WhatsApp message processing: < 2 seconds end-to-end
-- STK Push initiation: < 5 seconds from booking confirmation
-- PWA app: first meaningful paint < 1.5 seconds on LTE
 
-### Scalability
-- System must handle 500 concurrent WhatsApp conversations
-- Database must support 100,000 bookings without performance degradation
-- Queue system must process 1,000 notification jobs per minute
-
-### Availability
-- Backend API uptime: ≥ 99.5% monthly
-- Planned maintenance windows: Sundays 02:00–04:00 EAT
-
-### Security
-- All API endpoints require JWT authentication (except webhooks)
-- Webhook endpoints must validate signatures
-- No PII stored in logs
-- M-Pesa credentials stored in environment variables / secrets manager
-- All data in transit encrypted via TLS 1.2+
-- Passwords hashed with bcrypt (cost factor 12)
-
-### Reliability
-- All critical jobs (reminders, STK Push) must be persisted to Redis before acknowledgement
-- Failed jobs must retry with exponential backoff (3 attempts max)
-- Dead-letter queue for jobs that exhaust retries
-
-### Auditability
-- All booking state changes must be logged with actor, timestamp, and reason
-- All payment transactions must be immutable (no updates, only new records)
-- Admin actions (approve, cancel, reschedule) must be logged with staff ID
 
 ### Compliance
 - Kenya Data Protection Act (KDPA) 2019 compliance required
@@ -384,18 +353,25 @@ The result is revenue loss from no-shows and an inability to grow the business w
 - Data retention: booking data 7 years (Kenya financial regulations), conversation logs 90 days
 
 ---
+## Key Entities
+- **Customer**: A salon client identified by their WhatsApp phone number; has a name and a history of bookings.
+- **Booking (Appointment)**: A scheduled service for a customer at a specific date/time; has a status (e.g., confirmed, rescheduled, canceled, completed), the service or services booked, and a payment status.
+- **Service**: A bookable offering (e.g., manicure, pedicure, gel polish) with a name, price, and duration.
+- **Staff Member**: A salon employee who performs services and has their own availability; automatically assigned to bookings and not customer-selectable.
+- **Availability/Business Hours**: The salon's operating hours and any blocked-out date/time ranges, used to determine which slots are offered.
+- **Payment**: The price charged, amount and method collected, and payment status associated with a booking.
+- **Notification**: A scheduled outbound message tied to a specific booking
 
-## Success Metrics
+## Success Criteria *(mandatory)*
 
-| Metric | Measurement Method | Target | Review Cadence |
-|---|---|---|---|
-| Booking completion rate | Completed bookings / initiated conversations | ≥ 85% | Weekly |
-| Payment completion rate | Paid bookings / approved bookings | ≥ 90% | Weekly |
-| No-show rate | No-shows / confirmed bookings | < 15% | Monthly |
-| Reminder delivery rate | Delivered reminders / scheduled reminders | ≥ 98% | Weekly |
-| API uptime | Uptime monitoring | ≥ 99.5% | Monthly |
-| WhatsApp session timeout rate | Timed-out sessions / initiated sessions | < 10% | Weekly |
-| Customer re-booking rate | Customers with 2+ bookings / total customers | ≥ 60% | Monthly |
+### Measurable Outcomes
+
+- **SC-001**: A customer can complete a new booking entirely via WhatsApp, from first message to receiving confirmation, in under 3 minutes.
+- **SC-002**: At least 95% of confirmed bookings result in a reminder message being delivered before the appointment time.
+- **SC-003**: Zero confirmed bookings result in a double-booked (overlapping) time slot for the same staff/resource.
+- **SC-004**: At least 90% of reschedule and cancellation requests are completed by the customer through WhatsApp without needing a phone call or in-person visit to the salon.
+- **SC-005**: The salon's no-show rate decreases by at least 25% within three months of the reminder feature going live, compared to the three months prior.
+- **SC-006**: Staff can review a full day's bookings and payment statuses in under 1 minute without manual cross-referencing.
 
 ---
 

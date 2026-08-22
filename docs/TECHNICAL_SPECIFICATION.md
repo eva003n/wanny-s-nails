@@ -4,7 +4,40 @@
 **Status:** Approved
 
 ---
+## Non functional requirements
 
+### Performance
+- API response time: p95 < 300ms under normal load
+- WhatsApp message processing: < 2 seconds end-to-end
+- STK Push initiation: < 5 seconds from booking confirmation
+- PWA app: first meaningful paint < 1.5 seconds on LTE
+
+### Scalability
+- System must handle 500 concurrent WhatsApp conversations
+- Database must support 100,000 bookings without performance degradation
+- Queue system must process 1,000 notification jobs per minute
+
+### Availability
+- Backend API uptime: ≥ 99.5% monthly
+- Planned maintenance windows: Sundays 02:00–04:00 EAT
+
+### Security
+- All API endpoints require JWT authentication (except webhooks)
+- Webhook endpoints must validate signatures
+- No PII stored in logs
+- M-Pesa credentials stored in environment variables / secrets manager
+- All data in transit encrypted via TLS 1.2+
+- Passwords hashed with bcrypt (cost factor 12)
+
+### Reliability
+- All critical jobs (reminders, STK Push) must be persisted to Redis before acknowledgement
+- Failed jobs must retry with exponential backoff (3 attempts max)
+- Dead-letter queue for jobs that exhaust retries
+
+### Auditability
+- All booking state changes must be logged with actor, timestamp, and reason
+- All payment transactions must be immutable (no updates, only new records)
+- Admin actions (approve, cancel, reschedule) must be logged with staff ID
 ## Architecture Overview
 
 Wanny's Nails is a three-tier system:
@@ -15,7 +48,7 @@ Wanny's Nails is a three-tier system:
 
 The system is event-driven at its edges: WhatsApp sends webhooks, Daraja sends payment callbacks, and BullMQ drives all async work (reminders, retries, notifications).
 
----]
+---
 
 ## Design Principles
 
