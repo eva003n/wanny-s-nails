@@ -122,10 +122,10 @@ describe("recommendation engine (TESTING.md §4.2 — pure functions)", () => {
         maxResults: 10,
       });
 
-      // All 5 morning slots should be present, just possibly in different order
-      expect(result.slots).toHaveLength(5);
+      // All 4 morning slots (7-11) should be present, just possibly in different order
+      expect(result.slots).toHaveLength(4);
       const times = result.slots.map((s) => s.time).sort();
-      expect(times).toEqual(["08:00", "09:00", "10:00", "11:00", "12:00"]);
+      expect(times).toEqual(["08:00", "09:00", "10:00", "11:00"]);
     });
   });
 

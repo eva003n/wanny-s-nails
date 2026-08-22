@@ -13,7 +13,8 @@ try {
     },
     "Connected to the database",
   );
-} catch (err: any) {
+} catch (err) {
+  const message = err instanceof Error ? err.message : String(err);
   log.info(
     {
       event: "Postgres.connection.success",
@@ -21,7 +22,7 @@ try {
       error: err,
     },
     "Failed to connect",
-    err.message,
+    message,
   );
 }
 

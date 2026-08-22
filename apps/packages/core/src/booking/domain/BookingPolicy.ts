@@ -33,36 +33,6 @@ export class MinimumNoticeError extends Error {
   }
 }
 
-// The salon operates on a single fixed timezone (EAT, UTC+3, no DST) regardless
-// of the OS/process timezone the code happens to run under.
-const SALON_TIMEZONE = "Africa/Nairobi";
-const SALON_UTC_OFFSET_MINUTES = 3 * 60;
-
-function salonDateParts(date: Date): { year: number; month: number; day: number } {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: SALON_TIMEZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
-  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
-  return { year: get("year"), month: get("month"), day: get("day") };
-}
-
-// Converts a salon-local wall-clock time (Y-M-D + H:M in Africa/Nairobi) to the
-// UTC instant it represents.
-function salonWallTimeToUtc(
-  year: number,
-  month: number,
-  day: number,
-  hour: number,
-  minute: number,
-): Date {
-  const utcMillis =
-    Date.UTC(year, month - 1, day, hour, minute) - SALON_UTC_OFFSET_MINUTES * 60_000;
-  return new Date(utcMillis);
-}
-
 /**
  * Stateless policy/validator for booking business rules.
  * Reusable across create, reschedule, admin actions, and WhatsApp flows.
@@ -98,9 +68,13 @@ export const BookingPolicy = {
       .split(":")
       .map(Number);
 
-    const { year, month, day } = salonDateParts(start);
-    const dayOpen = salonWallTimeToUtc(year, month, day, openHour as number, openMinute);
-    const dayClose = salonWallTimeToUtc(year, month, day, closeHour as number, closeMinute);
+    // Use UTC getters/setters (not local time) so the result doesn't depend
+    // on the OS/process timezone the code happens to run under.
+    const dayOpen = new Date(start);
+    dayOpen.setUTCHours(openHour as number, openMinute, 0, 0);
+
+    const dayClose = new Date(start);
+    dayClose.setUTCHours(closeHour as number, closeMinute, 0, 0);
 
     if (start < dayOpen || end > dayClose) {
       throw new OutsideBusinessHoursError(start.toISOString());

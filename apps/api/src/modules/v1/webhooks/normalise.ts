@@ -1,8 +1,5 @@
 import type { WhatsAppWebhook, WebhookEvent } from "../../../shared/lib/schemas.js";
 
-function normalisePhone(raw: string): string {
-    return raw.startsWith("+") ? raw : `+${raw}`;
-  }
   // creates a contract btw the api and fsm engine
   export function normaliseWebhook(webhook: WhatsAppWebhook): WebhookEvent[] {
     const events: WebhookEvent[] = [];
@@ -45,7 +42,11 @@ function normalisePhone(raw: string): string {
             });
           } else if (msg.type === "interactive") {
             // TypeScript needs a nudge here because the union is wide
-            const iMsg = msg as any;
+            const iMsg = msg as typeof msg & {
+              interactive:
+                | { type: "button_reply"; button_reply: { id: string } }
+                | { type: "list_reply"; list_reply: { id: string } };
+            };
             if (iMsg.interactive.type === "button_reply") {
               events.push({
                 type: "BUTTON_REPLY",

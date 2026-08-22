@@ -15,11 +15,6 @@ type QueueGroup = {
   queues: Queue[];
 };
 
-const config = {
-  APP_NAME: process.env.APP_NAME,
-  API_DOC_URL: process.env.API_DOC_URL,
-};
-
 // grouped bullboard
 class GroupedBullBoard {
   private serverAdapter: ExpressAdapter;
