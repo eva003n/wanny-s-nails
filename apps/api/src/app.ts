@@ -18,7 +18,7 @@ import { groupedBoard } from "./shared/lib/index.js";
 /**
  * Create the Express application.
  *
- * Kept as a factory (per TESTING.md §4.1) so Supertest can run the app
+ * Kept as a factory (per TESTING.md) so Supertest can run the app
  * entirely in-process without binding to a port. The production entry
  * (`index.ts`) is responsible for creating the HTTP server and listening.
  */
