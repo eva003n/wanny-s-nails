@@ -10,7 +10,6 @@ import { asyncHandler } from "../../../shared/utils/asyncHandler.js";
 
 const startTime = Date.now();
 
-
 export const healthCheck = asyncHandler(async (_req: Request, res: Response, _next: NextFunction) => {
   const checks: { database: string; redis: string; queue: string } = {
     database: "ok",
